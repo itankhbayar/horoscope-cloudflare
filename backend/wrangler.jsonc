@@ -1,0 +1,54 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "backend",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-04-29",
+	"triggers": {
+		// 16:01 UTC = 00:01 Asia/Ulaanbaatar (UTC+8). Cloudflare cron is UTC-only.
+		"crons": ["1 16 * * *"]
+	},
+	"d1_databases": [
+		{
+			"binding": "horoscope_db",
+			"database_name": "horoscope-db",
+			"database_id": "a0268569-dbcc-4736-95bc-b9a9092b20e5",
+			"migrations_dir": "drizzle"
+		}
+	],
+	// "compatibility_flags": [
+	//   "nodejs_compat"
+	// ],
+	"vars": {
+	  "JWT_SECRET": "horoscope-super-secret-key-2026",
+	  "CRON_TIMEZONE": "Asia/Ulaanbaatar",
+	},
+	// In production, replace ADMIN_SECRET with a real secret via:
+	//   npx wrangler secret put ADMIN_SECRET
+	// then remove it from `vars` above.
+	// "kv_namespaces": [
+	//   {
+	//     "binding": "MY_KV_NAMESPACE",
+	//     "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	//   }
+	// ],
+	// "r2_buckets": [
+	//   {
+	//     "binding": "MY_BUCKET",
+	//     "bucket_name": "my-bucket"
+	//   }
+	// ],
+	// "d1_databases": [
+	//   {
+	//     "binding": "MY_DB",
+	//     "database_name": "my-database",
+	//     "database_id": ""
+	//   }
+	// ],
+	// "ai": {
+	//   "binding": "AI"
+	// },
+	// "observability": {
+	//   "enabled": true,
+	//   "head_sampling_rate": 1
+	// }
+}
