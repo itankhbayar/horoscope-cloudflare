@@ -1,0 +1,176 @@
+{
+  "app": {
+    "name": "Astralis",
+    "tagline": "Зурхай ба Төрсний зураг"
+  },
+  "language": {
+    "label": "Хэл",
+    "english": "English",
+    "mongolian": "Монгол"
+  },
+  "nav": {
+    "home": "Өнөөдөр",
+    "profile": "Зураг",
+    "compatibility": "Зохицол",
+    "premium": "Премиум",
+    "settings": "Тохиргоо",
+    "signOut": "Гарах"
+  },
+  "auth": {
+    "welcomeBack": "Тавтай морил",
+    "stepIntoCosmos": "Орд ертөнцөд нэвтрэх",
+    "beginJourney": "Аяллаа эхлүүл",
+    "natalAwaits": "Таны төрсний зураг хүлээж байна",
+    "signIn": "Нэвтрэх",
+    "signingIn": "Нэвтэрч байна…",
+    "signUp": "Бүртгүүлэх",
+    "createAccount": "Бүртгүүлэх",
+    "creatingAccount": "Орднуудыг тоолж байна…",
+    "newToStars": "Бүртгэлгүй юу?",
+    "alreadyHaveAccount": "Бүртгэлтэй юу?",
+    "fullName": "Бүтэн нэр",
+    "fullNamePlaceholder": "Овог нэр",
+    "email": "И-мэйл",
+    "emailPlaceholder": "та@жишээ.com",
+    "password": "Нууц үг",
+    "passwordPlaceholder": "Хамгийн багадаа 6 тэмдэгт",
+    "passwordPlaceholderShort": "••••••••",
+    "birthDate": "Төрсөн огноо",
+    "birthDateRequired": "Төрсөн огноо *",
+    "birthTime": "Төрсөн цаг",
+    "birthTimeOptional": "Төрсөн цаг (заавал биш)",
+    "birthCity": "Төрсөн хот",
+    "birthCityRequired": "Төрсөн хот *",
+    "cityPlaceholder": "Хайх…"
+  },
+  "home": {
+    "greetingMorning": "Өглөөний мэнд",
+    "greetingAfternoon": "Өдрийн мэнд",
+    "greetingEvening": "Оройн мэнд",
+    "stargazer": "Од шинжээч",
+    "yourStarsToday": "Өнөөдрийн орднууд",
+    "browseAllSigns": "Бүх ордыг үзэх",
+    "readingStars": "Орднуудыг уншиж байна…",
+    "todayOverall": "Өнөөдрийн ерөнхий зурхай",
+    "love": "Хайр",
+    "career": "Карьер",
+    "health": "Эрүүл мэнд",
+    "luckyNumber": "Азын тоо",
+    "luckyColor": "Азын өнгө",
+    "sunSuffix": "ийн нар"
+  },
+  "profile": {
+    "castingChart": "Зургийг тооцоолж байна…",
+    "born": "Төрсөн",
+    "at": "цагт",
+    "in": ",",
+    "recompute": "Зургийг дахин тооцоолох",
+    "sun": "Нар",
+    "moon": "Сар",
+    "rising": "Мандах",
+    "unknown": "Тодорхойгүй",
+    "addBirthTime": "Тооцоолоход төрсөн цаг шаардлагатай",
+    "natalChart": "Төрсний зураг",
+    "planetaryPositions": "Гаригуудын байрлал",
+    "aspects": "Харьцангуй өнцөг",
+    "aboutSunSign": "Таны нарны ордны тухай",
+    "element": "Махбод",
+    "modality": "Чанар",
+    "rulingPlanet": "Захирах гариг",
+    "symbol": "Тэмдэг"
+  },
+  "planets": {
+    "table": {
+      "planet": "Гариг",
+      "sign": "Орд",
+      "degree": "Градус",
+      "house": "Гэр",
+      "status": "Төлөв",
+      "retrograde": "Эргэх",
+      "direct": "Шууд"
+    },
+    "Sun": "Нар",
+    "Moon": "Сар",
+    "Mercury": "Буд",
+    "Venus": "Сугар",
+    "Mars": "Ангараг",
+    "Jupiter": "Бархасбадь",
+    "Saturn": "Санчир",
+    "Uranus": "Тэнгэрийн ван",
+    "Neptune": "Далайн ван",
+    "Pluto": "Сүзэр"
+  },
+  "aspects": {
+    "noAspects": "Томоохон харьцангуй өнцөг олдсонгүй.",
+    "orb": "зөрөө",
+    "types": {
+      "conjunction": "нийлэлт",
+      "opposition": "эсрэг",
+      "trine": "гурвалжин",
+      "square": "квадрат",
+      "sextile": "секстил"
+    }
+  },
+  "compatibility": {
+    "title": "Орднуудын Зохицол",
+    "subtitle": "Хоёр орд хайр, нөхөрлөл, харилцаанд хэрхэн зохицохыг үзээрэй.",
+    "firstSign": "Эхний орд",
+    "secondSign": "Хоёр дахь орд",
+    "compute": "Зохицлыг тооцоолох",
+    "aligning": "Орднуудыг эгнүүлж байна…",
+    "overallHarmony": "Ерөнхий зохицол",
+    "love": "Хайр",
+    "friendship": "Нөхөрлөл",
+    "communication": "Харилцаа",
+    "highlights": "Онцлох зүйлс"
+  },
+  "premium": {
+    "badge": "✨ Премиум боломжууд",
+    "title": "Илүү гүн ойлголтод хүр",
+    "subtitle": "Гүнзгий мэдрэмж, өдөр тутмын зөвлөмж, танд зориулсан хувийн уншилт.",
+    "comingSoon": "Удахгүй гарна",
+    "comingSoonBody": "Премиум боломжууд боловсрогдож байна. Эрт мэдээлэл авахаар бүртгүүлээрэй.",
+    "notifyMe": "Гармагц мэдэгдэх",
+    "premiumTag": "Премиум",
+    "unlock": "Премиумыг идэвхжүүлэх",
+    "features": {
+      "ai": {
+        "title": "AI зурхайч чат",
+        "description": "Таны төрсний зургийн дагуу сургагдсан AI зурхайчтай хязгааргүй ярилцаарай. Хайр, карьер, шилжилт, цаг хугацааны талаар асуу."
+      },
+      "tarot": {
+        "title": "Таро уншилт",
+        "description": "Өдөр бүр болон шаардлагатай үед хувийн тайлбар бүхий таро уншилт. Өнгөрсөн-Одоо-Ирээдүй, Селтийн загалмай болон бусад."
+      },
+      "personal": {
+        "title": "Хувийн уншилт",
+        "description": "Таны шилжилт, хөгжил, гарагийн мөчлөгт тохирсон долоо хоног тутмын тайлан. Ням гариг бүр хүргэгдэнэ."
+      }
+    }
+  },
+  "elements": {
+    "fire": "гал",
+    "earth": "шороо",
+    "air": "агаар",
+    "water": "ус"
+  },
+  "modalities": {
+    "cardinal": "үндсэн",
+    "fixed": "тогтвортой",
+    "mutable": "хувирамтгай"
+  },
+  "zodiac": {
+    "aries": "Хонь",
+    "taurus": "Үхэр",
+    "gemini": "Ихэр",
+    "cancer": "Мэлхий",
+    "leo": "Арслан",
+    "virgo": "Охин",
+    "libra": "Жинлүүр",
+    "scorpio": "Хилэнц",
+    "sagittarius": "Нум",
+    "capricorn": "Матар",
+    "aquarius": "Хумх",
+    "pisces": "Загас"
+  }
+}

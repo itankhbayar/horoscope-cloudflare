@@ -1,0 +1,176 @@
+{
+  "app": {
+    "name": "Astralis",
+    "tagline": "Horoscope & Natal Chart"
+  },
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "mongolian": "Монгол"
+  },
+  "nav": {
+    "home": "Today",
+    "profile": "Chart",
+    "compatibility": "Compatibility",
+    "premium": "Premium",
+    "settings": "Settings",
+    "signOut": "Sign out"
+  },
+  "auth": {
+    "welcomeBack": "Welcome back",
+    "stepIntoCosmos": "Step into the cosmos",
+    "beginJourney": "Begin your journey",
+    "natalAwaits": "Your natal chart awaits",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "signUp": "Sign up",
+    "createAccount": "Create account",
+    "creatingAccount": "Charting your stars…",
+    "newToStars": "New to the stars?",
+    "alreadyHaveAccount": "Already have an account?",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "Your full name",
+    "email": "Email",
+    "emailPlaceholder": "you@cosmos.com",
+    "password": "Password",
+    "passwordPlaceholder": "At least 6 characters",
+    "passwordPlaceholderShort": "••••••••",
+    "birthDate": "Birth date",
+    "birthDateRequired": "Birth date *",
+    "birthTime": "Birth time",
+    "birthTimeOptional": "Birth time (optional)",
+    "birthCity": "Birth city",
+    "birthCityRequired": "Birth city *",
+    "cityPlaceholder": "Start typing…"
+  },
+  "home": {
+    "greetingMorning": "Good morning",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening",
+    "stargazer": "Stargazer",
+    "yourStarsToday": "Your stars today",
+    "browseAllSigns": "Browse all signs",
+    "readingStars": "Reading the stars…",
+    "todayOverall": "Today's overall reading",
+    "love": "Love",
+    "career": "Career",
+    "health": "Health",
+    "luckyNumber": "Lucky number",
+    "luckyColor": "Lucky color",
+    "sunSuffix": "sun"
+  },
+  "profile": {
+    "castingChart": "Casting your chart…",
+    "born": "Born",
+    "at": "at",
+    "in": "in",
+    "recompute": "Recompute chart",
+    "sun": "Sun",
+    "moon": "Moon",
+    "rising": "Rising",
+    "unknown": "Unknown",
+    "addBirthTime": "Add birth time to compute",
+    "natalChart": "Natal chart",
+    "planetaryPositions": "Planetary positions",
+    "aspects": "Aspects",
+    "aboutSunSign": "About your sun sign",
+    "element": "Element",
+    "modality": "Modality",
+    "rulingPlanet": "Ruling planet",
+    "symbol": "Symbol"
+  },
+  "planets": {
+    "table": {
+      "planet": "Planet",
+      "sign": "Sign",
+      "degree": "Degree",
+      "house": "House",
+      "status": "Status",
+      "retrograde": "Retrograde",
+      "direct": "Direct"
+    },
+    "Sun": "Sun",
+    "Moon": "Moon",
+    "Mercury": "Mercury",
+    "Venus": "Venus",
+    "Mars": "Mars",
+    "Jupiter": "Jupiter",
+    "Saturn": "Saturn",
+    "Uranus": "Uranus",
+    "Neptune": "Neptune",
+    "Pluto": "Pluto"
+  },
+  "aspects": {
+    "noAspects": "No major aspects detected.",
+    "orb": "orb",
+    "types": {
+      "conjunction": "conjunction",
+      "opposition": "opposition",
+      "trine": "trine",
+      "square": "square",
+      "sextile": "sextile"
+    }
+  },
+  "compatibility": {
+    "title": "Cosmic Compatibility",
+    "subtitle": "See how two signs harmonize across love, friendship, and communication.",
+    "firstSign": "First sign",
+    "secondSign": "Second sign",
+    "compute": "Compute compatibility",
+    "aligning": "Aligning the stars…",
+    "overallHarmony": "Overall harmony",
+    "love": "Love",
+    "friendship": "Friendship",
+    "communication": "Communication",
+    "highlights": "Highlights"
+  },
+  "premium": {
+    "badge": "✨ Premium Features",
+    "title": "Go beyond the basics",
+    "subtitle": "Deeper insights, daily guidance, and personal readings written for you.",
+    "comingSoon": "Coming soon",
+    "comingSoonBody": "Premium features are in development. Sign up for early access notifications.",
+    "notifyMe": "Notify me when available",
+    "premiumTag": "Premium",
+    "unlock": "Unlock Premium",
+    "features": {
+      "ai": {
+        "title": "AI Astrologer Chat",
+        "description": "Have unlimited 1-on-1 conversations with an AI astrologer trained on your full birth chart. Ask anything: love, career, transits, timing."
+      },
+      "tarot": {
+        "title": "Tarot Reading",
+        "description": "Daily and on-demand tarot draws with personalized interpretations. Past-Present-Future, Celtic Cross, and custom spreads."
+      },
+      "personal": {
+        "title": "Personalized Reading",
+        "description": "A weekly written report tailored to your transits, progressions, and current planetary cycles. Delivered every Sunday."
+      }
+    }
+  },
+  "elements": {
+    "fire": "fire",
+    "earth": "earth",
+    "air": "air",
+    "water": "water"
+  },
+  "modalities": {
+    "cardinal": "cardinal",
+    "fixed": "fixed",
+    "mutable": "mutable"
+  },
+  "zodiac": {
+    "aries": "Aries",
+    "taurus": "Taurus",
+    "gemini": "Gemini",
+    "cancer": "Cancer",
+    "leo": "Leo",
+    "virgo": "Virgo",
+    "libra": "Libra",
+    "scorpio": "Scorpio",
+    "sagittarius": "Sagittarius",
+    "capricorn": "Capricorn",
+    "aquarius": "Aquarius",
+    "pisces": "Pisces"
+  }
+}
