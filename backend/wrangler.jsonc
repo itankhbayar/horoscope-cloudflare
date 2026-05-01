@@ -3,8 +3,11 @@
 	"name": "backend",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-04-29",
+	"dev": {
+		"port": 8787
+	},
 	"triggers": {
-		// 16:01 UTC = 00:01 Asia/Ulaanbaatar (UTC+8). Cloudflare cron is UTC-only.
+		// 16:01 UTC ≈ 00:01 Asia/Ulaanbaatar — horoscope + tarot prewarm for CRON_TIMEZONE calendar day.
 		"crons": ["1 16 * * *"]
 	},
 	"d1_databases": [
@@ -21,6 +24,7 @@
 	"vars": {
 	  "JWT_SECRET": "horoscope-super-secret-key-2026",
 	  "CRON_TIMEZONE": "Asia/Ulaanbaatar",
+	  "ADMIN_SECRET": "dev-admin-secret-change-me"
 	},
 	// In production, replace ADMIN_SECRET with a real secret via:
 	//   npx wrangler secret put ADMIN_SECRET

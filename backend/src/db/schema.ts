@@ -110,6 +110,28 @@ export const compatibilityResults = sqliteTable(
   }),
 );
 
+export const tarotDaily = sqliteTable(
+  'tarot_daily',
+  {
+    id: text('id').primaryKey(),
+    date: text('date').notNull(),
+    timezone: text('timezone').notNull(),
+    sign: text('sign').notNull(),
+    payloadJson: text('payload_json', { mode: 'json' }).notNull(),
+    energyScore: integer('energy_score').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    dateTzSignIdx: uniqueIndex('tarot_daily_date_tz_sign_idx').on(t.date, t.timezone, t.sign),
+    dateIdx: index('tarot_daily_date_idx').on(t.date),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type BirthProfile = typeof birthProfiles.$inferSelect;
@@ -120,3 +142,5 @@ export type DailyHoroscope = typeof dailyHoroscopes.$inferSelect;
 export type NewDailyHoroscope = typeof dailyHoroscopes.$inferInsert;
 export type CompatibilityResult = typeof compatibilityResults.$inferSelect;
 export type NewCompatibilityResult = typeof compatibilityResults.$inferInsert;
+export type TarotDaily = typeof tarotDaily.$inferSelect;
+export type NewTarotDaily = typeof tarotDaily.$inferInsert;

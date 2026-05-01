@@ -155,3 +155,27 @@ export interface ApiError {
   status: number;
   message: string;
 }
+
+/** Flattened tarot API (`lang` slice). Mirrors backend `TarotApiResponse`. */
+export interface TarotPublicCard {
+  name: string;
+  arcana: 'Major' | 'Minor';
+  orientation: 'Upright' | 'Reversed';
+  core_meaning: string;
+}
+
+export interface TarotPublicReading {
+  overview: string;
+  love: string;
+  career: string;
+  energy: string;
+}
+
+export interface TarotApiResponse {
+  date: string;
+  timezone: string;
+  sign: string;
+  energyScore: number;
+  card_of_the_day: TarotPublicCard;
+  reading: TarotPublicReading;
+}

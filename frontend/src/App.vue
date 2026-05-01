@@ -4,11 +4,18 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from './composables/useAuth';
 import LanguageSwitcher from './components/LanguageSwitcher.vue';
+import { authService } from './lib';
 
 const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
-const { user, isAuthenticated, bootstrap, logout } = useAuth();
+const {
+  user,
+  isAuthenticated,
+  bootstrap,
+  logout,
+  initialized: authInitialized,
+} = useAuth();
 
 interface Star { id: number; left: string; top: string; width: string; height: string; duration: string; delay: string; maxOpacity: number }
 const stars = ref<Star[]>([]);
@@ -39,12 +46,17 @@ async function handleLogout(): Promise<void> {
 onMounted(async () => {
   generateStars();
   await bootstrap();
+  const hasToken = await authService.isAuthenticated();
+  if (!hasToken && route.meta.requiresAuth) {
+    await router.replace({ name: 'login' });
+  }
 });
 
 const navLinks = computed(() => [
   { to: '/', label: t('nav.home'), icon: '✨' },
   { to: '/profile', label: t('nav.profile'), icon: '☽' },
   { to: '/compatibility', label: t('nav.compatibility'), icon: '❤' },
+  { to: '/tarot', label: t('nav.tarot'), icon: '🃏' },
   { to: '/premium', label: t('nav.premium'), icon: '✦' },
 ]);
 
@@ -65,7 +77,15 @@ watch(
       }" />
     </div>
 
-    <nav v-if="isAuthenticated" class="navbar">
+    <nav v-if="!authInitialized" class="navbar guest-navbar boot-nav">
+      <span class="nav-brand boot-brand">
+        <span class="brand-icon">✦</span>
+        <span class="brand-text">{{ t('app.name') }}</span>
+      </span>
+      <div class="nav-right" />
+    </nav>
+
+    <nav v-else-if="isAuthenticated" class="navbar">
       <router-link to="/" class="nav-brand">
         <span class="brand-icon">✦</span>
         <span class="brand-text">{{ t('app.name') }}</span>
@@ -105,18 +125,47 @@ watch(
     </nav>
 
     <main class="page-content">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
+      <div v-if="!authInitialized" class="auth-boot">
+        <p class="auth-boot-text">{{ t('app.loading') }}</p>
+      </div>
+      <router-view v-else />
     </main>
   </div>
 </template>
 
 <style scoped>
-.app-shell { position: relative; min-height: 100vh; }
-.page-content { position: relative; z-index: 1; flex: 1; }
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.page-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  width: 100%;
+  min-height: calc(100vh - 5.5rem);
+  display: flex;
+  flex-direction: column;
+}
+.auth-boot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+.auth-boot-text {
+  margin: 0;
+}
+.boot-nav .boot-brand {
+  pointer-events: none;
+  color: var(--text-muted);
+}
 
 .navbar {
   position: relative;
