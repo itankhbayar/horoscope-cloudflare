@@ -15,6 +15,13 @@
       "when": 1777525641232,
       "tag": "0001_add_lang_to_horoscopes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777613148835,
+      "tag": "0002_add_tarot_daily",
+      "breakpoints": true
     }
   ]
 }

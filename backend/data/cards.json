@@ -1,0 +1,195 @@
+{
+  "major": [
+    {
+      "name": { "en": "The Fool", "mn": "Эрэлчин" },
+      "core_meaning": {
+        "en": "Beginnings, innocence, and a leap of faith — trust the next step even when the map is incomplete.",
+        "mn": "Шинэ эхлэл, цэвэр итгэл, зоригтой алхам — бүх зүйл тодорхой биш байсан ч дараагийн алхамдаа итгэ."
+      }
+    },
+    {
+      "name": { "en": "The Magician", "mn": "Ид шидтэн" },
+      "core_meaning": {
+        "en": "Focus, skill, and conscious use of resources to turn intent into outcome.",
+        "mn": "Төвлөрөл, ур чадвар, боломжоо зөв ашиглан зорилгоо бодит үр дүн болгох үе."
+      }
+    },
+    {
+      "name": { "en": "The High Priestess", "mn": "Дээд санваарт эмэгтэй" },
+      "core_meaning": {
+        "en": "Intuition, mystery, and patience; not everything must be spoken aloud.",
+        "mn": "Зөн совин, нууцлаг байдал, тэвчээр — бүхнийг үгээр илэрхийлэх албагүй."
+      }
+    },
+    {
+      "name": { "en": "The Empress", "mn": "Хатан" },
+      "core_meaning": {
+        "en": "Nurture, abundance, and gentle growth through care and creativity.",
+        "mn": "Халамж, элбэг дэлбэг байдал, бүтээлч байдлаар тайван өсөх үе."
+      }
+    },
+    {
+      "name": { "en": "The Emperor", "mn": "Эзэн хаан" },
+      "core_meaning": {
+        "en": "Structure, responsibility, and clear boundaries that protect what matters.",
+        "mn": "Дэг журам, хариуцлага, үнэ цэнтэй зүйлээ хамгаалах тодорхой хил хязгаар."
+      }
+    },
+    {
+      "name": { "en": "The Hierophant", "mn": "Багш" },
+      "core_meaning": {
+        "en": "Tradition, learning, and guidance from proven patterns and mentors.",
+        "mn": "Уламжлал, суралцахуй, туршлагатай хүний зөвлөгөө."
+      }
+    },
+    {
+      "name": { "en": "The Lovers", "mn": "Хосууд" },
+      "core_meaning": {
+        "en": "Choice, alignment, and heartfelt connection rooted in honesty.",
+        "mn": "Сонголт, зохицол, үнэнч холбоо."
+      }
+    },
+    {
+      "name": { "en": "The Chariot", "mn": "Тэрэг" },
+      "core_meaning": {
+        "en": "Willpower, momentum, and disciplined progress toward a chosen aim.",
+        "mn": "Хүчтэй хүсэл, урагшлах эрч, зорилгодоо сахилга баттай хүрэх хөдөлгөөн."
+      }
+    },
+    {
+      "name": { "en": "Strength", "mn": "Хүч" },
+      "core_meaning": {
+        "en": "Quiet courage, compassion, and steady influence rather than force.",
+        "mn": "Дотоод зориг, энэрэл, хүчийг зөөлөн зөв ашиглах чадвар."
+      }
+    },
+    {
+      "name": { "en": "The Hermit", "mn": "Даяанч" },
+      "core_meaning": {
+        "en": "Reflection, solitude, and inner guidance found away from noise.",
+        "mn": "Эргэцүүлэл, ганцаардал, дотоод хариултаа олох үе."
+      }
+    },
+    {
+      "name": { "en": "Wheel of Fortune", "mn": "Хувь тавилангийн хүрд" },
+      "core_meaning": {
+        "en": "Cycles, timing, and change — adaptability turns luck into wisdom.",
+        "mn": "Амьдралын мөчлөг, цаг хугацаа, өөрчлөлт — дасан зохицох чадвар чухал."
+      }
+    },
+    {
+      "name": { "en": "Justice", "mn": "Шударга ёс" },
+      "core_meaning": {
+        "en": "Fairness, truth, and accountability; decisions carry long shadows.",
+        "mn": "Шударга байдал, үнэн, хариуцлага — шийдвэр бүхэн үр дагавартай."
+      }
+    },
+    {
+      "name": { "en": "The Hanged Man", "mn": "Дүүжлэгдсэн хүн" },
+      "core_meaning": {
+        "en": "Pause, perspective shift, and release of rigid control.",
+        "mn": "Түр зогсолт, өнцөг солих, хэт хяналтаа суллах үе."
+      }
+    },
+    {
+      "name": { "en": "Death", "mn": "Өөрчлөлт" },
+      "core_meaning": {
+        "en": "Endings that clear space for renewal; transformation, not catastrophe.",
+        "mn": "Төгсгөл шинэ эхлэлд зай гаргана — энэ бол өөрчлөлт, сүйрэл биш."
+      }
+    },
+    {
+      "name": { "en": "Temperance", "mn": "Тэнцвэр" },
+      "core_meaning": {
+        "en": "Balance, moderation, and blending opposites into workable harmony.",
+        "mn": "Тэнцвэр, дундаж байдал, эсрэг зүйлсийг зохицуулах чадвар."
+      }
+    },
+    {
+      "name": { "en": "The Devil", "mn": "Чөтгөр" },
+      "core_meaning": {
+        "en": "Attachments, patterns, and the courage to name what binds you.",
+        "mn": "Хамаарал, зуршил, өөрийг чинь хүлж буй зүйлтэй нүүр тулах зориг."
+      }
+    },
+    {
+      "name": { "en": "The Tower", "mn": "Цамхаг" },
+      "core_meaning": {
+        "en": "Sudden clarity, release of illusion, and rebuilding on truth.",
+        "mn": "Гэнэтийн ухаарал, хуурмаг зүйлс нуран унаж, үнэний суурин дээр шинээр эхлэх үе."
+      }
+    },
+    {
+      "name": { "en": "The Star", "mn": "Од" },
+      "core_meaning": {
+        "en": "Hope, healing, renewal — faith after difficulty.",
+        "mn": "Итгэл найдвар, эдгэрэл, шинэ сэргэх энерги."
+      }
+    },
+    {
+      "name": { "en": "The Moon", "mn": "Сар" },
+      "core_meaning": {
+        "en": "Dreams, uncertainty, and navigating intuition through fog.",
+        "mn": "Зүүд, тодорхойгүй байдал, зөн совингоо дагах үе."
+      }
+    },
+    {
+      "name": { "en": "The Sun", "mn": "Нар" },
+      "core_meaning": {
+        "en": "Vitality, clarity, and joyful visibility of what is working.",
+        "mn": "Эрч хүч, тодорхой байдал, баяр баясал, амжилт."
+      }
+    },
+    {
+      "name": { "en": "Judgement", "mn": "Шүүлт" },
+      "core_meaning": {
+        "en": "Reckoning, renewal, and answering a higher call to grow.",
+        "mn": "Дүгнэлт хийх, шинэчлэгдэх, илүү өндөр түвшинд өсөх дуудлага."
+      }
+    },
+    {
+      "name": { "en": "The World", "mn": "Дэлхий" },
+      "core_meaning": {
+        "en": "Completion, integration, and a cycle closing with earned wisdom.",
+        "mn": "Дуусгал, бүрэн бүтэн байдал, мөчлөг амжилттай хаагдах үе."
+      }
+    }
+  ],
+  "minor": [
+    {
+      "name": { "en": "Ace of Wands", "mn": "Савааны Ас" },
+      "core_meaning": {
+        "en": "Spark, initiative, creative ignition.",
+        "mn": "Шинэ санаа, эхлэл, бүтээлч эрч хүч."
+      }
+    },
+    {
+      "name": { "en": "Two of Cups", "mn": "Аяганы Хоёр" },
+      "core_meaning": {
+        "en": "Partnership, mutual respect, emotional meeting.",
+        "mn": "Түншлэл, харилцан хүндлэл, сэтгэлийн холбоо."
+      }
+    },
+    {
+      "name": { "en": "Three of Pentacles", "mn": "Зоосны Гурав" },
+      "core_meaning": {
+        "en": "Collaboration, craft, shared standards.",
+        "mn": "Хамтын ажиллагаа, ур чадвар, нийтлэг зорилго."
+      }
+    },
+    {
+      "name": { "en": "Knight of Swords", "mn": "Сэлмийн Морьтон" },
+      "core_meaning": {
+        "en": "Swift ideas, direct action, watch for haste.",
+        "mn": "Хурдан сэтгэхүй, шийдэмгий үйлдэл — яарахаас болгоомжил."
+      }
+    },
+    {
+      "name": { "en": "Page of Cups", "mn": "Аяганы Элч" },
+      "core_meaning": {
+        "en": "Curiosity, gentle messages, creative openness.",
+        "mn": "Сониуч зан, зөөлөн мэдээ, бүтээлч нээлттэй байдал."
+      }
+    }
+  ]
+}

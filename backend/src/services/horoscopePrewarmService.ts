@@ -14,7 +14,7 @@ export interface PrewarmResult {
   failed: number;
 }
 
-function toDateIsoForTimezone(timestampMs: number, timezone: string): string {
+export function toDateIsoForTimezone(timestampMs: number, timezone: string): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     year: 'numeric',

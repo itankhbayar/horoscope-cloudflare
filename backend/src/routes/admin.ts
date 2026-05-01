@@ -4,6 +4,8 @@ import {
   prewarmDailyHoroscopes,
   resolveCronDateISO,
 } from '../services/horoscopePrewarmService';
+import { prewarmTarotForTimezoneDate } from '../services/tarotPrewarmService';
+import { isValidIanaTimeZone, isValidCalendarDate } from '../tarot/tarotQuery';
 import type { AppBindings, AppVariables } from '../types';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
@@ -57,6 +59,35 @@ router.post('/prewarm', async (c) => {
       },
       500,
     );
+  }
+});
+
+router.post('/prewarm-tarot', async (c) => {
+  if (!isAuthorized(c)) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const timezone = (c.req.query('timezone') ?? c.env.CRON_TIMEZONE ?? 'UTC').trim();
+  if (!isValidIanaTimeZone(timezone)) {
+    return c.json({ error: 'Invalid timezone' }, 400);
+  }
+
+  let dateISO = (c.req.query('date') ?? '').trim();
+  if (!dateISO) {
+    dateISO = resolveCronDateISO(Date.now(), timezone);
+  } else if (!isValidCalendarDate(dateISO)) {
+    return c.json({ error: 'Invalid date (YYYY-MM-DD)' }, 400);
+  }
+
+  const db = getDb(c.env.horoscope_db);
+  console.log('[admin] Manual tarot prewarm', { timezone, dateISO });
+
+  try {
+    const result = await prewarmTarotForTimezoneDate(db, dateISO, timezone);
+    return c.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[admin] Manual tarot prewarm failed', { error: String(err) });
+    return c.json({ success: false, error: 'Tarot prewarm failed', details: String(err) }, 500);
   }
 });
 

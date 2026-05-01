@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Astralis",
-    "tagline": "Horoscope & Natal Chart"
+    "tagline": "Horoscope & Natal Chart",
+    "loading": "Loading…"
   },
   "language": {
     "label": "Language",
@@ -12,6 +13,7 @@
     "home": "Today",
     "profile": "Chart",
     "compatibility": "Compatibility",
+    "tarot": "Tarot",
     "premium": "Premium",
     "settings": "Settings",
     "signOut": "Sign out"
@@ -31,7 +33,7 @@
     "fullName": "Full name",
     "fullNamePlaceholder": "Your full name",
     "email": "Email",
-    "emailPlaceholder": "you@cosmos.com",
+    "emailPlaceholder": "you{'@'}cosmos.com",
     "password": "Password",
     "passwordPlaceholder": "At least 6 characters",
     "passwordPlaceholderShort": "••••••••",
@@ -158,6 +160,41 @@
     "cardinal": "cardinal",
     "fixed": "fixed",
     "mutable": "mutable"
+  },
+  "tarot": {
+    "title": "Daily Tarot",
+    "subtitle": "Card of the day by sign, timezone, and date",
+    "signLabel": "Sign",
+    "timezoneLabel": "Timezone",
+    "dateLabel": "Date",
+    "draw": "Reveal reading",
+    "drawLoading": "Revealing…",
+    "beforeTitle": "Before you draw",
+    "beforeIntro": "Choose where you are in time and which sign to read for. We load a precomputed daily spread from the server—no shuffle on this device.",
+    "beforeStep1": "Pick the zodiac sign the reading speaks to.",
+    "beforeStep2": "Set the timezone so “today” matches your calendar.",
+    "beforeStep3": "Choose the date, then reveal.",
+    "selectionTitle": "Current selection",
+    "profileSunHint": "Matches your chart sun sign.",
+    "loading": "Consulting the cards…",
+    "emptyTitle": "No reading yet",
+    "emptyHint": "Try today’s date, or wait for the nightly prewarm in your timezone.",
+    "errorTitle": "Something went wrong",
+    "cardTitle": "Card of the day",
+    "arcana": "Arcana",
+    "orientation": "Orientation",
+    "coreMeaning": "Core meaning",
+    "sections": "Reading",
+    "overview": "Overview",
+    "love": "Love",
+    "career": "Career",
+    "energy": "Energy score",
+    "energyNarrative": "Energy & rhythm",
+    "fromCache": "Server cache",
+    "upright": "Upright",
+    "reversed": "Reversed",
+    "major": "Major",
+    "minor": "Minor"
   },
   "zodiac": {
     "aries": "Aries",

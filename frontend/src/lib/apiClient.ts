@@ -11,7 +11,9 @@ let baseUrl: string =
 let activeLocale: string = 'mn';
 
 export function configureApi(options: { baseUrl?: string }): void {
-  if (options.baseUrl) baseUrl = options.baseUrl.replace(/\/$/, '');
+  if (options.baseUrl !== undefined) {
+    baseUrl = options.baseUrl.replace(/\/$/, '');
+  }
 }
 
 export function getApiBaseUrl(): string {

@@ -11,16 +11,20 @@ async function bootstrap(): Promise<void> {
   if (initialized.value) return;
   loading.value = true;
   try {
+    const hasToken = await authService.isAuthenticated();
     const cached = await authService.getCachedUser();
-    if (cached && (await authService.isAuthenticated())) {
+    if (!hasToken) {
+      user.value = null;
+      return;
+    }
+    if (cached) {
       user.value = cached;
-      try {
-        const fresh = await authService.fetchMe();
-        user.value = fresh;
-      } catch {
-        await authService.logout();
-        user.value = null;
-      }
+    }
+    try {
+      user.value = await authService.fetchMe();
+    } catch {
+      await authService.logout();
+      user.value = null;
     }
   } finally {
     initialized.value = true;

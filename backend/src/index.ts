@@ -5,8 +5,10 @@ import profileRoutes from './routes/profile';
 import horoscopeRoutes from './routes/horoscope';
 import compatibilityRoutes from './routes/compatibility';
 import adminRoutes from './routes/admin';
+import tarotRoutes from './routes/tarot';
 import { getDb } from './db/client';
 import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscopePrewarmService';
+import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
 import type { AppBindings, AppVariables } from './types';
 
 const DEFAULT_TIMEZONE = 'Asia/Ulaanbaatar';
@@ -33,7 +35,9 @@ app.get('/', (c) =>
       'GET  /api/horoscope/daily',
       'POST /api/compatibility/signs',
       'POST /api/compatibility/users',
+      'GET  /api/tarot',
       'POST /admin/prewarm',
+      'POST /admin/prewarm-tarot',
     ],
   }),
 );
@@ -42,6 +46,7 @@ app.route('/api/auth', authRoutes);
 app.route('/api/profile', profileRoutes);
 app.route('/api/horoscope', horoscopeRoutes);
 app.route('/api/compatibility', compatibilityRoutes);
+app.route('/api/tarot', tarotRoutes);
 app.route('/admin', adminRoutes);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
@@ -51,27 +56,44 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal server error' }, 500);
 });
 
+const CRON_DAILY = '1 16 * * *';
+
 const worker: ExportedHandler<AppBindings> = {
   fetch: app.fetch,
   scheduled(controller, env, ctx) {
     ctx.waitUntil(
       (async () => {
+        const db = getDb(env.horoscope_db);
+        const cron = controller.cron ?? '';
+
+        if (cron !== CRON_DAILY) return;
+
         const timezone = env.CRON_TIMEZONE ?? DEFAULT_TIMEZONE;
         const dateISO = resolveCronDateISO(controller.scheduledTime, timezone);
-        const db = getDb(env.horoscope_db);
 
-        console.log('[cron] Horoscope prewarm start', {
-          cron: controller.cron,
+        console.log('[cron] Daily prewarm start', {
+          cron,
           scheduledTime: controller.scheduledTime,
           timezone,
           dateISO,
         });
 
         try {
-          const result = await prewarmDailyHoroscopes(db, dateISO, timezone);
-          console.log('[cron] Horoscope prewarm completed', result);
+          const horoscope = await prewarmDailyHoroscopes(db, dateISO, timezone);
+          console.log('[cron] Horoscope prewarm completed', horoscope);
         } catch (err) {
           console.error('[cron] Horoscope prewarm failed', {
+            timezone,
+            dateISO,
+            error: String(err),
+          });
+        }
+
+        try {
+          const tarot = await prewarmTarotForTimezoneDate(db, dateISO, timezone);
+          console.log('[cron] Tarot prewarm completed', tarot);
+        } catch (err) {
+          console.error('[cron] Tarot prewarm failed', {
             timezone,
             dateISO,
             error: String(err),
