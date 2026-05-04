@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from './composables/useAuth';
 import LanguageSwitcher from './components/LanguageSwitcher.vue';
+import SiteFooter from './components/SiteFooter.vue';
 import { authService } from './lib';
 
 const router = useRouter();
@@ -61,10 +62,17 @@ const navLinks = computed(() => [
 ]);
 
 const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? '');
+const mobileMenuOpen = ref(false);
+
+function toggleMobileMenu(): void {
+  mobileMenuOpen.value = !mobileMenuOpen.value;
+}
 
 watch(
   () => route.path,
-  () => { /* navigation does not need extra work; transitions handle it */ },
+  () => {
+    mobileMenuOpen.value = false;
+  },
 );
 </script>
 
@@ -105,12 +113,28 @@ watch(
       </div>
 
       <div class="nav-right">
-        <LanguageSwitcher />
-        <span class="nav-user">
-          <span class="user-icon">☽</span>
-          {{ firstName }}
-        </span>
-        <button @click="handleLogout" class="logout-btn">{{ t('nav.signOut') }}</button>
+        <div class="nav-desktop-actions">
+          <LanguageSwitcher />
+          <span class="nav-user">
+            <span class="user-icon">☽</span>
+            {{ firstName }}
+          </span>
+          <button @click="handleLogout" class="logout-btn">{{ t('nav.signOut') }}</button>
+        </div>
+        <button class="menu-btn" :aria-expanded="mobileMenuOpen" @click="toggleMobileMenu">
+          ☰
+        </button>
+      </div>
+
+      <div v-if="mobileMenuOpen" class="mobile-menu glass-card">
+        <div class="mobile-menu-inner">
+          <LanguageSwitcher />
+          <span class="mobile-user">
+            <span class="user-icon">☽</span>
+            {{ firstName }}
+          </span>
+          <button @click="handleLogout" class="logout-btn mobile-logout">{{ t('nav.signOut') }}</button>
+        </div>
       </div>
     </nav>
 
@@ -130,6 +154,7 @@ watch(
       </div>
       <router-view v-else />
     </main>
+    <SiteFooter />
   </div>
 </template>
 
@@ -237,6 +262,26 @@ watch(
   gap: 0.85rem;
   justify-content: flex-end;
 }
+.nav-desktop-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.menu-btn {
+  display: none;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+.mobile-menu {
+  display: none;
+}
 .nav-user {
   display: flex;
   align-items: center;
@@ -267,7 +312,49 @@ watch(
   .navbar {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
-    padding: 0.8rem 1rem;
+    padding: 0.7rem 0.9rem;
+    gap: 0.55rem;
+  }
+  .nav-brand {
+    min-width: 0;
+  }
+  .brand-text {
+    font-size: 1.12rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nav-desktop-actions {
+    display: none;
+  }
+  .menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+  }
+  .mobile-menu {
+    display: block;
+    grid-column: 1 / -1;
+    padding: 0.75rem;
+  }
+  .mobile-menu-inner {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .mobile-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    margin-left: auto;
+  }
+  .mobile-logout {
+    min-height: 44px;
+    margin-left: 0;
   }
   .nav-center {
     grid-column: 1 / -1;
@@ -279,5 +366,15 @@ watch(
   .nav-label { display: none; }
   .nav-link { padding: 0.5rem 0.7rem; }
   .nav-icon { font-size: 1.1rem; }
+}
+
+@media (max-width: 420px) {
+  .nav-link {
+    min-width: 44px;
+    justify-content: center;
+  }
+  .navbar {
+    padding-inline: 0.65rem;
+  }
 }
 </style>

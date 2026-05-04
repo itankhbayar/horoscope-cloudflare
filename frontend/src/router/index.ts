@@ -5,6 +5,8 @@ import HomePage from '../pages/HomePage.vue';
 import ProfilePage from '../pages/ProfilePage.vue';
 import CompatibilityPage from '../pages/CompatibilityPage.vue';
 import PremiumPage from '../pages/PremiumPage.vue';
+import PremiumSuccessPage from '../pages/PremiumSuccessPage.vue';
+import PremiumCancelPage from '../pages/PremiumCancelPage.vue';
 import TarotPage from '../pages/TarotPage.vue';
 import { authService } from '../lib';
 
@@ -16,6 +18,18 @@ const router = createRouter({
     { path: '/compatibility', name: 'compatibility', component: CompatibilityPage, meta: { requiresAuth: true } },
     { path: '/tarot', name: 'tarot', component: TarotPage, meta: { requiresAuth: true } },
     { path: '/premium', name: 'premium', component: PremiumPage, meta: { requiresAuth: true } },
+    {
+      path: '/premium/success',
+      name: 'premium-success',
+      component: PremiumSuccessPage,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/premium/cancel',
+      name: 'premium-cancel',
+      component: PremiumCancelPage,
+      meta: { requiresAuth: true },
+    },
     { path: '/login', name: 'login', component: LoginPage, meta: { guest: true } },
     { path: '/register', name: 'register', component: RegisterPage, meta: { guest: true } },
   ],

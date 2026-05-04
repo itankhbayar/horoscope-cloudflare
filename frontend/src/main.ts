@@ -7,12 +7,15 @@ import i18n, { loadInitialLocale, persistLocale } from './i18n';
 import { configureApi, setApiLocale } from './lib/apiClient';
 
 const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+/** In dev, empty base = same origin so Vite proxies `/api` → Worker (see vite.config.ts). */
 const apiBase =
   fromEnv && fromEnv.length > 0
     ? fromEnv
     : import.meta.env.DEV
-      ? 'http://127.0.0.1:8787'
-      : 'http://127.0.0.1:8787';
+      ? ''
+      : typeof window !== 'undefined'
+        ? window.location.origin
+        : '';
 configureApi({ baseUrl: apiBase });
 
 const initialLocale = loadInitialLocale();

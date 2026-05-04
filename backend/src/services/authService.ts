@@ -37,6 +37,7 @@ export interface AuthResult {
     id: string;
     email: string;
     fullName: string;
+    isPremium: boolean;
   };
 }
 
@@ -126,7 +127,7 @@ export async function registerUser(
   const token = await issueToken(jwtSecret, userId, email);
   return {
     token,
-    user: { id: userId, email, fullName: input.fullName.trim() },
+    user: { id: userId, email, fullName: input.fullName.trim(), isPremium: false },
   };
 }
 
@@ -143,7 +144,12 @@ export async function loginUser(
   const token = await issueToken(jwtSecret, user.id, user.email);
   return {
     token,
-    user: { id: user.id, email: user.email, fullName: user.fullName },
+    user: {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      isPremium: Boolean(user.isPremium),
+    },
   };
 }
 

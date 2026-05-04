@@ -82,7 +82,8 @@ async function handleLogin(): Promise<void> {
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 80px);
-  padding: 2rem;
+  padding: 1rem;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
 }
 .auth-card {
   width: 100%;
@@ -120,5 +121,13 @@ async function handleLogin(): Promise<void> {
   text-align: center;
   margin-bottom: 2rem;
   letter-spacing: 0.5px;
+}
+@media (max-width: 420px) {
+  .auth-card {
+    padding: 1.35rem 1rem;
+  }
+  .auth-title {
+    font-size: 1.55rem;
+  }
 }
 </style>

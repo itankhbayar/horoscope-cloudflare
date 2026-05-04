@@ -6,6 +6,7 @@ import horoscopeRoutes from './routes/horoscope';
 import compatibilityRoutes from './routes/compatibility';
 import adminRoutes from './routes/admin';
 import tarotRoutes from './routes/tarot';
+import billingRoutes from './routes/billing';
 import { getDb } from './db/client';
 import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscopePrewarmService';
 import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
@@ -38,6 +39,8 @@ app.get('/', (c) =>
       'GET  /api/tarot',
       'POST /admin/prewarm',
       'POST /admin/prewarm-tarot',
+      'POST /api/billing/create-checkout-session',
+      'POST /api/billing/webhook',
     ],
   }),
 );
@@ -47,6 +50,7 @@ app.route('/api/profile', profileRoutes);
 app.route('/api/horoscope', horoscopeRoutes);
 app.route('/api/compatibility', compatibilityRoutes);
 app.route('/api/tarot', tarotRoutes);
+app.route('/api/billing', billingRoutes);
 app.route('/admin', adminRoutes);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));

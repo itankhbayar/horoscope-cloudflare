@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth';
 import { horoscopeService } from '../lib';
 import type { City } from '../lib/types';
+import FormLayout from '../components/layout/FormLayout.vue';
 
 const router = useRouter();
 const { t } = useI18n();
@@ -100,7 +101,7 @@ async function handleRegister(): Promise<void> {
           <input v-model="password" type="password" class="form-input" :placeholder="t('auth.passwordPlaceholder')" required minlength="6" autocomplete="new-password" />
         </div>
 
-        <div class="form-row">
+        <FormLayout :columns="2">
           <div class="form-group">
             <label class="form-label">{{ t('auth.birthDateRequired') }}</label>
             <input v-model="birthDate" type="date" class="form-input" required />
@@ -109,7 +110,7 @@ async function handleRegister(): Promise<void> {
             <label class="form-label">{{ t('auth.birthTimeOptional') }}</label>
             <input v-model="birthTime" type="time" class="form-input" placeholder="HH:MM" />
           </div>
-        </div>
+        </FormLayout>
 
         <div class="form-group city-group">
           <label class="form-label">{{ t('auth.birthCityRequired') }}</label>
@@ -151,7 +152,8 @@ async function handleRegister(): Promise<void> {
   align-items: center;
   justify-content: center;
   min-height: calc(100vh - 80px);
-  padding: 2rem;
+  padding: 1rem;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
 }
 .auth-card {
   width: 100%;
@@ -190,11 +192,6 @@ async function handleRegister(): Promise<void> {
   margin-bottom: 1.6rem;
   letter-spacing: 0.5px;
 }
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
 .city-group { position: relative; }
 .suggestions {
   position: absolute;
@@ -226,4 +223,12 @@ async function handleRegister(): Promise<void> {
   color: var(--gold-light);
 }
 .country { color: var(--text-muted); font-size: 0.75rem; }
+@media (max-width: 420px) {
+  .auth-card {
+    padding: 1.35rem 1rem;
+  }
+  .auth-title {
+    font-size: 1.45rem;
+  }
+}
 </style>

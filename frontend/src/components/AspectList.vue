@@ -64,4 +64,14 @@ const aspectColor = (type: string): string => {
 .text { color: var(--text-secondary); }
 .orb { color: var(--text-muted); font-size: 0.75rem; }
 .empty { color: var(--text-muted); font-style: italic; padding: 1rem; text-align: center; }
+@media (max-width: 520px) {
+  .aspect-row {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+    align-items: flex-start;
+  }
+  .orb {
+    font-size: 0.78rem;
+  }
+}
 </style>

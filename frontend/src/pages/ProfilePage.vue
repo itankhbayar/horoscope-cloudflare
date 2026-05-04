@@ -7,6 +7,8 @@ import LoadingSpinner from '../components/LoadingSpinner.vue';
 import NatalChartWheel from '../components/NatalChartWheel.vue';
 import PlanetTable from '../components/PlanetTable.vue';
 import AspectList from '../components/AspectList.vue';
+import AppContainer from '../components/layout/AppContainer.vue';
+import ScreenLayout from '../components/layout/ScreenLayout.vue';
 
 const { t } = useI18n();
 const { profile, loading, load, recompute } = useProfile();
@@ -19,7 +21,8 @@ const risingInfo = computed(() => profile.value?.natalChart?.risingSign ? getZod
 </script>
 
 <template>
-  <div class="profile-page">
+  <AppContainer size="xl">
+    <ScreenLayout class="profile-page">
     <LoadingSpinner v-if="loading && !profile" :label="t('profile.castingChart')" />
 
     <template v-if="profile">
@@ -103,14 +106,12 @@ const risingInfo = computed(() => profile.value?.natalChart?.risingSign ? getZod
         </div>
       </section>
     </template>
-  </div>
+    </ScreenLayout>
+  </AppContainer>
 </template>
 
 <style scoped>
 .profile-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -131,6 +132,7 @@ const risingInfo = computed(() => profile.value?.natalChart?.risingSign ? getZod
 .email { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.4rem; }
 .birth-info { color: var(--text-muted); font-size: 0.85rem; }
 .secondary-btn {
+  min-height: 44px;
   padding: 0.6rem 1.2rem;
   background: transparent;
   color: var(--gold);
@@ -193,6 +195,17 @@ const risingInfo = computed(() => profile.value?.natalChart?.risingSign ? getZod
   gap: 1rem;
 }
 @media (max-width: 600px) { .details-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) {
+  .profile-header,
+  .chart-section,
+  .aspect-section,
+  .zodiac-details {
+    padding: 1rem;
+  }
+  .secondary-btn {
+    width: 100%;
+  }
+}
 .detail-label {
   font-size: 0.7rem;
   text-transform: uppercase;

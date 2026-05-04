@@ -9,6 +9,7 @@ export async function register(payload: RegisterPayload): Promise<AuthResult> {
   const result = await apiRequest<AuthResult>('/api/auth/register', {
     method: 'POST',
     body: payload,
+    timeoutMs: 45_000,
   });
   await setAuthToken(result.token);
   await getStorage().setItem(USER_KEY, JSON.stringify(result.user));
@@ -25,18 +26,38 @@ export async function login(payload: LoginPayload): Promise<AuthResult> {
   return result;
 }
 
-export async function logout(): Promise<void> {
-  try {
-    await apiRequest<{ ok: boolean }>('/api/auth/logout', { method: 'POST', auth: true });
-  } catch {
-    // ignore network errors on logout
-  }
+/** Clear token and cached user without calling the API (avoids hanging when the Worker is down). */
+export async function clearLocalSession(): Promise<void> {
   await setAuthToken(null);
   await getStorage().removeItem(USER_KEY);
 }
 
+export async function logout(): Promise<void> {
+  try {
+    await Promise.race([
+      apiRequest<{ ok: boolean }>('/api/auth/logout', { method: 'POST', auth: true }),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 2500);
+      }),
+    ]);
+  } catch {
+    // ignore network errors on logout
+  }
+  await clearLocalSession();
+}
+
 export async function fetchMe(): Promise<AuthUser> {
   return apiRequest<AuthUser>('/api/auth/me', { auth: true });
+}
+
+export async function persistCachedUser(user: AuthUser): Promise<void> {
+  await getStorage().setItem(USER_KEY, JSON.stringify(user));
+}
+
+export async function refreshProfile(): Promise<AuthUser> {
+  const user = await fetchMe();
+  await persistCachedUser(user);
+  return user;
 }
 
 export async function getCachedUser(): Promise<AuthUser | null> {

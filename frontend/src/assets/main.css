@@ -29,6 +29,19 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --text-xs: clamp(0.72rem, 1.8vw, 0.78rem);
+  --text-sm: clamp(0.82rem, 2.1vw, 0.9rem);
+  --text-md: clamp(0.95rem, 2.6vw, 1rem);
+  --text-lg: clamp(1.1rem, 3.5vw, 1.35rem);
+  --text-xl: clamp(1.5rem, 5vw, 2.2rem);
 }
 
 *, *::before, *::after {
@@ -47,6 +60,8 @@ body {
   background: var(--bg-deep);
   color: var(--text-primary);
   line-height: 1.6;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {
@@ -132,7 +147,8 @@ body {
 
 .form-input {
   width: 100%;
-  padding: 0.875rem 1rem;
+  min-height: 44px;
+  padding: 0.75rem 0.95rem;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--radius-sm);
@@ -156,7 +172,8 @@ body {
 /* ===== Buttons ===== */
 .btn-celestial {
   width: 100%;
-  padding: 0.875rem 2rem;
+  min-height: 44px;
+  padding: 0.75rem 1.1rem;
   background: linear-gradient(135deg, var(--gold) 0%, #b8962e 100%);
   color: #1a0a00;
   font-family: var(--font-body);
@@ -170,6 +187,32 @@ body {
   transition: all 0.4s ease;
   position: relative;
   overflow: hidden;
+}
+
+button,
+[role='button'],
+a.btn-celestial,
+select.form-input,
+input.form-input {
+  min-height: 44px;
+}
+
+.screen-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.screen-subtitle {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.mobile-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .btn-celestial::before {

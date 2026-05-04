@@ -9,6 +9,8 @@ import type { ZodiacSign } from '../lib/types';
 import ZodiacCard from '../components/ZodiacCard.vue';
 import PredictionCard from '../components/PredictionCard.vue';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
+import AppContainer from '../components/layout/AppContainer.vue';
+import ScreenLayout from '../components/layout/ScreenLayout.vue';
 
 const { t, locale } = useI18n();
 const { user } = useAuth();
@@ -58,7 +60,8 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
 </script>
 
 <template>
-  <div class="home-page">
+  <AppContainer size="lg">
+    <ScreenLayout class="home-page">
     <header class="hero">
       <p class="greeting">{{ greeting }}, {{ firstName }}</p>
       <h1 class="title">{{ t('home.yourStarsToday') }}</h1>
@@ -108,14 +111,13 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
         </div>
       </div>
     </section>
-  </div>
+    </ScreenLayout>
+  </AppContainer>
 </template>
 
 <style scoped>
 .home-page {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
+  padding-top: 0.2rem;
 }
 .hero { text-align: center; margin-bottom: 2.5rem; }
 .greeting {
@@ -138,6 +140,7 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
   gap: 0.7rem;
   margin-top: 1.2rem;
   padding: 0.5rem 1.5rem;
+  max-width: 100%;
   border-radius: 999px;
   background: var(--gold-glow);
   border: 1px solid var(--glass-border);
@@ -148,6 +151,9 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
   font-family: var(--font-display);
   font-size: 1rem;
   letter-spacing: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .zodiac-strip { margin-bottom: 2.4rem; }
 .section-label {
@@ -198,6 +204,7 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
+@media (max-width: 480px) { .lucky-row { grid-template-columns: 1fr; } }
 .lucky-card {
   padding: 1.4rem 1.6rem;
   display: flex;

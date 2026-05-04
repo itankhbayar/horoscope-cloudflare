@@ -28,6 +28,7 @@ export interface AuthUser {
   email: string;
   fullName: string;
   createdAt?: string;
+  isPremium?: boolean;
 }
 
 export interface AuthResult {

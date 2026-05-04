@@ -14,11 +14,19 @@ export const users = sqliteTable(
     updatedAt: text('updated_at')
       .notNull()
       .default(sql`(CURRENT_TIMESTAMP)`),
+    isPremium: integer('is_premium', { mode: 'boolean' }).notNull().default(false),
   },
   (t) => ({
     emailIdx: uniqueIndex('users_email_idx').on(t.email),
   }),
 );
+
+export const stripeWebhookEvents = sqliteTable('stripe_webhook_events', {
+  id: text('id').primaryKey(),
+  receivedAt: text('received_at')
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+});
 
 export const birthProfiles = sqliteTable(
   'birth_profiles',
@@ -144,3 +152,5 @@ export type CompatibilityResult = typeof compatibilityResults.$inferSelect;
 export type NewCompatibilityResult = typeof compatibilityResults.$inferInsert;
 export type TarotDaily = typeof tarotDaily.$inferSelect;
 export type NewTarotDaily = typeof tarotDaily.$inferInsert;
+export type StripeWebhookEvent = typeof stripeWebhookEvents.$inferSelect;
+export type NewStripeWebhookEvent = typeof stripeWebhookEvents.$inferInsert;

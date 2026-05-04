@@ -20,10 +20,16 @@ async function bootstrap(): Promise<void> {
     if (cached) {
       user.value = cached;
     }
+    const ME_TIMEOUT_MS = 8000;
     try {
-      user.value = await authService.fetchMe();
+      user.value = await Promise.race([
+        authService.fetchMe(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('me-timeout')), ME_TIMEOUT_MS);
+        }),
+      ]);
     } catch {
-      await authService.logout();
+      await authService.clearLocalSession();
       user.value = null;
     }
   } finally {
@@ -65,6 +71,15 @@ async function logout(): Promise<void> {
   user.value = null;
 }
 
+async function refreshUser(): Promise<void> {
+  if (!(await authService.isAuthenticated())) {
+    user.value = null;
+    return;
+  }
+  const next = await authService.refreshProfile();
+  user.value = next;
+}
+
 export function useAuth() {
   return {
     user: computed(() => user.value),
@@ -76,5 +91,6 @@ export function useAuth() {
     login,
     register,
     logout,
+    refreshUser,
   };
 }

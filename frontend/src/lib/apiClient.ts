@@ -47,6 +47,9 @@ export class ApiClientError extends Error implements ApiError {
   }
 }
 
+/** Default ceiling so hung requests (API down / wrong host) do not block the UI indefinitely. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
@@ -57,6 +60,18 @@ interface RequestOptions {
    * Set to false for endpoints that should not be locale-affected (auth flows).
    */
   localized?: boolean;
+  /**
+   * Abort the request after this many milliseconds.
+   * Use `false` to disable (not recommended except for debugging).
+   */
+  timeoutMs?: number | false;
+}
+
+function isAbortOrTimeout(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === 'AbortError' || err.name === 'TimeoutError') return true;
+  const cause = (err as Error & { cause?: unknown }).cause;
+  return cause instanceof DOMException && (cause.name === 'TimeoutError' || cause.name === 'AbortError');
 }
 
 function appendLangParam(path: string, locale: string): string {
@@ -66,7 +81,14 @@ function appendLangParam(path: string, locale: string): string {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, auth = false, headers: extraHeaders = {}, localized = true } = options;
+  const {
+    method = 'GET',
+    body,
+    auth = false,
+    headers: extraHeaders = {},
+    localized = true,
+    timeoutMs: timeoutOption,
+  } = options;
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Accept-Language': activeLocale,
@@ -78,11 +100,25 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (token) headers.Authorization = `Bearer ${token}`;
   }
   const finalPath = localized ? appendLangParam(path, activeLocale) : path;
-  const response = await fetch(`${baseUrl}${finalPath}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const timeoutMs = timeoutOption === false ? undefined : (timeoutOption ?? DEFAULT_REQUEST_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${finalPath}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: timeoutMs !== undefined ? AbortSignal.timeout(timeoutMs) : undefined,
+    });
+  } catch (err) {
+    if (isAbortOrTimeout(err)) {
+      const hint =
+        baseUrl === ''
+          ? 'Start the Worker (cd backend && npm run dev) so Vite can proxy /api to port 8787.'
+          : `Is the API running at ${baseUrl}?`;
+      throw new ApiClientError(408, `Request timed out after ${timeoutMs}ms. ${hint}`);
+    }
+    throw err;
+  }
   let data: any = null;
   const text = await response.text();
   if (text) {

@@ -44,6 +44,7 @@ router.get('/me', authMiddleware, async (c) => {
     email: user.email,
     fullName: user.fullName,
     createdAt: user.createdAt,
+    isPremium: Boolean(user.isPremium),
   });
 });
 

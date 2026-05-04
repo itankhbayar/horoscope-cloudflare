@@ -1,9 +1,33 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import LockedFeatureCard from '../components/LockedFeatureCard.vue';
+import AppContainer from '../components/layout/AppContainer.vue';
+import ScreenLayout from '../components/layout/ScreenLayout.vue';
+import { useAuth } from '../composables/useAuth';
+import { billingService } from '../lib';
+import { ApiClientError } from '../lib/apiClient';
 
 const { t } = useI18n();
+const { user } = useAuth();
+const checkoutLoading = ref(false);
+const checkoutError = ref<string | null>(null);
+
+const isPremium = computed(() => Boolean(user.value?.isPremium));
+
+async function goPremium() {
+  checkoutError.value = null;
+  checkoutLoading.value = true;
+  try {
+    const { url } = await billingService.createPremiumCheckoutSession();
+    window.location.href = url;
+  } catch (e) {
+    checkoutError.value =
+      e instanceof ApiClientError ? e.message : (e as Error).message ?? t('premium.checkoutFailed');
+  } finally {
+    checkoutLoading.value = false;
+  }
+}
 
 const features = computed(() => [
   {
@@ -25,7 +49,8 @@ const features = computed(() => [
 </script>
 
 <template>
-  <div class="premium-page">
+  <AppContainer size="xl">
+    <ScreenLayout class="premium-page">
     <header class="page-head">
       <p class="badge">{{ t('premium.badge') }}</p>
       <h1>{{ t('premium.title') }}</h1>
@@ -43,18 +68,30 @@ const features = computed(() => [
     </section>
 
     <section class="cta glass-card">
-      <h2>{{ t('premium.comingSoon') }}</h2>
-      <p>{{ t('premium.comingSoonBody') }}</p>
-      <button class="btn-celestial" disabled>{{ t('premium.notifyMe') }}</button>
+      <template v-if="isPremium">
+        <h2>{{ t('premium.premiumActiveTitle') }}</h2>
+        <p>{{ t('premium.premiumActiveBody') }}</p>
+      </template>
+      <template v-else>
+        <h2>{{ t('premium.upgradeTitle') }}</h2>
+        <p>{{ t('premium.upgradeBody') }}</p>
+        <p v-if="checkoutError" class="checkout-error" role="alert">{{ checkoutError }}</p>
+        <button
+          type="button"
+          class="btn-celestial go-premium"
+          :disabled="checkoutLoading"
+          @click="goPremium"
+        >
+          {{ checkoutLoading ? t('premium.checkoutLoading') : t('premium.goPremium') }}
+        </button>
+      </template>
     </section>
-  </div>
+    </ScreenLayout>
+  </AppContainer>
 </template>
 
 <style scoped>
 .premium-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -99,10 +136,13 @@ const features = computed(() => [
   color: var(--text-secondary);
   margin-bottom: 1.5rem;
 }
-.cta .btn-celestial {
+.cta .btn-celestial.go-premium {
   max-width: 320px;
   margin: 0 auto;
-  opacity: 0.75;
-  cursor: not-allowed;
+}
+.checkout-error {
+  color: var(--danger, #e57373);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
 }
 </style>

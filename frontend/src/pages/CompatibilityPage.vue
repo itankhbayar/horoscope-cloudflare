@@ -5,6 +5,8 @@ import { ZODIAC_SIGNS, getZodiacInfo } from '../lib/zodiac';
 import type { ZodiacSign } from '../lib/types';
 import { useCompatibility } from '../composables/useCompatibility';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
+import AppContainer from '../components/layout/AppContainer.vue';
+import ScreenLayout from '../components/layout/ScreenLayout.vue';
 
 const { t, locale } = useI18n();
 
@@ -37,7 +39,8 @@ function scoreColor(score: number): string {
 </script>
 
 <template>
-  <div class="compat-page">
+  <AppContainer size="lg">
+    <ScreenLayout class="compat-page">
     <header class="page-head">
       <h1>{{ t('compatibility.title') }}</h1>
       <p>{{ t('compatibility.subtitle') }}</p>
@@ -114,14 +117,12 @@ function scoreColor(score: number): string {
     </section>
 
     <p v-if="error" class="error-msg">{{ error }}</p>
-  </div>
+    </ScreenLayout>
+  </AppContainer>
 </template>
 
 <style scoped>
 .compat-page {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -145,6 +146,16 @@ function scoreColor(score: number): string {
   display: flex;
   align-items: end;
   gap: 1rem;
+}
+@media (max-width: 560px) {
+  .picker {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .vs {
+    padding: 0;
+    text-align: center;
+  }
 }
 .picker label {
   flex: 1;
@@ -175,6 +186,14 @@ function scoreColor(score: number): string {
   align-items: center;
   gap: 2rem;
   margin-bottom: 1.5rem;
+}
+@media (max-width: 520px) {
+  .couple {
+    gap: 1rem;
+  }
+  .sign-symbol {
+    font-size: 2.6rem;
+  }
 }
 .sign-portrait { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
 .sign-symbol {

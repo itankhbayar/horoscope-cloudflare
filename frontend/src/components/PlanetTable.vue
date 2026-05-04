@@ -11,7 +11,8 @@ defineProps<{
 </script>
 
 <template>
-  <div class="planet-table">
+  <div class="planet-table-wrap mobile-scroll-x">
+    <div class="planet-table">
     <div class="header-row">
       <span>{{ t('planets.table.planet') }}</span>
       <span>{{ t('planets.table.sign') }}</span>
@@ -34,14 +35,19 @@ defineProps<{
         {{ planet.retrograde ? t('planets.table.retrograde') : t('planets.table.direct') }}
       </span>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.planet-table-wrap {
+  width: 100%;
+}
 .planet-table {
   display: flex;
   flex-direction: column;
   font-size: 0.9rem;
+  min-width: 560px;
 }
 .header-row, .row {
   display: grid;
@@ -72,6 +78,9 @@ defineProps<{
 }
 .retrograde { color: #ff8a5c; font-style: italic; }
 @media (max-width: 600px) {
+  .planet-table {
+    min-width: 520px;
+  }
   .header-row, .row { grid-template-columns: 1.2fr 1.2fr 0.8fr 0.6fr 1fr; font-size: 0.8rem; }
 }
 </style>

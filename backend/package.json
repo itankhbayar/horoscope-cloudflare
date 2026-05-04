@@ -2,7 +2,8 @@
   "name": "backend",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --env-file=../.dev.vars",
+    "stripe:listen": "stripe listen --forward-to http://127.0.0.1:8787/api/billing/webhook",
     "deploy": "wrangler deploy --minify",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "typecheck": "tsc --noEmit",
@@ -13,6 +14,7 @@
     "astronomy-engine": "^2.1.19",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.15",
+    "stripe": "^17.7.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
