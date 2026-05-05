@@ -3,10 +3,25 @@ import type { ApiError } from './types';
 
 export const TOKEN_KEY = 'horoscope_token';
 
-let baseUrl: string =
-  typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL
-    ? (import.meta as any).env.VITE_API_BASE_URL
-    : 'http://127.0.0.1:8787';
+function readExpoPublicApiBaseUrl(): string {
+  const g = globalThis as unknown as {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const raw = g.process?.env?.EXPO_PUBLIC_API_BASE_URL;
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : '';
+}
+
+function resolveDefaultBaseUrl(): string {
+  const expo = readExpoPublicApiBaseUrl();
+  if (expo) return expo.replace(/\/$/, '');
+  const vite =
+    typeof import.meta !== 'undefined' &&
+    (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL?.trim();
+  if (vite && vite.length > 0) return vite.replace(/\/$/, '');
+  return 'http://127.0.0.1:8787';
+}
+
+let baseUrl: string = resolveDefaultBaseUrl();
 
 let activeLocale: string = 'mn';
 
@@ -71,7 +86,11 @@ function isAbortOrTimeout(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   if (err.name === 'AbortError' || err.name === 'TimeoutError') return true;
   const cause = (err as Error & { cause?: unknown }).cause;
-  return cause instanceof DOMException && (cause.name === 'TimeoutError' || cause.name === 'AbortError');
+  if (cause instanceof Error && (cause.name === 'TimeoutError' || cause.name === 'AbortError')) return true;
+  if (typeof DOMException !== 'undefined' && cause instanceof DOMException) {
+    return cause.name === 'TimeoutError' || cause.name === 'AbortError';
+  }
+  return false;
 }
 
 function appendLangParam(path: string, locale: string): string {
@@ -119,17 +138,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
     throw err;
   }
-  let data: any = null;
+  let data: unknown = null;
   const text = await response.text();
   if (text) {
     try {
-      data = JSON.parse(text);
+      data = JSON.parse(text) as unknown;
     } catch {
-      data = { raw: text };
+      data = { raw: text } as Record<string, string>;
     }
   }
   if (!response.ok) {
-    const message = data?.error ?? response.statusText ?? 'Request failed';
+    let message = response.statusText ?? 'Request failed';
+    if (data && typeof data === 'object' && data !== null && 'error' in data) {
+      const e = (data as { error?: unknown }).error;
+      if (typeof e === 'string' && e.length > 0) message = e;
+    }
     throw new ApiClientError(response.status, message);
   }
   return data as T;
