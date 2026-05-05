@@ -4,14 +4,21 @@ import { colors } from '../theme';
 
 type Props = { message?: string };
 
-export function LoadingBlock({ message = 'Loading…' }: Props): React.JSX.Element {
+function LoadingBlockInner({ message = 'Loading…' }: Props): React.JSX.Element {
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      accessibilityRole="progressbar"
+      accessibilityLabel={message}
+      accessibilityLiveRegion="polite"
+    >
       <ActivityIndicator size="large" color={colors.accent} />
       <Text style={styles.text}>{message}</Text>
     </View>
   );
 }
+
+export const LoadingBlock = React.memo(LoadingBlockInner);
 
 const styles = StyleSheet.create({
   wrap: {

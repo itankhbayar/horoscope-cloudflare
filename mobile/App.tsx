@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { AuthProvider } from './src/hooks/useAuth';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
@@ -16,17 +17,29 @@ function ensureAbortSignalTimeoutPolyfill(): void {
   };
 }
 
+function readStripePublishableKey(): string {
+  const g = globalThis as unknown as {
+    process?: { env?: Record<string, string | undefined> };
+  };
+  const raw = g.process?.env?.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
 export default function App(): React.JSX.Element {
   useEffect(() => {
     ensureAbortSignalTimeoutPolyfill();
   }, []);
 
+  const stripePk = readStripePublishableKey();
+
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <RootNavigator />
-      </AuthProvider>
+      <StripeProvider publishableKey={stripePk} urlScheme="astralis">
+        <AuthProvider>
+          <StatusBar style="light" />
+          <RootNavigator />
+        </AuthProvider>
+      </StripeProvider>
     </SafeAreaProvider>
   );
 }

@@ -15,6 +15,8 @@ export const users = sqliteTable(
       .notNull()
       .default(sql`(CURRENT_TIMESTAMP)`),
     isPremium: integer('is_premium', { mode: 'boolean' }).notNull().default(false),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
   },
   (t) => ({
     emailIdx: uniqueIndex('users_email_idx').on(t.email),

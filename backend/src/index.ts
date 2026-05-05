@@ -16,7 +16,14 @@ const DEFAULT_TIMEZONE = 'Asia/Ulaanbaatar';
 
 const app = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
-app.use('/*', cors({ origin: '*', allowHeaders: ['Content-Type', 'Authorization'] }));
+// Stripe-Signature: allow if a proxy/browser preflights; webhook body must stay raw for verification.
+app.use(
+  '/*',
+  cors({
+    origin: '*',
+    allowHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'Stripe-Signature'],
+  }),
+);
 
 app.get('/', (c) =>
   c.json({
@@ -40,6 +47,9 @@ app.get('/', (c) =>
       'POST /admin/prewarm',
       'POST /admin/prewarm-tarot',
       'POST /api/billing/create-checkout-session',
+      'POST /api/billing/mobile/checkout',
+      'POST /api/billing/mobile/portal',
+      'POST /api/billing/mobile/restore',
       'POST /api/billing/webhook',
     ],
   }),

@@ -1,71 +1,117 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { ZODIAC_SIGNS } from '@astralis/lib/zodiac';
 import type { ZodiacSign } from '@astralis/lib/types';
 import { useCompatibility } from '../hooks/useCompatibility';
 import { CosmicCard } from '../components/CosmicCard';
 import { LoadingBlock } from '../components/LoadingBlock';
-import { colors } from '../theme';
+import { ScreenScroll } from '../components/ScreenScroll';
+import {
+  bodyFontSize,
+  bodyLineHeight,
+  colors,
+  hitSlopComfortable,
+  MIN_TOUCH,
+  screenTitleSize,
+  spacing,
+} from '../theme';
 
 export function CompatibilityScreen(): React.JSX.Element {
+  const { width } = useWindowDimensions();
   const { result, loading, error, compareSigns } = useCompatibility();
   const [sign1, setSign1] = useState<ZodiacSign | null>(null);
   const [sign2, setSign2] = useState<ZodiacSign | null>(null);
 
-  async function onCompute(): Promise<void> {
+  const onCompute = useCallback(async (): Promise<void> => {
     if (!sign1 || !sign2) return;
     await compareSigns(sign1, sign2);
-  }
+  }, [compareSigns, sign1, sign2]);
+
+  const titleSize = useMemo(() => screenTitleSize(width), [width]);
+  const bodySize = useMemo(() => bodyFontSize(width), [width]);
+  const lineHeight = useMemo(() => bodyLineHeight(width), [width]);
+  const bodyStyle = useMemo(
+    () => ({ fontSize: bodySize, lineHeight }),
+    [bodySize, lineHeight],
+  );
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Compatibility</Text>
-      <Text style={styles.sub}>Pick two signs</Text>
-      <Text style={styles.pickLabel}>First sign</Text>
-      <SignRow selected={sign1} onSelect={setSign1} />
-      <Text style={styles.pickLabel}>Second sign</Text>
-      <SignRow selected={sign2} onSelect={setSign2} />
+    <ScreenScroll>
+      <Text style={[styles.title, { fontSize: titleSize }]} accessibilityRole="header">
+        Compatibility
+      </Text>
+      <Text style={[styles.sub, { fontSize: bodySize }]}>Pick two signs</Text>
+      <Text style={styles.pickLabel} accessibilityRole="header">
+        First sign
+      </Text>
+      <SignRow selected={sign1} onSelect={setSign1} rowHint="First zodiac sign" />
+      <Text style={styles.pickLabel} accessibilityRole="header">
+        Second sign
+      </Text>
+      <SignRow selected={sign2} onSelect={setSign2} rowHint="Second zodiac sign" />
       <Pressable
-        style={[styles.button, (!sign1 || !sign2 || loading) && styles.buttonDisabled]}
+        style={({ pressed }) => [
+          styles.button,
+          (!sign1 || !sign2 || loading) && styles.buttonDisabled,
+          pressed && styles.pressed,
+        ]}
         onPress={() => void onCompute()}
         disabled={!sign1 || !sign2 || loading}
+        accessibilityRole="button"
+        accessibilityLabel="Compute compatibility"
+        accessibilityState={{ disabled: !sign1 || !sign2 || loading }}
+        hitSlop={hitSlopComfortable}
       >
         <Text style={styles.buttonText}>{loading ? 'Aligning…' : 'Compute'}</Text>
       </Pressable>
       {loading ? <LoadingBlock message="Computing…" /> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <Text style={styles.error} accessibilityRole="alert">
+          {error}
+        </Text>
+      ) : null}
       {result ? (
         <CosmicCard title="Result">
-          <Text style={styles.score}>Overall {result.overallScore}</Text>
-          <Text style={styles.body}>{result.summary}</Text>
-          <Text style={styles.subhead}>Highlights</Text>
+          <Text style={[styles.score, { fontSize: bodySize + 3 }]}>Overall {result.overallScore}</Text>
+          <Text style={[styles.body, bodyStyle]}>{result.summary}</Text>
+          <Text style={[styles.subhead, { fontSize: bodySize }]}>Highlights</Text>
           {(result.highlights ?? []).map((h) => (
-            <Text key={h} style={styles.bullet}>
+            <Text key={h} style={[styles.bullet, bodyStyle]}>
               • {h}
             </Text>
           ))}
         </CosmicCard>
       ) : null}
-    </ScrollView>
+    </ScreenScroll>
   );
 }
 
-function SignRow({
+const SignRow = React.memo(function SignRow({
   selected,
   onSelect,
+  rowHint,
 }: {
   selected: ZodiacSign | null;
   onSelect: (s: ZodiacSign) => void;
+  rowHint: string;
 }): React.JSX.Element {
   return (
-    <View style={styles.row}>
+    <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel={rowHint}>
       {ZODIAC_SIGNS.map((z) => {
         const active = selected === z.key;
         return (
           <Pressable
             key={z.key}
             onPress={() => onSelect(z.key)}
-            style={[styles.chip, active && styles.chipActive]}
+            style={({ pressed }) => [
+              styles.chip,
+              active && styles.chipActive,
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`${z.key} ${z.symbol}`}
+            hitSlop={hitSlopComfortable}
           >
             <Text style={[styles.chipText, active && styles.chipTextActive]}>{z.symbol}</Text>
           </Pressable>
@@ -73,38 +119,51 @@ function SignRow({
       })}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, paddingBottom: 40 },
-  title: { fontSize: 22, fontWeight: '700', color: colors.text },
-  sub: { color: colors.textMuted, marginBottom: 12 },
-  pickLabel: { color: colors.gold, marginTop: 8, marginBottom: 6 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  title: { fontWeight: '700', color: colors.text },
+  sub: { color: colors.textMuted, marginBottom: spacing.sm },
+  pickLabel: { color: colors.gold, marginTop: spacing.sm, marginBottom: spacing.xs, fontSize: 14 },
+  row: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
   chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    minWidth: MIN_TOUCH,
+    minHeight: MIN_TOUCH,
+    paddingHorizontal: spacing.sm,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  chipText: { fontSize: 16, color: colors.text },
+  chipText: { fontSize: 18, color: colors.text },
   chipTextActive: { color: colors.text },
   button: {
-    marginTop: 16,
+    marginTop: spacing.md,
+    minHeight: MIN_TOUCH,
     backgroundColor: colors.accent,
-    paddingVertical: 14,
+    paddingVertical: spacing.sm,
     borderRadius: 999,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
   },
   buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontWeight: '700' },
-  error: { color: colors.danger, marginTop: 8 },
-  score: { fontSize: 18, fontWeight: '700', color: colors.gold, marginBottom: 8 },
-  body: { color: colors.text, lineHeight: 22 },
-  subhead: { color: colors.textMuted, marginTop: 12, marginBottom: 4 },
-  bullet: { color: colors.text, marginTop: 4 },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  error: { color: colors.danger, marginTop: spacing.sm, fontSize: 15 },
+  score: { fontWeight: '700', color: colors.gold, marginBottom: spacing.sm },
+  body: { color: colors.text },
+  subhead: { color: colors.textMuted, marginTop: spacing.md, marginBottom: spacing.xs },
+  bullet: { color: colors.text, marginTop: spacing.xs },
+  pressed: { opacity: 0.88 },
 });

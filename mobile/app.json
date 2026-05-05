@@ -25,6 +25,15 @@
       },
       "package": "com.astralis.mobile"
     },
-    "scheme": "astralis"
+    "scheme": "astralis",
+    "plugins": [
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "",
+          "enableGooglePay": false
+        }
+      ]
+    ]
   }
 }

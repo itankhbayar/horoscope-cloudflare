@@ -1,0 +1,62 @@
+import React, { useMemo } from 'react';
+import {
+  ScrollView,
+  type ScrollViewProps,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, horizontalScreenPadding, spacing, tabScrollBottomPadding } from '../theme';
+
+type Props = ScrollViewProps & {
+  /** Extra bottom space so the last line clears the tab bar / home indicator comfortably. */
+  includeTabBarPadding?: boolean;
+};
+
+export const ScreenScroll = React.memo(function ScreenScroll({
+  style,
+  contentContainerStyle,
+  includeTabBarPadding = true,
+  children,
+  ...rest
+}: Props): React.JSX.Element {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const hp = horizontalScreenPadding(width);
+
+  const contentPad = useMemo(
+    () => [
+      styles.content,
+      width >= 768 ? styles.tabletReadable : null,
+      {
+        paddingHorizontal: hp,
+        paddingTop: spacing.md,
+        paddingBottom: includeTabBarPadding ? tabScrollBottomPadding(insets) : spacing.xxl,
+      },
+      contentContainerStyle,
+    ],
+    [contentContainerStyle, hp, insets, includeTabBarPadding, width],
+  );
+
+  return (
+    <ScrollView
+      style={[styles.scroll, style]}
+      contentContainerStyle={contentPad}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      {...rest}
+    >
+      {children}
+    </ScrollView>
+  );
+});
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1, backgroundColor: colors.background },
+  content: { flexGrow: 1 },
+  tabletReadable: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 640,
+  },
+});

@@ -29,6 +29,13 @@
       "when": 1777700000000,
       "tag": "0003_stripe_premium",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1777800000000,
+      "tag": "0004_users_stripe_ids",
+      "breakpoints": true
     }
   ]
 }

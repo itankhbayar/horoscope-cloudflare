@@ -1,7 +1,8 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { MainTabs } from './MainTabs';
@@ -17,9 +18,9 @@ export function RootNavigator(): React.JSX.Element {
 
   if (!initialized) {
     return (
-      <View style={styles.boot}>
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
+      <SafeAreaView style={styles.boot} edges={['left', 'right', 'top', 'bottom']}>
+        <ActivityIndicator size="large" color={colors.accent} accessibilityLabel="Loading session" />
+      </SafeAreaView>
     );
   }
 
@@ -29,6 +30,10 @@ export function RootNavigator(): React.JSX.Element {
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.text,
+          headerTitleStyle: { fontWeight: '700', fontSize: 17 },
+          headerTitleAlign: 'center',
+          headerShadowVisible: false,
+          animation: 'slide_from_right',
           contentStyle: { backgroundColor: colors.background },
         }}
         initialRouteName={user ? 'Main' : 'Login'}
