@@ -8,6 +8,10 @@ export const users = sqliteTable(
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     fullName: text('full_name').notNull(),
+    displayName: text('display_name'),
+    bio: text('bio'),
+    avatarUrl: text('avatar_url'),
+    timezone: text('timezone'),
     createdAt: text('created_at')
       .notNull()
       .default(sql`(CURRENT_TIMESTAMP)`),

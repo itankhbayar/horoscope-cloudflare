@@ -36,6 +36,8 @@ app.get('/', (c) =>
       'POST /api/auth/logout',
       'GET  /api/auth/me',
       'GET  /api/profile',
+      'PATCH /api/profile',
+      'POST /api/profile/avatar',
       'POST /api/profile/recompute',
       'GET  /api/horoscope/signs',
       'GET  /api/horoscope/cities',

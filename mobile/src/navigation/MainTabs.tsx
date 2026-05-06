@@ -6,6 +6,7 @@ import type { MainTabParamList } from './types';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CompatibilityScreen } from '../screens/CompatibilityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { ChartScreen } from '../screens/ChartScreen';
 import { PremiumScreen } from '../screens/PremiumScreen';
 import { colors, MIN_TOUCH, spacing } from '../theme';
 
@@ -16,6 +17,7 @@ const GLYPH_TODAY = '\u2728'; // ✨ still reads ok; tints where the font suppor
 const GLYPH_MATCH = '\u2661'; // ♡ WHITE HEART SUIT — follows tab `color`
 const GLYPH_CHART = '\u25CE'; // ◎ BULLSEYE — wheel / chart
 const GLYPH_PREMIUM = '\u2605'; // ★ BLACK STAR — follows tab `color`
+const GLYPH_PROFILE = '\u263A'; // ☺ text glyph for profile tab
 
 type TabBarIconProps = { focused: boolean; color: string; size: number };
 
@@ -43,6 +45,7 @@ const iconToday = tabIcon(GLYPH_TODAY);
 const iconMatch = tabIcon(GLYPH_MATCH);
 const iconChart = tabIcon(GLYPH_CHART);
 const iconPremium = tabIcon(GLYPH_PREMIUM);
+const iconProfile = tabIcon(GLYPH_PROFILE);
 
 export function MainTabs(): ReactElement {
   const screenOptions = useMemo(
@@ -91,13 +94,13 @@ export function MainTabs(): ReactElement {
         }}
       />
       <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
+        name="Chart"
+        component={ChartScreen}
         options={{
           title: 'Chart',
           tabBarLabel: 'Chart',
           tabBarIcon: iconChart,
-          tabBarAccessibilityLabel: 'Chart, profile and natal chart',
+          tabBarAccessibilityLabel: 'Chart',
         }}
       />
       <Tab.Screen
@@ -108,6 +111,16 @@ export function MainTabs(): ReactElement {
           tabBarLabel: 'Premium',
           tabBarIcon: iconPremium,
           tabBarAccessibilityLabel: 'Premium subscription',
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'Profile',
+          tabBarLabel: 'Profile',
+          tabBarIcon: iconProfile,
+          tabBarAccessibilityLabel: 'Profile',
         }}
       />
     </Tab.Navigator>

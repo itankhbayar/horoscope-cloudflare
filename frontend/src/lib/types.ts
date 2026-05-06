@@ -27,6 +27,10 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
+  displayName?: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
+  timezone?: string | null;
   createdAt?: string;
   isPremium?: boolean;
 }

@@ -1,222 +1,245 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
-import { useI18n } from 'vue-i18n';
+import { computed, onMounted, ref } from 'vue';
 import { useProfile } from '../composables/useProfile';
-import { getZodiacInfo } from '../lib/zodiac';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
-import NatalChartWheel from '../components/NatalChartWheel.vue';
-import PlanetTable from '../components/PlanetTable.vue';
-import AspectList from '../components/AspectList.vue';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
 
-const { t } = useI18n();
-const { profile, loading, load, recompute } = useProfile();
+const { profile, loading, avatarUploading, error, load, saveProfile, uploadAvatar } = useProfile();
+
+const editMode = ref(false);
+const formDisplayName = ref('');
+const formBio = ref('');
+const formTimezone = ref('');
+const formErrors = ref<{ displayName?: string; bio?: string; timezone?: string; avatar?: string }>({});
+const avatarPreviewUrl = ref<string | null>(null);
+const avatarInputEl = ref<HTMLInputElement | null>(null);
+function revokeObjectPreview(url: string | null): void {
+  if (!url || !url.startsWith('blob:')) return;
+  URL.revokeObjectURL(url);
+}
+
 
 onMounted(load);
 
-const sunInfo = computed(() => profile.value?.natalChart ? getZodiacInfo(profile.value.natalChart.sunSign) : null);
-const moonInfo = computed(() => profile.value?.natalChart ? getZodiacInfo(profile.value.natalChart.moonSign) : null);
-const risingInfo = computed(() => profile.value?.natalChart?.risingSign ? getZodiacInfo(profile.value.natalChart.risingSign) : null);
+const resolvedAvatar = computed(
+  () => avatarPreviewUrl.value || profile.value?.user.avatarUrl || null,
+);
+
+const timezoneOptions = computed(() => {
+  if (typeof Intl.supportedValuesOf === 'function') {
+    return Intl.supportedValuesOf('timeZone');
+  }
+  return ['UTC'];
+});
+
+function avatarInitial(): string {
+  const name = (profile.value?.user.displayName || profile.value?.user.fullName || '').trim();
+  return (name.charAt(0) || 'A').toUpperCase();
+}
+
+function startEdit(): void {
+  if (!profile.value) return;
+  formDisplayName.value = profile.value.user.displayName || profile.value.user.fullName || '';
+  formBio.value = profile.value.user.bio || '';
+  formTimezone.value = profile.value.user.timezone || 'UTC';
+  formErrors.value = {};
+  editMode.value = true;
+}
+
+function cancelEdit(): void {
+  revokeObjectPreview(avatarPreviewUrl.value);
+  avatarPreviewUrl.value = null;
+  formErrors.value = {};
+  editMode.value = false;
+}
+
+function validate(): boolean {
+  const next: { displayName?: string; bio?: string; timezone?: string } = {};
+  const name = formDisplayName.value.trim();
+  const bio = formBio.value.trim();
+  const timezone = formTimezone.value.trim();
+
+  if (name.length < 2 || name.length > 60) {
+    next.displayName = 'Display name must be 2 to 60 characters.';
+  }
+  if (bio.length > 280) {
+    next.bio = 'Bio must be 280 characters or less.';
+  }
+  if (!timezone || !timezoneOptions.value.includes(timezone)) {
+    next.timezone = 'Please choose a valid timezone.';
+  }
+
+  formErrors.value = next;
+  return Object.keys(next).length === 0;
+}
+
+async function save(): Promise<void> {
+  if (!validate()) return;
+  await saveProfile({
+    displayName: formDisplayName.value.trim(),
+    bio: formBio.value.trim(),
+    timezone: formTimezone.value.trim(),
+  });
+  editMode.value = false;
+}
+
+async function onAvatarSelected(event: Event): Promise<void> {
+  formErrors.value = { ...formErrors.value, avatar: undefined };
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!allowed.has(file.type)) {
+    formErrors.value = { ...formErrors.value, avatar: 'Avatar must be jpeg, png, or webp.' };
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    formErrors.value = { ...formErrors.value, avatar: 'Avatar must be 5MB or smaller.' };
+    return;
+  }
+
+  revokeObjectPreview(avatarPreviewUrl.value);
+  avatarPreviewUrl.value = URL.createObjectURL(file);
+  try {
+    const avatarUrl = await uploadAvatar(file);
+    revokeObjectPreview(avatarPreviewUrl.value);
+    avatarPreviewUrl.value = avatarUrl;
+  } catch {
+    revokeObjectPreview(avatarPreviewUrl.value);
+    avatarPreviewUrl.value = null;
+  } finally {
+    if (avatarInputEl.value) {
+      avatarInputEl.value.value = '';
+    }
+  }
+}
 </script>
 
 <template>
   <AppContainer size="xl">
     <ScreenLayout class="profile-page">
-    <LoadingSpinner v-if="loading && !profile" :label="t('profile.castingChart')" />
+      <LoadingSpinner v-if="loading && !profile" label="Loading profile" />
+      <p v-if="error" class="state error">{{ error }}</p>
+      <p v-if="!loading && !profile && !error" class="state">No profile available.</p>
 
-    <template v-if="profile">
-      <header class="profile-header glass-card">
-        <div class="user-block">
-          <h1>{{ profile.user.fullName }}</h1>
-          <p class="email">{{ profile.user.email }}</p>
-          <p v-if="profile.birthProfile" class="birth-info">
-            {{ t('profile.born') }} {{ profile.birthProfile.birthDate }}
-            <span v-if="profile.birthProfile.birthTime"> {{ t('profile.at') }} {{ profile.birthProfile.birthTime }}</span>
-            {{ t('profile.in') }} {{ profile.birthProfile.birthCity }}<span v-if="profile.birthProfile.birthCountry">, {{ profile.birthProfile.birthCountry }}</span>
-          </p>
-        </div>
-        <button class="secondary-btn" @click="recompute" :disabled="loading">{{ t('profile.recompute') }}</button>
-      </header>
-
-      <section v-if="profile.natalChart" class="big-three">
-        <div class="big-card glass-card">
-          <p class="big-label">{{ t('profile.sun') }}</p>
-          <p class="big-symbol" :style="{ color: '#e8d48b' }">{{ sunInfo?.symbol }}</p>
-          <p class="big-sign-name">{{ sunInfo ? t(`zodiac.${sunInfo.key}`) : '' }}</p>
-          <p class="big-meta">
-            <span v-if="sunInfo">{{ t(`elements.${sunInfo.element}`) }} · {{ t(`modalities.${sunInfo.modality}`) }}</span>
-          </p>
-        </div>
-        <div class="big-card glass-card">
-          <p class="big-label">{{ t('profile.moon') }}</p>
-          <p class="big-symbol" :style="{ color: '#9ec6ff' }">{{ moonInfo?.symbol }}</p>
-          <p class="big-sign-name">{{ moonInfo ? t(`zodiac.${moonInfo.key}`) : '' }}</p>
-          <p class="big-meta">
-            <span v-if="moonInfo">{{ t(`elements.${moonInfo.element}`) }} · {{ t(`modalities.${moonInfo.modality}`) }}</span>
-          </p>
-        </div>
-        <div class="big-card glass-card">
-          <p class="big-label">{{ t('profile.rising') }}</p>
-          <p v-if="risingInfo" class="big-symbol" :style="{ color: '#ff8a5c' }">{{ risingInfo.symbol }}</p>
-          <p v-else class="big-symbol muted">—</p>
-          <p class="big-sign-name">{{ risingInfo ? t(`zodiac.${risingInfo.key}`) : t('profile.unknown') }}</p>
-          <p class="big-meta">
-            <span v-if="risingInfo">{{ t(`elements.${risingInfo.element}`) }} · {{ t(`modalities.${risingInfo.modality}`) }}</span>
-            <span v-else>{{ t('profile.addBirthTime') }}</span>
-          </p>
-        </div>
-      </section>
-
-      <section v-if="profile.natalChart" class="chart-grid">
-        <div class="glass-card chart-section">
-          <h2 class="section-title">{{ t('profile.natalChart') }}</h2>
-          <NatalChartWheel :chart="profile.natalChart" />
-        </div>
-        <div class="glass-card chart-section">
-          <h2 class="section-title">{{ t('profile.planetaryPositions') }}</h2>
-          <PlanetTable :planets="profile.natalChart.planets" />
-        </div>
-      </section>
-
-      <section v-if="profile.natalChart" class="glass-card aspect-section">
-        <h2 class="section-title">{{ t('profile.aspects') }}</h2>
-        <AspectList :aspects="profile.natalChart.aspects" />
-      </section>
-
-      <section v-if="sunInfo" class="glass-card zodiac-details">
-        <h2 class="section-title">{{ t('profile.aboutSunSign') }}</h2>
-        <div class="details-grid">
-          <div>
-            <p class="detail-label">{{ t('profile.element') }}</p>
-            <p class="detail-value">{{ t(`elements.${sunInfo.element}`) }}</p>
+      <template v-if="profile">
+        <section class="glass-card profile-top">
+          <div class="avatar-col">
+            <div v-if="resolvedAvatar" class="avatar-wrap">
+              <img :src="resolvedAvatar" alt="Profile avatar" class="avatar" />
+            </div>
+            <div v-else class="avatar-fallback">{{ avatarInitial() }}</div>
+            <label class="avatar-btn" :class="{ disabled: avatarUploading }" for="avatar-input">
+              {{ avatarUploading ? 'Uploading…' : 'Change avatar' }}
+            </label>
+            <input
+              ref="avatarInputEl"
+              id="avatar-input"
+              class="hidden-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              :disabled="avatarUploading"
+              @change="onAvatarSelected"
+            />
+            <p v-if="formErrors.avatar" class="field-error">{{ formErrors.avatar }}</p>
           </div>
-          <div>
-            <p class="detail-label">{{ t('profile.modality') }}</p>
-            <p class="detail-value">{{ t(`modalities.${sunInfo.modality}`) }}</p>
+
+          <div class="details-col">
+            <div v-if="!editMode" class="view-grid">
+              <h1>{{ profile.user.displayName || profile.user.fullName }}</h1>
+              <p class="email">{{ profile.user.email }}</p>
+              <p class="row"><span class="label">Bio:</span> {{ profile.user.bio || '?' }}</p>
+              <p class="row"><span class="label">Timezone:</span> {{ profile.user.timezone || 'UTC' }}</p>
+
+              <div class="actions">
+                <button class="secondary-btn" :disabled="loading" @click="startEdit">Edit Profile</button>
+              </div>
+            </div>
+
+            <form v-else class="edit-grid" @submit.prevent="save">
+              <label>
+                <span>Display name</span>
+                <input v-model="formDisplayName" maxlength="60" required />
+                <small v-if="formErrors.displayName" class="field-error">{{ formErrors.displayName }}</small>
+              </label>
+
+              <label>
+                <span>Bio</span>
+                <textarea v-model="formBio" maxlength="280" rows="4" />
+                <small class="hint">{{ formBio.length }}/280</small>
+                <small v-if="formErrors.bio" class="field-error">{{ formErrors.bio }}</small>
+              </label>
+
+              <label>
+                <span>Timezone</span>
+                <select v-model="formTimezone" required>
+                  <option disabled value="">Select timezone</option>
+                  <option v-for="tz in timezoneOptions" :key="tz" :value="tz">{{ tz }}</option>
+                </select>
+                <small v-if="formErrors.timezone" class="field-error">{{ formErrors.timezone }}</small>
+              </label>
+
+              <div class="actions">
+                <button class="secondary-btn" type="button" :disabled="loading" @click="cancelEdit">Cancel</button>
+                <button class="primary-btn" type="submit" :disabled="loading">Save profile</button>
+              </div>
+            </form>
           </div>
-          <div>
-            <p class="detail-label">{{ t('profile.rulingPlanet') }}</p>
-            <p class="detail-value">{{ t(`planets.${sunInfo.rulingPlanet}`) }}</p>
-          </div>
-          <div>
-            <p class="detail-label">{{ t('profile.symbol') }}</p>
-            <p class="detail-value">{{ sunInfo.symbol }} {{ t(`zodiac.${sunInfo.key}`) }}</p>
-          </div>
-        </div>
-      </section>
-    </template>
+        </section>
+      </template>
     </ScreenLayout>
   </AppContainer>
 </template>
 
 <style scoped>
-.profile-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+.profile-page { display: flex; flex-direction: column; gap: 1.5rem; }
+.state { color: var(--text-muted); }
+.state.error { color: #ef9a9a; }
+.profile-top { padding: 1.2rem; display: grid; grid-template-columns: 140px 1fr; gap: 1rem; }
+.avatar-col { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+.avatar-wrap, .avatar-fallback { width: 88px; height: 88px; border-radius: 999px; overflow: hidden; }
+.avatar { width: 100%; height: 100%; object-fit: cover; }
+.avatar-fallback {
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(139, 107, 255, 0.25); color: var(--text-primary); font-size: 1.8rem; font-weight: 700;
 }
-.profile-header {
-  padding: 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
+.avatar-btn { cursor: pointer; color: var(--gold); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1px; }
+.avatar-btn.disabled { pointer-events: none; opacity: 0.65; }
+.hidden-input { display: none; }
+.details-col h1 { font-family: var(--font-display); font-size: 1.45rem; margin-bottom: 0.3rem; }
+.email { color: var(--text-secondary); font-size: 0.92rem; margin-bottom: 0.6rem; }
+.row { color: var(--text-primary); margin-bottom: 0.35rem; }
+.label { color: var(--text-muted); margin-right: 0.4rem; }
+.view-grid, .edit-grid { display: flex; flex-direction: column; }
+.edit-grid label { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.65rem; }
+.edit-grid span { color: var(--text-muted); font-size: 0.82rem; }
+.edit-grid input, .edit-grid textarea, .edit-grid select {
+  border: 1px solid var(--glass-border);
+  background: rgba(0,0,0,0.25);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 0.62rem 0.72rem;
+  font: inherit;
 }
-.user-block h1 {
-  font-family: var(--font-display);
-  font-size: 1.8rem;
-  margin-bottom: 0.2rem;
-}
-.email { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.4rem; }
-.birth-info { color: var(--text-muted); font-size: 0.85rem; }
-.secondary-btn {
-  min-height: 44px;
-  padding: 0.6rem 1.2rem;
-  background: transparent;
-  color: var(--gold);
-  border: 1px solid var(--gold);
-  border-radius: var(--radius-sm);
+.hint { color: var(--text-muted); font-size: 0.75rem; }
+.field-error { color: #f6a3a3; font-size: 0.78rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.6rem; }
+.secondary-btn, .primary-btn {
+  min-height: 42px;
+  padding: 0.62rem 1rem;
+  border-radius: 10px;
   cursor: pointer;
-  font-family: var(--font-body);
-  font-size: 0.8rem;
+  border: 1px solid transparent;
+  font-size: 0.82rem;
   letter-spacing: 1px;
   text-transform: uppercase;
-  transition: all 0.3s ease;
 }
-.secondary-btn:hover { background: var(--gold); color: var(--bg-deep); }
-.big-three {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-@media (max-width: 800px) { .big-three { grid-template-columns: 1fr; } }
-.big-card {
-  padding: 1.6rem;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-.big-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--text-muted);
-}
-.big-symbol {
-  font-size: 3.5rem;
-  filter: drop-shadow(0 0 14px currentColor);
-}
-.big-symbol.muted { opacity: 0.4; }
-.big-sign-name { font-family: var(--font-display); font-size: 1.4rem; color: var(--text-primary); }
-.big-meta { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
-.chart-grid {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 1.2rem;
-}
-@media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } }
-.chart-section, .aspect-section, .zodiac-details { padding: 1.6rem; }
-.section-title {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: 0.5px;
-  margin-bottom: 1.2rem;
-  border-bottom: 1px solid var(--glass-border);
-  padding-bottom: 0.6rem;
-}
-.details-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-}
-@media (max-width: 600px) { .details-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) {
-  .profile-header,
-  .chart-section,
-  .aspect-section,
-  .zodiac-details {
-    padding: 1rem;
-  }
-  .secondary-btn {
-    width: 100%;
-  }
-}
-.detail-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--text-muted);
-  margin-bottom: 0.3rem;
-}
-.detail-value {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  color: var(--text-primary);
-  text-transform: capitalize;
+.secondary-btn { background: transparent; color: var(--gold); border-color: var(--gold); }
+.primary-btn { background: var(--gold); color: var(--bg-deep); }
+@media (max-width: 900px) {
+  .profile-top { grid-template-columns: 1fr; }
+  .avatar-col { align-items: flex-start; }
 }
 </style>

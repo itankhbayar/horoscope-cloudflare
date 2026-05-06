@@ -36,6 +36,13 @@
       "when": 1777800000000,
       "tag": "0004_users_stripe_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1777900000000,
+      "tag": "0005_profile_fields",
+      "breakpoints": true
     }
   ]
 }

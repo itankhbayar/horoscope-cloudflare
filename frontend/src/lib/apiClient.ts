@@ -66,7 +66,7 @@ export class ApiClientError extends Error implements ApiError {
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   auth?: boolean;
   headers?: Record<string, string>;
@@ -113,7 +113,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     'Accept-Language': activeLocale,
     ...extraHeaders,
   };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (body !== undefined && !isFormData) headers['Content-Type'] = 'application/json';
   if (auth) {
     const token = await getAuthToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -125,7 +126,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     response = await fetch(`${baseUrl}${finalPath}`, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? (body as FormData)
+            : JSON.stringify(body),
       signal: timeoutMs !== undefined ? AbortSignal.timeout(timeoutMs) : undefined,
     });
   } catch (err) {

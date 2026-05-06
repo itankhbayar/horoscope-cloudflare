@@ -55,10 +55,11 @@ onMounted(async () => {
 
 const navLinks = computed(() => [
   { to: '/', label: t('nav.home'), icon: '✨' },
-  { to: '/profile', label: t('nav.profile'), icon: '☽' },
   { to: '/compatibility', label: t('nav.compatibility'), icon: '❤' },
   { to: '/tarot', label: t('nav.tarot'), icon: '🃏' },
+  { to: '/chart', label: 'Chart', icon: '◎' },
   { to: '/premium', label: t('nav.premium'), icon: '✦' },
+  { to: '/profile', label: t('nav.profile'), icon: '☽' },
 ]);
 
 const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? '');

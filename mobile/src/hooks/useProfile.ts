@@ -8,6 +8,12 @@ export function useProfile(): {
   error: string | null;
   load: () => Promise<void>;
   recompute: () => Promise<void>;
+  save: (input: {
+    fullName: string;
+    zodiacSign: string;
+    birthDate: string;
+    timezoneOffset: number;
+  }) => Promise<void>;
 } {
   const [profile, setProfile] = useState<ProfilePayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,5 +45,27 @@ export function useProfile(): {
     }
   }, []);
 
-  return { profile, loading, error, load, recompute };
+  const save = useCallback(
+    async (input: {
+      fullName: string;
+      zodiacSign: string;
+      birthDate: string;
+      timezoneOffset: number;
+    }) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await profileService.updateProfile(input);
+        setProfile(data);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to save profile');
+        throw e;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  return { profile, loading, error, load, recompute, save };
 }
