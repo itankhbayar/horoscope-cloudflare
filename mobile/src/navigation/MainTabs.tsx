@@ -9,6 +9,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { ChartScreen } from '../screens/ChartScreen';
 import { PremiumScreen } from '../screens/PremiumScreen';
 import { colors, MIN_TOUCH, spacing } from '../theme';
+import { useAppearance } from '../hooks/useAppearance';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -17,7 +18,7 @@ const GLYPH_TODAY = '\u2728'; // ✨ still reads ok; tints where the font suppor
 const GLYPH_MATCH = '\u2661'; // ♡ WHITE HEART SUIT — follows tab `color`
 const GLYPH_CHART = '\u25CE'; // ◎ BULLSEYE — wheel / chart
 const GLYPH_PREMIUM = '\u2605'; // ★ BLACK STAR — follows tab `color`
-const GLYPH_PROFILE = '\u263A'; // ☺ text glyph for profile tab
+const GLYPH_PROFILE = '\uD83D\uDC64'; // 👤 bust in silhouette for profile tab
 
 type TabBarIconProps = { focused: boolean; color: string; size: number };
 
@@ -31,7 +32,7 @@ const TabIcon = React.memo(function TabIcon({
   size: number;
 }): ReactElement {
   return (
-    <Text style={[styles.tabIcon, { color, fontSize: size }]} allowFontScaling={false}>
+    <Text style={[styles.tabIcon, { color, fontSize: size + 2 }]} allowFontScaling={false}>
       {glyph}
     </Text>
   );
@@ -48,27 +49,28 @@ const iconPremium = tabIcon(GLYPH_PREMIUM);
 const iconProfile = tabIcon(GLYPH_PROFILE);
 
 export function MainTabs(): ReactElement {
+  const { palette } = useAppearance();
   const screenOptions = useMemo(
     () => ({
       headerStyle: {
-        backgroundColor: colors.surface,
+        backgroundColor: palette.surface,
       },
-      headerTintColor: colors.text,
-      headerTitleStyle: styles.headerTitle,
+      headerTintColor: palette.text,
+      headerTitleStyle: [styles.headerTitle, { color: palette.text }],
       headerTitleAlign: 'center' as const,
       headerShadowVisible: false,
       tabBarStyle: {
-        backgroundColor: colors.surface,
-        borderTopColor: colors.border,
-        paddingTop: spacing.xs,
-        minHeight: MIN_TOUCH + spacing.md,
+        backgroundColor: palette.surface,
+        borderTopColor: palette.border,
+        paddingTop: spacing.sm,
+        minHeight: MIN_TOUCH + spacing.lg,
       },
       tabBarLabelStyle: styles.tabLabel,
-      tabBarActiveTintColor: colors.accent,
-      tabBarInactiveTintColor: colors.text,
+      tabBarActiveTintColor: palette.accent,
+      tabBarInactiveTintColor: palette.text,
       tabBarHideOnKeyboard: true,
     }),
-    [],
+    [palette.accent, palette.border, palette.surface, palette.text],
   );
 
   return (
@@ -136,7 +138,8 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
     fontWeight: '600',
+    marginTop: Platform.OS === 'ios' ? 4 : 6,
     marginBottom: Platform.OS === 'ios' ? 2 : 4,
   },
-  tabIcon: { lineHeight: Platform.OS === 'android' ? 26 : 24 },
+  tabIcon: { lineHeight: Platform.OS === 'android' ? 34 : 32 },
 });

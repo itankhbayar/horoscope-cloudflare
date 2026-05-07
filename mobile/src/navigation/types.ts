@@ -5,6 +5,8 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Main: undefined;
+  AppAppearance: undefined;
+  ManageNotifications: undefined;
 };
 
 export type MainTabParamList = {

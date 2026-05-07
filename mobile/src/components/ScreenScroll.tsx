@@ -6,7 +6,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, horizontalScreenPadding, spacing, tabScrollBottomPadding } from '../theme';
+import { horizontalScreenPadding, spacing, tabScrollBottomPadding } from '../theme';
+import { useAppearance } from '../hooks/useAppearance';
 
 type Props = ScrollViewProps & {
   /** Extra bottom space so the last line clears the tab bar / home indicator comfortably. */
@@ -22,6 +23,7 @@ export const ScreenScroll = React.memo(function ScreenScroll({
 }: Props): React.JSX.Element {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { palette } = useAppearance();
   const hp = horizontalScreenPadding(width);
 
   const contentPad = useMemo(
@@ -40,7 +42,7 @@ export const ScreenScroll = React.memo(function ScreenScroll({
 
   return (
     <ScrollView
-      style={[styles.scroll, style]}
+      style={[styles.scroll, { backgroundColor: palette.background }, style]}
       contentContainerStyle={contentPad}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
@@ -52,7 +54,7 @@ export const ScreenScroll = React.memo(function ScreenScroll({
 });
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: colors.background },
+  scroll: { flex: 1 },
   content: { flexGrow: 1 },
   tabletReadable: {
     alignSelf: 'center',

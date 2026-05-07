@@ -34,9 +34,16 @@ export async function updateProfile(payload: {
   });
 }
 
-export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+export async function uploadAvatar(fileOrFormData: File | FormData): Promise<{ avatarUrl: string }> {
+  if (fileOrFormData instanceof FormData) {
+    return apiRequest<{ avatarUrl: string }>('/api/profile/avatar', {
+      method: 'POST',
+      auth: true,
+      body: fileOrFormData,
+    });
+  }
   const form = new FormData();
-  form.append('avatar', file);
+  form.append('avatar', fileOrFormData);
   return apiRequest<{ avatarUrl: string }>('/api/profile/avatar', {
     method: 'POST',
     auth: true,

@@ -161,6 +161,26 @@ export interface ApiError {
   message: string;
 }
 
+export interface NotificationPreferences {
+  allEnabled: boolean;
+  saleAlertsEnabled: boolean;
+  horoscopesEnabled: boolean;
+  transitsEnabled: boolean;
+}
+
+export interface NotificationPreferencesUpdate {
+  allEnabled?: boolean;
+  saleAlertsEnabled?: boolean;
+  horoscopesEnabled?: boolean;
+  transitsEnabled?: boolean;
+}
+
+export interface PushTokenRegistrationPayload {
+  expoPushToken: string;
+  platform: 'ios' | 'android' | 'web' | 'unknown';
+  deviceId?: string | null;
+}
+
 /** Flattened tarot API (`lang` slice). Mirrors backend `TarotApiResponse`. */
 export interface TarotPublicCard {
   name: string;

@@ -14,3 +14,15 @@ export function resetToLogin(): void {
     navigationRef.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
   }
 }
+
+export function goToAppAppearance(): void {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('AppAppearance');
+  }
+}
+
+export function goToManageNotifications(): void {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('ManageNotifications');
+  }
+}

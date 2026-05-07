@@ -1,10 +1,11 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { useAppearance } from '../hooks/useAppearance';
 
 type Props = { message?: string };
 
 function LoadingBlockInner({ message = 'Loading…' }: Props): React.JSX.Element {
+  const { palette } = useAppearance();
   return (
     <View
       style={styles.wrap}
@@ -12,8 +13,8 @@ function LoadingBlockInner({ message = 'Loading…' }: Props): React.JSX.Element
       accessibilityLabel={message}
       accessibilityLiveRegion="polite"
     >
-      <ActivityIndicator size="large" color={colors.accent} />
-      <Text style={styles.text}>{message}</Text>
+      <ActivityIndicator size="large" color={palette.accent} />
+      <Text style={[styles.text, { color: palette.textMuted }]}>{message}</Text>
     </View>
   );
 }
@@ -26,5 +27,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  text: { color: colors.textMuted, fontSize: 14 },
+  text: { fontSize: 14 },
 });

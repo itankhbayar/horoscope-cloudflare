@@ -15,9 +15,11 @@ import {
 } from '../theme';
 import { planetSymbol, aspectSymbol } from '@astralis/lib/zodiac';
 import type { Aspect, PlanetPosition } from '@astralis/lib/types';
+import { useAppearance } from '../hooks/useAppearance';
 
 export function ChartScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
+  const { palette } = useAppearance();
   const { profile, load, recompute, loading, error } = useProfile();
 
   useEffect(() => {
@@ -34,24 +36,24 @@ export function ChartScreen(): React.JSX.Element {
   const listLineHeight = useMemo(() => bodyLineHeight(width), [width]);
 
   const listTextStyle = useMemo(
-    () => [styles.listLine, { fontSize: listFont, lineHeight: listLineHeight }],
-    [listFont, listLineHeight],
+    () => [styles.listLine, { fontSize: listFont, lineHeight: listLineHeight, color: palette.text }],
+    [listFont, listLineHeight, palette.text],
   );
 
   return (
     <ScreenScroll>
-      <Text style={[styles.title, { fontSize: titleSize }]} accessibilityRole="header">
+      <Text style={[styles.title, { fontSize: titleSize, color: palette.text }]} accessibilityRole="header">
         Chart
       </Text>
       {loading ? <LoadingBlock message="Casting chart…" /> : null}
       {error ? (
-        <Text style={styles.error} accessibilityRole="alert">
+        <Text style={[styles.error, { color: '#d14f4f' }]} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
       {chart ? (
         <CosmicCard title="Natal summary">
-          <Text style={[styles.rowText, { fontSize: listFont, lineHeight: listLineHeight }]}>
+          <Text style={[styles.rowText, { fontSize: listFont, lineHeight: listLineHeight, color: palette.text }]}>
             Sun {chart.sunSign} · Moon {chart.moonSign} · Rising {chart.risingSign ?? '—'}
           </Text>
         </CosmicCard>
@@ -88,7 +90,7 @@ export function ChartScreen(): React.JSX.Element {
         accessibilityState={{ disabled: loading }}
         hitSlop={hitSlopComfortable}
       >
-        <Text style={styles.secondaryText}>Recompute chart</Text>
+        <Text style={[styles.secondaryText, { color: palette.accent }]}>Recompute chart</Text>
       </Pressable>
     </ScreenScroll>
   );
@@ -97,8 +99,8 @@ export function ChartScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   title: { fontWeight: '700', color: colors.text },
   error: { color: colors.danger, marginBottom: spacing.xs },
-  rowText: { color: colors.text },
-  listLine: { color: colors.text, marginVertical: spacing.xs },
+  rowText: {},
+  listLine: { marginVertical: spacing.xs },
   secondary: {
     marginTop: spacing.sm,
     minHeight: MIN_TOUCH,

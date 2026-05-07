@@ -1,30 +1,32 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useProfile } from '../hooks/useProfile';
 import { useAuth } from '../hooks/useAuth';
 import { CosmicCard } from '../components/CosmicCard';
 import { LoadingBlock } from '../components/LoadingBlock';
 import { ScreenScroll } from '../components/ScreenScroll';
 import {
-  bodyFontSize,
-  bodyLineHeight,
   colors,
   hitSlopComfortable,
   MIN_TOUCH,
-  screenTitleSize,
   spacing,
 } from '../theme';
 import { ZODIAC_SIGNS } from '@astralis/lib/zodiac';
-import { resetToLogin } from '../navigation/navigationRef';
+import { goToAppAppearance, goToManageNotifications, resetToLogin } from '../navigation/navigationRef';
 import { toProfileDraft, validateProfileDraft, type ProfileDraft, type ProfileValidation } from './profileForm';
+import { useAppearance } from '../hooks/useAppearance';
 
 export function ProfileScreen(): React.JSX.Element {
-  const { width } = useWindowDimensions();
-  const { profile, load, recompute, save, loading, error } = useProfile();
+  const { mode, palette } = useAppearance();
+  const { profile, load, recompute, save, uploadAvatar, loading, avatarUploading, error } = useProfile();
   const { logout, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ProfileDraft | null>(null);
   const [validation, setValidation] = useState<ProfileValidation>({});
+  const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   useEffect(() => {
     void load();
@@ -48,12 +50,14 @@ export function ProfileScreen(): React.JSX.Element {
     if (!profile) return;
     setDraft(toProfileDraft(profile));
     setValidation({});
+    setAvatarError(null);
     setIsEditing(true);
   }, [profile]);
 
   const onCancelEdit = useCallback((): void => {
     if (profile) setDraft(toProfileDraft(profile));
     setValidation({});
+    setAvatarError(null);
     setIsEditing(false);
   }, [profile]);
 
@@ -72,18 +76,80 @@ export function ProfileScreen(): React.JSX.Element {
     setIsEditing(false);
   }, [draft, save]);
 
-  const titleSize = useMemo(() => screenTitleSize(width), [width]);
-  const bodyFont = useMemo(() => bodyFontSize(width), [width]);
-  const bodyLine = useMemo(() => bodyLineHeight(width), [width]);
-
   const empty = !loading && !error && !profile;
+  const avatarSource = avatarPreviewUri || profile?.user.avatarUrl || null;
+  const avatarInitial = (draft?.fullName?.trim().charAt(0) || profile?.user.fullName.charAt(0) || 'A').toUpperCase();
+  const zodiacLabel = profile?.natalChart?.sunInfo?.name ?? profile?.natalChart?.sunSign ?? 'Unknown';
+  const birthDateLabel = profile?.birthProfile?.birthDate ?? 'Unknown birth date';
+  const timezoneLabel = profile?.birthProfile ? `UTC${formatTimezone(profile.birthProfile.timezoneOffset)}` : null;
+
+  const isLight = mode === 'light';
+
+  const onChangeAvatar = useCallback(async (): Promise<void> => {
+    const current = await ImagePicker.getMediaLibraryPermissionsAsync();
+    const permission = current.granted ? current : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      const deniedMsg = 'Media library permission is required to upload an avatar.';
+      setAvatarError(deniedMsg);
+      if (!permission.canAskAgain) {
+        Alert.alert('Enable Photos Access', deniedMsg, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Settings',
+            onPress: () => {
+              void Linking.openSettings();
+            },
+          },
+        ]);
+      }
+      return;
+    }
+
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.9,
+    });
+    if (picked.canceled || picked.assets.length === 0) return;
+
+    const asset = picked.assets[0];
+    if (!asset) return;
+    const mime = resolveAvatarMimeType(asset.uri, asset.mimeType);
+    if (!mime) {
+      setAvatarError('Avatar must be jpeg, png, or webp.');
+      return;
+    }
+    if (typeof asset.fileSize === 'number' && asset.fileSize > 5 * 1024 * 1024) {
+      setAvatarError('Avatar must be 5MB or smaller.');
+      return;
+    }
+
+    const uri = asset.uri;
+    setAvatarPreviewUri(uri);
+    setAvatarLoadFailed(false);
+    setAvatarError(null);
+
+    const form = new FormData();
+    form.append('avatar', {
+      uri,
+      name: inferFileName(uri, mime),
+      type: mime,
+    } as unknown as Blob);
+
+    try {
+      await uploadAvatar(form);
+      // Keep showing the freshly picked local image to avoid stale-cache/propagation gaps.
+      setAvatarLoadFailed(false);
+    } catch (e) {
+      setAvatarError(e instanceof Error ? e.message : 'Failed to upload avatar.');
+    }
+  }, [uploadAvatar]);
 
   return (
-    <ScreenScroll>
-      <Text style={[styles.title, { fontSize: titleSize }]} accessibilityRole="header">
-        Profile
-      </Text>
-      {user ? <Text style={styles.sub}>{user.fullName} · {user.email}</Text> : null}
+    <ScreenScroll contentContainerStyle={styles.container}>
+      {!isLight ? <View style={styles.backgroundGlowTop} pointerEvents="none" /> : null}
+      {!isLight ? <View style={styles.backgroundGlowBottom} pointerEvents="none" /> : null}
       {loading ? <LoadingBlock message="Casting chart…" /> : null}
       {error ? (
         <Text style={styles.error} accessibilityRole="alert">
@@ -92,44 +158,59 @@ export function ProfileScreen(): React.JSX.Element {
       ) : null}
       {empty ? <Text style={styles.empty}>No profile found yet.</Text> : null}
       {profile ? (
-        <CosmicCard title="Your profile">
-          <View style={styles.avatar} accessibilityLabel="Profile avatar placeholder">
-            <Text style={styles.avatarText}>
-              {(draft?.fullName?.trim().charAt(0) || profile.user.fullName.charAt(0) || 'A').toUpperCase()}
+        <>
+          <View style={[styles.headerWrap, isLight && styles.headerWrapLight]}>
+            {avatarSource && !avatarLoadFailed ? (
+              <Image
+                source={{ uri: avatarSource }}
+                style={styles.avatarImage}
+                accessibilityLabel="Profile avatar"
+                onError={() => setAvatarLoadFailed(true)}
+              />
+            ) : (
+              <View style={styles.avatar} accessibilityLabel="Profile avatar placeholder">
+                <Text style={styles.avatarText}>{avatarInitial}</Text>
+              </View>
+            )}
+            <Pressable
+              style={({ pressed }) => [styles.avatarEditBtn, pressed && styles.pressed]}
+              onPress={() => void onChangeAvatar()}
+              disabled={avatarUploading}
+              hitSlop={hitSlopComfortable}
+            >
+              <Text style={styles.avatarEditBtnText}>{avatarUploading ? '…' : '✎'}</Text>
+            </Pressable>
+            <Text style={[styles.name, isLight && { color: palette.text }]} accessibilityRole="header">
+              {profile.user.fullName}
             </Text>
+            {user ? <Text style={[styles.sub, isLight && { color: palette.textMuted }]}>{user.email}</Text> : null}
+            <View style={styles.metaRow}>
+              <InfoPill icon="☉" label={zodiacLabel} />
+              <InfoPill icon="☽" label={birthDateLabel} />
+              {timezoneLabel ? <InfoPill icon="⌛" label={timezoneLabel} /> : null}
+            </View>
           </View>
+          {avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}
           {!isEditing ? (
-            <View style={styles.block}>
-              <LabelValue label="Name" value={profile.user.fullName} fontSize={bodyFont} lineHeight={bodyLine} />
-              <LabelValue label="Email" value={profile.user.email} fontSize={bodyFont} lineHeight={bodyLine} />
-              <LabelValue
-                label="Zodiac sign"
-                value={profile.natalChart?.sunInfo?.name ?? profile.natalChart?.sunSign ?? '—'}
-                fontSize={bodyFont}
-                lineHeight={bodyLine}
-              />
-              <LabelValue
-                label="Birth date"
-                value={profile.birthProfile?.birthDate ?? '—'}
-                fontSize={bodyFont}
-                lineHeight={bodyLine}
-              />
-              <LabelValue
-                label="Timezone"
-                value={profile.birthProfile ? `UTC${formatTimezone(profile.birthProfile.timezoneOffset)}` : '—'}
-                fontSize={bodyFont}
-                lineHeight={bodyLine}
-              />
+            <>
+              <SettingsGroup isLight={isLight}>
+                <SettingsItem icon="✎" label="Edit Profile" onPress={onStartEdit} />
+                <SettingsItem icon="↻" label="Account Settings" onPress={onRecompute} />
+                <SettingsItem icon="🔔" label="Manage Notifications" onPress={goToManageNotifications} />
+                <SettingsItem icon="◐" label="App Appearance" onPress={goToAppAppearance} last />
+              </SettingsGroup>
               <Pressable
-                style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-                onPress={onStartEdit}
+                style={({ pressed }) => [styles.logoutBtn, isLight && styles.logoutBtnLight, pressed && styles.pressed]}
+                onPress={() => void onLogout()}
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
                 hitSlop={hitSlopComfortable}
               >
-                <Text style={styles.secondaryText}>Edit Profile</Text>
+                <Text style={[styles.logoutText, isLight && { color: palette.text }]}>Log out</Text>
               </Pressable>
-            </View>
+            </>
           ) : draft ? (
-            <View style={styles.block}>
+            <CosmicCard title="Edit profile" style={styles.editorCard}>
               <Field
                 label="Name"
                 value={draft.fullName}
@@ -181,50 +262,75 @@ export function ProfileScreen(): React.JSX.Element {
                   <Text style={styles.primaryText}>Save</Text>
                 </Pressable>
               </View>
-            </View>
+            </CosmicCard>
           ) : null}
-        </CosmicCard>
+        </>
       ) : null}
-      <Pressable
-        style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-        onPress={onRecompute}
-        disabled={loading}
-        accessibilityRole="button"
-        accessibilityLabel="Recompute natal chart"
-        accessibilityState={{ disabled: loading }}
-        hitSlop={hitSlopComfortable}
-      >
-        <Text style={styles.secondaryText}>Recompute chart</Text>
-      </Pressable>
-      <Pressable
-        style={({ pressed }) => [styles.dangerBtn, pressed && styles.pressed]}
-        onPress={() => void onLogout()}
-        accessibilityRole="button"
-        accessibilityLabel="Sign out"
-        hitSlop={hitSlopComfortable}
-      >
-        <Text style={styles.dangerText}>Sign out</Text>
-      </Pressable>
     </ScreenScroll>
   );
 }
 
-function LabelValue({
-  label,
-  value,
-  fontSize,
-  lineHeight,
-}: {
-  label: string;
-  value: string;
-  fontSize: number;
-  lineHeight: number;
-}): React.JSX.Element {
+function inferFileName(uri: string, mimeType: string): string {
+  const normalized = uri.split('?')[0] ?? '';
+  const fromUri = normalized.split('/').pop();
+  if (fromUri && fromUri.includes('.')) return fromUri;
+  const ext =
+    mimeType === 'image/png'
+      ? 'png'
+      : mimeType === 'image/webp'
+        ? 'webp'
+        : 'jpg';
+  return `avatar.${ext}`;
+}
+
+function resolveAvatarMimeType(uri: string, rawMimeType?: string | null): 'image/jpeg' | 'image/png' | 'image/webp' | null {
+  const fromMime = (rawMimeType ?? '').toLowerCase().trim();
+  if (fromMime === 'image/jpeg' || fromMime === 'image/jpg') return 'image/jpeg';
+  if (fromMime === 'image/png') return 'image/png';
+  if (fromMime === 'image/webp') return 'image/webp';
+
+  const normalized = uri.split('?')[0] ?? '';
+  const ext = normalized.includes('.') ? normalized.split('.').pop()?.toLowerCase() : '';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  return null;
+}
+
+function InfoPill({ icon, label }: { icon: string; label: string }): React.JSX.Element {
+  const { mode, palette } = useAppearance();
+  const isLight = mode === 'light';
   return (
-    <View style={styles.item}>
-      <Text style={styles.itemLabel}>{label}</Text>
-      <Text style={[styles.itemValue, { fontSize, lineHeight }]}>{value}</Text>
+    <View style={[styles.metaPill, isLight && { backgroundColor: '#eef1ff', borderColor: '#d1d9ff' }]}>
+      <Text style={[styles.metaIcon, isLight && { color: '#6071b6' }]}>{icon}</Text>
+      <Text style={[styles.metaText, isLight && { color: palette.text }]}>{label}</Text>
     </View>
+  );
+}
+
+function SettingsGroup({ children, isLight }: { children: React.ReactNode; isLight: boolean }): React.JSX.Element {
+  return <View style={[styles.settingsCard, isLight && styles.settingsCardLight]}>{children}</View>;
+}
+
+function SettingsItem({
+  icon,
+  label,
+  onPress,
+  last = false,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  last?: boolean;
+}): React.JSX.Element {
+  const { mode, palette } = useAppearance();
+  const isLight = mode === 'light';
+  return (
+    <Pressable style={({ pressed }) => [styles.settingsItem, pressed && styles.pressed]} onPress={onPress}>
+      <Text style={[styles.settingsIcon, isLight && { color: '#6474ba' }]}>{icon}</Text>
+      <Text style={[styles.settingsLabel, isLight && { color: palette.text }]}>{label}</Text>
+      {!last ? <View style={[styles.settingsDivider, isLight && { borderBottomColor: '#d8def8' }]} /> : null}
+    </Pressable>
   );
 }
 
@@ -264,24 +370,158 @@ function formatTimezone(value: number): string {
 }
 
 const styles = StyleSheet.create({
-  title: { fontWeight: '700', color: colors.text },
-  sub: { color: colors.textMuted, marginBottom: spacing.sm, fontSize: 15 },
+  container: { gap: spacing.sm },
+  backgroundGlowTop: {
+    position: 'absolute',
+    top: -140,
+    left: -40,
+    right: -40,
+    height: 320,
+    borderRadius: 220,
+    backgroundColor: 'rgba(116, 93, 255, 0.28)',
+  },
+  backgroundGlowBottom: {
+    position: 'absolute',
+    bottom: -220,
+    right: -60,
+    width: 280,
+    height: 280,
+    borderRadius: 160,
+    backgroundColor: 'rgba(82, 54, 169, 0.25)',
+  },
+  headerWrap: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
+    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(159, 151, 255, 0.25)',
+    backgroundColor: 'rgba(18, 20, 47, 0.8)',
+    shadowColor: '#6047d7',
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  headerWrapLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#dfe4ff',
+    shadowColor: '#9ba6d9',
+    shadowOpacity: 0.16,
+  },
+  name: { color: colors.text, fontWeight: '700', fontSize: 27, marginTop: spacing.md },
+  sub: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md, fontSize: 14 },
   error: { color: colors.danger, marginBottom: spacing.xs },
-  empty: { color: colors.textMuted, marginBottom: spacing.md, fontSize: 15 },
+  empty: { color: colors.textMuted, marginBottom: spacing.md, fontSize: 15, textAlign: 'center' },
   avatar: {
-    height: 64,
-    width: 64,
-    borderRadius: 32,
+    height: 116,
+    width: 116,
+    borderRadius: 58,
     backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    borderWidth: 3,
+    borderColor: 'rgba(195, 184, 255, 0.45)',
   },
-  avatarText: { color: colors.text, fontWeight: '700', fontSize: 24 },
-  block: { gap: spacing.xs },
-  item: { marginBottom: spacing.sm },
-  itemLabel: { color: colors.textMuted, fontSize: 13, marginBottom: 2 },
-  itemValue: { color: colors.text },
+  avatarText: { color: colors.text, fontWeight: '700', fontSize: 42 },
+  avatarImage: {
+    height: 116,
+    width: 116,
+    borderRadius: 58,
+    borderWidth: 3,
+    borderColor: 'rgba(195, 184, 255, 0.45)',
+  },
+  avatarEditBtn: {
+    position: 'absolute',
+    top: 92,
+    marginLeft: 84,
+    height: 36,
+    width: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(200, 191, 255, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6a55e9',
+  },
+  avatarEditBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  metaRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(159, 151, 255, 0.35)',
+    backgroundColor: 'rgba(34, 36, 73, 0.7)',
+    paddingHorizontal: spacing.sm,
+    minHeight: 30,
+  },
+  metaIcon: { color: '#c2b4ff', fontSize: 14 },
+  metaText: { color: '#dfe1f6', fontSize: 13, fontWeight: '600' },
+  settingsCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(159, 151, 255, 0.28)',
+    backgroundColor: 'rgba(20, 22, 52, 0.82)',
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+    shadowColor: '#6a55e9',
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+  },
+  settingsCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#dfe4ff',
+    shadowColor: '#9ba6d9',
+    shadowOpacity: 0.12,
+  },
+  settingsItem: {
+    minHeight: MIN_TOUCH + 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    position: 'relative',
+  },
+  settingsIcon: { width: 24, color: '#c7bbff', fontSize: 18, textAlign: 'center' },
+  settingsLabel: { color: colors.text, fontSize: 17, fontWeight: '600', marginLeft: spacing.sm },
+  settingsDivider: {
+    position: 'absolute',
+    left: spacing.md + 30,
+    right: spacing.md,
+    bottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(159, 151, 255, 0.25)',
+  },
+  logoutBtn: {
+    minHeight: MIN_TOUCH + 2,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(215, 209, 255, 0.7)',
+    backgroundColor: 'rgba(20, 22, 52, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  logoutBtnLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#dfe4ff',
+  },
+  logoutText: { color: colors.text, fontWeight: '700', fontSize: 17 },
+  editorCard: { marginTop: spacing.sm },
   fieldWrap: { marginBottom: spacing.sm },
   fieldLabel: { color: colors.textMuted, marginBottom: spacing.xs, fontSize: 13 },
   input: {
@@ -328,26 +568,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   primaryText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  secondary: {
-    marginTop: spacing.sm,
-    minHeight: MIN_TOUCH,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   secondaryText: { color: colors.accent, fontWeight: '600', fontSize: 16 },
-  dangerBtn: {
-    marginTop: spacing.md,
-    minHeight: MIN_TOUCH,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
-    backgroundColor: 'rgba(229,115,115,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dangerText: { color: colors.danger, fontWeight: '700', fontSize: 16 },
   pressed: { opacity: 0.85 },
 });

@@ -10,11 +10,15 @@ import { colors } from '../theme';
 import type { RootStackParamList } from './types';
 import { navigationRef } from './navigationRef';
 import { useAuth } from '../hooks/useAuth';
+import { AppAppearanceScreen } from '../screens/AppAppearanceScreen';
+import { useAppearance } from '../hooks/useAppearance';
+import { ManageNotificationsScreen } from '../screens/ManageNotificationsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator(): React.JSX.Element {
   const { user, initialized } = useAuth();
+  const { palette } = useAppearance();
 
   if (!initialized) {
     return (
@@ -28,19 +32,21 @@ export function RootNavigator(): React.JSX.Element {
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{
-          headerStyle: { backgroundColor: colors.surface },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: palette.surface },
+          headerTintColor: palette.text,
           headerTitleStyle: { fontWeight: '700', fontSize: 17 },
           headerTitleAlign: 'center',
           headerShadowVisible: false,
           animation: 'slide_from_right',
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: palette.background },
         }}
         initialRouteName={user ? 'Main' : 'Login'}
       >
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen name="AppAppearance" component={AppAppearanceScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ManageNotifications" component={ManageNotificationsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

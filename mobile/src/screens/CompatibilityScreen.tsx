@@ -15,9 +15,11 @@ import {
   screenTitleSize,
   spacing,
 } from '../theme';
+import { useAppearance } from '../hooks/useAppearance';
 
 export function CompatibilityScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
+  const { palette, mode } = useAppearance();
   const { result, loading, error, compareSigns } = useCompatibility();
   const [sign1, setSign1] = useState<ZodiacSign | null>(null);
   const [sign2, setSign2] = useState<ZodiacSign | null>(null);
@@ -37,21 +39,22 @@ export function CompatibilityScreen(): React.JSX.Element {
 
   return (
     <ScreenScroll>
-      <Text style={[styles.title, { fontSize: titleSize }]} accessibilityRole="header">
+      <Text style={[styles.title, { fontSize: titleSize, color: palette.text }]} accessibilityRole="header">
         Compatibility
       </Text>
-      <Text style={[styles.sub, { fontSize: bodySize }]}>Pick two signs</Text>
-      <Text style={styles.pickLabel} accessibilityRole="header">
+      <Text style={[styles.sub, { fontSize: bodySize, color: palette.textMuted }]}>Pick two signs</Text>
+      <Text style={[styles.pickLabel, { color: mode === 'light' ? '#4a5aa0' : colors.gold }]} accessibilityRole="header">
         First sign
       </Text>
       <SignRow selected={sign1} onSelect={setSign1} rowHint="First zodiac sign" />
-      <Text style={styles.pickLabel} accessibilityRole="header">
+      <Text style={[styles.pickLabel, { color: mode === 'light' ? '#4a5aa0' : colors.gold }]} accessibilityRole="header">
         Second sign
       </Text>
       <SignRow selected={sign2} onSelect={setSign2} rowHint="Second zodiac sign" />
       <Pressable
         style={({ pressed }) => [
           styles.button,
+          { backgroundColor: palette.accent },
           (!sign1 || !sign2 || loading) && styles.buttonDisabled,
           pressed && styles.pressed,
         ]}
@@ -66,17 +69,19 @@ export function CompatibilityScreen(): React.JSX.Element {
       </Pressable>
       {loading ? <LoadingBlock message="Computing…" /> : null}
       {error ? (
-        <Text style={styles.error} accessibilityRole="alert">
+        <Text style={[styles.error, { color: '#d14f4f' }]} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
       {result ? (
         <CosmicCard title="Result">
-          <Text style={[styles.score, { fontSize: bodySize + 3 }]}>Overall {result.overallScore}</Text>
-          <Text style={[styles.body, bodyStyle]}>{result.summary}</Text>
-          <Text style={[styles.subhead, { fontSize: bodySize }]}>Highlights</Text>
+          <Text style={[styles.score, { fontSize: bodySize + 3, color: mode === 'light' ? '#4a5aa0' : colors.gold }]}>
+            Overall {result.overallScore}
+          </Text>
+          <Text style={[styles.body, bodyStyle, { color: palette.text }]}>{result.summary}</Text>
+          <Text style={[styles.subhead, { fontSize: bodySize, color: palette.textMuted }]}>Highlights</Text>
           {(result.highlights ?? []).map((h) => (
-            <Text key={h} style={[styles.bullet, bodyStyle]}>
+            <Text key={h} style={[styles.bullet, bodyStyle, { color: palette.text }]}>
               • {h}
             </Text>
           ))}
@@ -95,6 +100,7 @@ const SignRow = React.memo(function SignRow({
   onSelect: (s: ZodiacSign) => void;
   rowHint: string;
 }): React.JSX.Element {
+  const { palette } = useAppearance();
   return (
     <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel={rowHint}>
       {ZODIAC_SIGNS.map((z) => {
@@ -105,6 +111,7 @@ const SignRow = React.memo(function SignRow({
             onPress={() => onSelect(z.key)}
             style={({ pressed }) => [
               styles.chip,
+              { borderColor: palette.border, backgroundColor: palette.surface },
               active && styles.chipActive,
               pressed && styles.pressed,
             ]}
@@ -113,7 +120,7 @@ const SignRow = React.memo(function SignRow({
             accessibilityLabel={`${z.key} ${z.symbol}`}
             hitSlop={hitSlopComfortable}
           >
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{z.symbol}</Text>
+            <Text style={[styles.chipText, { color: palette.text }, active && styles.chipTextActive]}>{z.symbol}</Text>
           </Pressable>
         );
       })}

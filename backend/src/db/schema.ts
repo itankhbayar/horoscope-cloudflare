@@ -146,6 +146,50 @@ export const tarotDaily = sqliteTable(
   }),
 );
 
+export const notificationPreferences = sqliteTable('notification_preferences', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  allEnabled: integer('all_enabled', { mode: 'boolean' }).notNull().default(false),
+  saleAlertsEnabled: integer('sale_alerts_enabled', { mode: 'boolean' }).notNull().default(false),
+  horoscopesEnabled: integer('horoscopes_enabled', { mode: 'boolean' }).notNull().default(false),
+  transitsEnabled: integer('transits_enabled', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+});
+
+export const pushTokens = sqliteTable(
+  'push_tokens',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expoPushToken: text('expo_push_token').notNull(),
+    platform: text('platform').notNull(),
+    deviceId: text('device_id'),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+    lastSeenAt: text('last_seen_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    expoPushTokenIdx: uniqueIndex('push_tokens_expo_push_token_idx').on(t.expoPushToken),
+    userIdIdx: index('push_tokens_user_id_idx').on(t.userId),
+    enabledIdx: index('push_tokens_enabled_idx').on(t.enabled),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type BirthProfile = typeof birthProfiles.$inferSelect;
@@ -160,3 +204,7 @@ export type TarotDaily = typeof tarotDaily.$inferSelect;
 export type NewTarotDaily = typeof tarotDaily.$inferInsert;
 export type StripeWebhookEvent = typeof stripeWebhookEvents.$inferSelect;
 export type NewStripeWebhookEvent = typeof stripeWebhookEvents.$inferInsert;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+export type NewNotificationPreferences = typeof notificationPreferences.$inferInsert;
+export type PushToken = typeof pushTokens.$inferSelect;
+export type NewPushToken = typeof pushTokens.$inferInsert;

@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { AuthProvider } from './src/hooks/useAuth';
+import { AppearanceProvider, useAppearance } from './src/hooks/useAppearance';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 type AbortSignalCtor = typeof AbortSignal & { timeout?: (ms: number) => AbortSignal };
@@ -35,11 +36,22 @@ export default function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>
       <StripeProvider publishableKey={stripePk} urlScheme="astralis">
-        <AuthProvider>
-          <StatusBar style="light" />
-          <RootNavigator />
-        </AuthProvider>
+        <AppearanceProvider>
+          <AuthProvider>
+            <AppShell />
+          </AuthProvider>
+        </AppearanceProvider>
       </StripeProvider>
     </SafeAreaProvider>
+  );
+}
+
+function AppShell(): React.JSX.Element {
+  const { mode } = useAppearance();
+  return (
+    <>
+      <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
+      <RootNavigator />
+    </>
   );
 }

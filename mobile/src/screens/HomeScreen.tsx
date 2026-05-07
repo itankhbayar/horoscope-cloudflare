@@ -8,13 +8,14 @@ import { ScreenScroll } from '../components/ScreenScroll';
 import {
   bodyFontSize,
   bodyLineHeight,
-  colors,
   screenTitleSize,
   spacing,
 } from '../theme';
+import { useAppearance } from '../hooks/useAppearance';
 
 export function HomeScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
+  const { palette, mode } = useAppearance();
   const { profile, load: loadProfile, loading: profileLoading, error: profileError } = useProfile();
   const { horoscope, load, loading: horoLoading, error: horoError } = useHoroscope();
 
@@ -49,7 +50,7 @@ export function HomeScreen(): React.JSX.Element {
   return (
     <ScreenScroll>
       <Text
-        style={[styles.title, dynamicText.title]}
+        style={[styles.title, dynamicText.title, { color: palette.text }]}
         accessibilityRole="header"
         accessibilityLabel="Your stars today"
       >
@@ -57,7 +58,7 @@ export function HomeScreen(): React.JSX.Element {
       </Text>
       {loading ? <LoadingBlock /> : null}
       {error ? (
-        <Text style={styles.error} accessibilityRole="alert">
+        <Text style={[styles.error, { color: '#d14f4f' }]} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -67,13 +68,13 @@ export function HomeScreen(): React.JSX.Element {
           <Section label="Love" text={horoscope.love} bodyStyle={dynamicText.sectionBody} />
           <Section label="Career" text={horoscope.career} bodyStyle={dynamicText.sectionBody} />
           <Section label="Health" text={horoscope.health} bodyStyle={dynamicText.sectionBody} />
-          <Text style={[styles.meta, dynamicText.meta]}>
+          <Text style={[styles.meta, dynamicText.meta, { color: palette.textMuted }]}>
             Lucky {horoscope.luckyNumber} · {horoscope.luckyColor}
           </Text>
         </CosmicCard>
       ) : null}
       {!loading && !horoscope && !error ? (
-        <Text style={[styles.muted, dynamicText.muted]}>
+        <Text style={[styles.muted, dynamicText.muted, { color: palette.textMuted }]}>
           Complete your profile with a birth chart to see your daily reading.
         </Text>
       ) : null}
@@ -90,12 +91,13 @@ const Section = React.memo(function Section({
   text: string;
   bodyStyle: { fontSize: number; lineHeight: number };
 }): React.JSX.Element {
+  const { palette, mode } = useAppearance();
   return (
     <View style={styles.section} accessibilityLabel={`${label}. ${text}`}>
-      <Text style={styles.sectionLabel} accessibilityRole="header">
+      <Text style={[styles.sectionLabel, { color: mode === 'light' ? '#4a5aa0' : '#d4af37' }]} accessibilityRole="header">
         {label}
       </Text>
-      <Text style={[styles.sectionBody, bodyStyle]}>{text}</Text>
+      <Text style={[styles.sectionBody, bodyStyle, { color: palette.text }]}>{text}</Text>
     </View>
   );
 });
@@ -103,13 +105,12 @@ const Section = React.memo(function Section({
 const styles = StyleSheet.create({
   title: {
     fontWeight: '700',
-    color: colors.text,
     marginBottom: spacing.sm,
   },
-  error: { color: colors.danger, marginBottom: spacing.xs, fontSize: 15 },
-  muted: { color: colors.textMuted },
+  error: { marginBottom: spacing.xs, fontSize: 15 },
+  muted: {},
   section: { marginBottom: spacing.sm },
-  sectionLabel: { color: colors.gold, fontWeight: '600', marginBottom: spacing.xs, fontSize: 14 },
-  sectionBody: { color: colors.text },
-  meta: { color: colors.textMuted, marginTop: spacing.sm },
+  sectionLabel: { fontWeight: '600', marginBottom: spacing.xs, fontSize: 14 },
+  sectionBody: {},
+  meta: { marginTop: spacing.sm },
 });

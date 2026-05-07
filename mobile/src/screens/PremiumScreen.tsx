@@ -25,11 +25,13 @@ import {
   screenTitleSize,
   spacing,
 } from '../theme';
+import { useAppearance } from '../hooks/useAppearance';
 
 const RETURN_PATH = 'stripe-return';
 
 export function PremiumScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
+  const { palette } = useAppearance();
   const { user, refreshUser } = useAuth();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [busy, setBusy] = useState(false);
@@ -161,23 +163,23 @@ export function PremiumScreen(): React.JSX.Element {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['left', 'right', 'top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['left', 'right', 'top', 'bottom']}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingHorizontal: hp, paddingTop: spacing.md }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { fontSize: titleSize }]} accessibilityRole="header">
+        <Text style={[styles.title, { fontSize: titleSize, color: palette.text }]} accessibilityRole="header">
           Premium
         </Text>
 
         <CosmicCard title="Your plan">
-          <Text style={[styles.body, { fontSize: bodySize, lineHeight: lh }]}>
+          <Text style={[styles.body, { fontSize: bodySize, lineHeight: lh, color: palette.textMuted }]}>
             Status:{' '}
-            <Text style={styles.statusStrong}>{isPremium ? 'Premium active' : 'Free plan'}</Text>
+            <Text style={[styles.statusStrong, { color: palette.text }]}>{isPremium ? 'Premium active' : 'Free plan'}</Text>
           </Text>
           {user ? (
-            <Text style={[styles.muted, { fontSize: bodySize - 1 }]}>
+            <Text style={[styles.muted, { fontSize: bodySize - 1, color: palette.textMuted }]}>
               Signed in as {user.fullName}. Entitlements always come from the server after Stripe webhooks
               confirm payment.
             </Text>
@@ -185,12 +187,12 @@ export function PremiumScreen(): React.JSX.Element {
         </CosmicCard>
 
         <CosmicCard title="Upgrade">
-          <Text style={[styles.body, { fontSize: bodySize, lineHeight: lh }]}>
+          <Text style={[styles.body, { fontSize: bodySize, lineHeight: lh, color: palette.textMuted }]}>
             Pay with Apple Pay / Google Pay or card via Stripe (test mode). The app never trusts the device
             alone—your account updates when Stripe notifies the backend.
           </Text>
           <Pressable
-            style={({ pressed }) => [styles.primary, busy && styles.disabled, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.primary, { backgroundColor: palette.accent }, busy && styles.disabled, pressed && styles.pressed]}
             onPress={() => void onUpgrade()}
             disabled={busy}
             accessibilityRole="button"
@@ -212,29 +214,29 @@ export function PremiumScreen(): React.JSX.Element {
             from the API (e.g. after webhook delay or reinstall).
           </Text>
           <Pressable
-            style={({ pressed }) => [styles.secondary, busy && styles.disabled, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.secondary, { borderColor: palette.border }, busy && styles.disabled, pressed && styles.pressed]}
             onPress={() => void onManageBilling()}
             disabled={busy}
             accessibilityRole="button"
             accessibilityLabel="Manage subscription in Stripe customer portal"
             hitSlop={hitSlopComfortable}
           >
-            <Text style={styles.secondaryText}>Manage billing (portal)</Text>
+            <Text style={[styles.secondaryText, { color: palette.accent }]}>Manage billing (portal)</Text>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.secondary, busy && styles.disabled, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.secondary, { borderColor: palette.border }, busy && styles.disabled, pressed && styles.pressed]}
             onPress={() => void onRefreshStatus()}
             disabled={busy}
             accessibilityRole="button"
             accessibilityLabel="Refresh premium status from server"
             hitSlop={hitSlopComfortable}
           >
-            <Text style={styles.secondaryText}>Restore / refresh status</Text>
+            <Text style={[styles.secondaryText, { color: palette.accent }]}>Restore / refresh status</Text>
           </Pressable>
         </CosmicCard>
 
         {message ? (
-          <Text style={styles.feedback} accessibilityLiveRegion="polite">
+          <Text style={[styles.feedback, { color: palette.text }]} accessibilityLiveRegion="polite">
             {message}
           </Text>
         ) : null}
@@ -244,7 +246,7 @@ export function PremiumScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1 },
   content: { flexGrow: 1, paddingBottom: spacing.xxxl },
   title: { fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
   body: { color: colors.textMuted },
