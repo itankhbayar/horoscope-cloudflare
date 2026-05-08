@@ -21,8 +21,20 @@ export function goToAppAppearance(): void {
   }
 }
 
+export function goToAccountSettings(): void {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('AccountSettings');
+  }
+}
+
 export function goToManageNotifications(): void {
   if (navigationRef.isReady()) {
     navigationRef.navigate('ManageNotifications');
+  }
+}
+
+export function goToDeleteAccount(): void {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('DeleteAccount');
   }
 }

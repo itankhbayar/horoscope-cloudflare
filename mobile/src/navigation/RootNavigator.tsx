@@ -13,6 +13,8 @@ import { useAuth } from '../hooks/useAuth';
 import { AppAppearanceScreen } from '../screens/AppAppearanceScreen';
 import { useAppearance } from '../hooks/useAppearance';
 import { ManageNotificationsScreen } from '../screens/ManageNotificationsScreen';
+import { AccountSettingsScreen } from '../screens/AccountSettingsScreen';
+import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -45,8 +47,10 @@ export function RootNavigator(): React.JSX.Element {
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AppAppearance" component={AppAppearanceScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ManageNotifications" component={ManageNotificationsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

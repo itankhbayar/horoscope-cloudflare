@@ -22,6 +22,7 @@ type AuthCtx = {
   login: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
 
@@ -116,6 +117,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     setUser(null);
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    await authService.deleteAccount();
+    setUser(null);
+  }, []);
+
   const refreshUser = useCallback(async () => {
     if (!(await authService.isAuthenticated())) {
       setUser(null);
@@ -134,9 +140,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       login,
       register,
       logout,
+      deleteAccount,
       refreshUser,
     }),
-    [user, initialized, loading, error, login, register, logout, refreshUser],
+    [user, initialized, loading, error, login, register, logout, deleteAccount, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

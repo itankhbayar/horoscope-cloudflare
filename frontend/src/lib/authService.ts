@@ -46,6 +46,15 @@ export async function logout(): Promise<void> {
   await clearLocalSession();
 }
 
+export async function deleteAccount(): Promise<void> {
+  await apiRequest<{ ok: boolean }>('/api/account', {
+    method: 'DELETE',
+    auth: true,
+    localized: false,
+  });
+  await clearLocalSession();
+}
+
 export async function fetchMe(): Promise<AuthUser> {
   return apiRequest<AuthUser>('/api/auth/me', { auth: true });
 }

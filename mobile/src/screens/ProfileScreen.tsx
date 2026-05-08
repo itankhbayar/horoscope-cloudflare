@@ -13,13 +13,13 @@ import {
   spacing,
 } from '../theme';
 import { ZODIAC_SIGNS } from '@astralis/lib/zodiac';
-import { goToAppAppearance, goToManageNotifications, resetToLogin } from '../navigation/navigationRef';
+import { goToAccountSettings, goToAppAppearance, goToManageNotifications, resetToLogin } from '../navigation/navigationRef';
 import { toProfileDraft, validateProfileDraft, type ProfileDraft, type ProfileValidation } from './profileForm';
 import { useAppearance } from '../hooks/useAppearance';
 
 export function ProfileScreen(): React.JSX.Element {
   const { mode, palette } = useAppearance();
-  const { profile, load, recompute, save, uploadAvatar, loading, avatarUploading, error } = useProfile();
+  const { profile, load, save, uploadAvatar, loading, avatarUploading, error } = useProfile();
   const { logout, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ProfileDraft | null>(null);
@@ -41,10 +41,6 @@ export function ProfileScreen(): React.JSX.Element {
     await logout();
     resetToLogin();
   }, [logout]);
-
-  const onRecompute = useCallback((): void => {
-    void recompute();
-  }, [recompute]);
 
   const onStartEdit = useCallback((): void => {
     if (!profile) return;
@@ -195,7 +191,7 @@ export function ProfileScreen(): React.JSX.Element {
             <>
               <SettingsGroup isLight={isLight}>
                 <SettingsItem icon="✎" label="Edit Profile" onPress={onStartEdit} />
-                <SettingsItem icon="↻" label="Account Settings" onPress={onRecompute} />
+                <SettingsItem icon="↻" label="Account Settings" onPress={goToAccountSettings} />
                 <SettingsItem icon="🔔" label="Manage Notifications" onPress={goToManageNotifications} />
                 <SettingsItem icon="◐" label="App Appearance" onPress={goToAppAppearance} last />
               </SettingsGroup>

@@ -8,6 +8,7 @@ import adminRoutes from './routes/admin';
 import tarotRoutes from './routes/tarot';
 import billingRoutes from './routes/billing';
 import notificationsRoutes from './routes/notifications';
+import accountRoutes from './routes/account';
 import { getDb } from './db/client';
 import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscopePrewarmService';
 import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
@@ -58,6 +59,7 @@ app.get('/', (c) =>
       'PATCH /api/notifications/preferences',
       'POST /api/notifications/push-token',
       'DELETE /api/notifications/push-token',
+      'DELETE /api/account',
     ],
   }),
 );
@@ -69,6 +71,7 @@ app.route('/api/compatibility', compatibilityRoutes);
 app.route('/api/tarot', tarotRoutes);
 app.route('/api/billing', billingRoutes);
 app.route('/api/notifications', notificationsRoutes);
+app.route('/api/account', accountRoutes);
 app.route('/admin', adminRoutes);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
