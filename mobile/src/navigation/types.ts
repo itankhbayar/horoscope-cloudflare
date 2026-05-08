@@ -5,8 +5,10 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Main: undefined;
+  AccountSettings: undefined;
   AppAppearance: undefined;
   ManageNotifications: undefined;
+  DeleteAccount: undefined;
 };
 
 export type MainTabParamList = {
