@@ -16,7 +16,7 @@ export type MainTabParamList = {
   Compatibility: undefined;
   Chart: undefined;
   Profile: undefined;
-  Premium: undefined;
+  Explore: undefined;
 };
 
 export type RootStackNav = NativeStackNavigationProp<RootStackParamList>;

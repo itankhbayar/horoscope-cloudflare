@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,9 +14,18 @@ export function AccountSettingsScreen(): React.JSX.Element {
   const navigation = useNavigation<RootNav>();
   const { mode, palette } = useAppearance();
   const isLight = mode === 'light';
+  const cardBg = isLight ? '#f9f9fe' : palette.surface;
+  const cardBorder = isLight ? '#e2e4f4' : palette.border;
+  const cardShadow = isLight ? '#9fa7cf' : '#0a0d22';
+  const subtleDanger = isLight ? '#fff4f6' : 'rgba(239, 97, 129, 0.12)';
+  const subtleDangerBorder = isLight ? '#f1cad3' : 'rgba(239, 97, 129, 0.35)';
+  const dangerText = isLight ? '#8f2d45' : '#f4a8ba';
+  const dangerDescription = isLight ? '#a05d71' : '#daa6b4';
+  const dangerChevron = isLight ? '#be5c7a' : '#f1a4b8';
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: isLight ? '#f3f3f6' : palette.background }]} edges={['left', 'right', 'top']}>
+      <View pointerEvents="none" style={[styles.glowTop, { backgroundColor: isLight ? 'rgba(170, 155, 255, 0.2)' : 'rgba(108, 92, 214, 0.24)' }]} />
       <View style={styles.container}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -34,33 +43,83 @@ export function AccountSettingsScreen(): React.JSX.Element {
           <Text style={[styles.backChevron, { color: isLight ? '#2f3566' : '#d8d2ff' }]}>‹</Text>
         </Pressable>
 
-        <Text style={[styles.title, { color: palette.text }]}>Account Settings</Text>
-        <Text style={[styles.subtitle, { color: palette.textMuted }]}>Configure your account level settings</Text>
+        <View style={styles.headerSection}>
+          <Text style={[styles.title, { color: palette.text }]}>Account Settings</Text>
+          <Text style={[styles.subtitle, { color: palette.textMuted }]}>
+            Manage your account, privacy, and security preferences.
+          </Text>
+        </View>
 
-        <Pressable
-          onPress={goToDeleteAccount}
-          style={({ pressed }) => [
-            styles.row,
+        <View
+          style={[
+            styles.groupCard,
             {
-              borderColor: isLight ? '#d6d7dc' : palette.border,
-              backgroundColor: isLight ? '#f7f7fa' : palette.surface,
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
+              shadowColor: cardShadow,
             },
-            pressed && styles.pressed,
           ]}
-          accessibilityRole="button"
-          accessibilityLabel="Delete Account"
         >
-          <Text style={[styles.rowLabel, { color: palette.text }]}>Delete Account</Text>
-          <Text style={[styles.rowChevron, { color: isLight ? '#9a9cac' : palette.textMuted }]}>›</Text>
-        </Pressable>
+          <SettingRow
+            title="Delete Account"
+            description="Permanently remove your account and personal data."
+            onPress={goToDeleteAccount}
+            titleColor={dangerText}
+            descriptionColor={dangerDescription}
+            chevronColor={dangerChevron}
+            rowStyle={{ backgroundColor: subtleDanger, borderColor: subtleDangerBorder }}
+          />
+        </View>
       </View>
     </SafeAreaView>
+  );
+}
+
+function SettingRow({
+  title,
+  description,
+  onPress,
+  titleColor,
+  descriptionColor,
+  chevronColor,
+  rowStyle,
+}: {
+  title: string;
+  description?: string;
+  onPress: () => void;
+  titleColor: string;
+  descriptionColor: string;
+  chevronColor: string;
+  rowStyle?: StyleProp<ViewStyle>;
+}): React.JSX.Element {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, rowStyle, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
+      <View style={styles.rowTextWrap}>
+        <Text style={[styles.rowLabel, { color: titleColor }]}>{title}</Text>
+        {description ? <Text style={[styles.rowDescription, { color: descriptionColor }]}>{description}</Text> : null}
+      </View>
+      <Text style={[styles.rowChevron, { color: chevronColor }]}>›</Text>
+      <View style={styles.rowDangerDot} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+  },
+  glowTop: {
+    position: 'absolute',
+    top: -160,
+    left: -40,
+    right: -40,
+    height: 320,
+    borderRadius: 220,
   },
   container: {
     flex: 1,
@@ -81,39 +140,72 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginBottom: spacing.xl,
   },
+  headerSection: {
+    marginBottom: spacing.lg,
+    gap: spacing.xs,
+  },
   backChevron: {
     fontSize: 34,
     lineHeight: 34,
     marginTop: -2,
   },
   title: {
-    fontSize: 38,
-    lineHeight: 42,
+    fontSize: 36,
+    lineHeight: 40,
     fontWeight: '800',
-    marginBottom: spacing.xs,
+    letterSpacing: 0.2,
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: 16,
     lineHeight: 22,
-    marginBottom: spacing.xl,
+  },
+  groupCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: spacing.sm,
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
   row: {
-    minHeight: 62,
-    borderRadius: 12,
+    minHeight: 76,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    position: 'relative',
+  },
+  rowTextWrap: {
+    flex: 1,
+    paddingRight: spacing.md,
+    gap: 4,
   },
   rowLabel: {
     fontSize: 17,
     lineHeight: 22,
-    fontWeight: '500',
+    fontWeight: '700',
+  },
+  rowDescription: {
+    fontSize: 14,
+    lineHeight: 19,
   },
   rowChevron: {
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 26,
+    lineHeight: 30,
+  },
+  rowDangerDot: {
+    position: 'absolute',
+    right: spacing.sm + 20,
+    top: spacing.sm,
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: '#ef6181',
+    opacity: 0.8,
   },
   pressed: { opacity: 0.84 },
 });

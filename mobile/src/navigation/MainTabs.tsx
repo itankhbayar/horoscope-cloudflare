@@ -7,7 +7,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { CompatibilityScreen } from '../screens/CompatibilityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ChartScreen } from '../screens/ChartScreen';
-import { PremiumScreen } from '../screens/PremiumScreen';
+import { ExploreScreen } from '../screens/ExploreScreen';
 import { colors, MIN_TOUCH, spacing } from '../theme';
 import { useAppearance } from '../hooks/useAppearance';
 
@@ -17,7 +17,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const GLYPH_TODAY = '\u2728'; // ✨ still reads ok; tints where the font supports it
 const GLYPH_MATCH = '\u2661'; // ♡ WHITE HEART SUIT — follows tab `color`
 const GLYPH_CHART = '\u25CE'; // ◎ BULLSEYE — wheel / chart
-const GLYPH_PREMIUM = '\u2605'; // ★ BLACK STAR — follows tab `color`
+const GLYPH_EXPLORE = '\u25C8'; // ◈ lozenge icon for explore/discovery
 const GLYPH_PROFILE = '\uD83D\uDC64'; // 👤 bust in silhouette for profile tab
 
 type TabBarIconProps = { focused: boolean; color: string; size: number };
@@ -45,7 +45,7 @@ function tabIcon(glyph: string): (props: TabBarIconProps) => ReactElement {
 const iconToday = tabIcon(GLYPH_TODAY);
 const iconMatch = tabIcon(GLYPH_MATCH);
 const iconChart = tabIcon(GLYPH_CHART);
-const iconPremium = tabIcon(GLYPH_PREMIUM);
+const iconExplore = tabIcon(GLYPH_EXPLORE);
 const iconProfile = tabIcon(GLYPH_PROFILE);
 
 export function MainTabs(): ReactElement {
@@ -106,13 +106,13 @@ export function MainTabs(): ReactElement {
         }}
       />
       <Tab.Screen
-        name="Premium"
-        component={PremiumScreen}
+        name="Explore"
+        component={ExploreScreen}
         options={{
-          title: 'Premium',
-          tabBarLabel: 'Premium',
-          tabBarIcon: iconPremium,
-          tabBarAccessibilityLabel: 'Premium subscription',
+          title: 'Explore',
+          tabBarLabel: 'Explore',
+          tabBarIcon: iconExplore,
+          tabBarAccessibilityLabel: 'Explore astrology content',
         }}
       />
       <Tab.Screen
