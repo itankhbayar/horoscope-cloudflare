@@ -5,6 +5,7 @@ import { useProfile } from '../hooks/useProfile';
 import { useAuth } from '../hooks/useAuth';
 import { CosmicCard } from '../components/CosmicCard';
 import { LoadingBlock } from '../components/LoadingBlock';
+import { PremiumAccessCard } from '../components/PremiumAccessCard';
 import { ScreenScroll } from '../components/ScreenScroll';
 import {
   colors,
@@ -195,6 +196,7 @@ export function ProfileScreen(): React.JSX.Element {
                 <SettingsItem icon="🔔" label="Manage Notifications" onPress={goToManageNotifications} />
                 <SettingsItem icon="◐" label="App Appearance" onPress={goToAppAppearance} last />
               </SettingsGroup>
+              <PremiumAccessCard />
               <Pressable
                 style={({ pressed }) => [styles.logoutBtn, isLight && styles.logoutBtnLight, pressed && styles.pressed]}
                 onPress={() => void onLogout()}

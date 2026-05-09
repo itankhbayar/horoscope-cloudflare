@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,6 +19,10 @@ export function DeleteAccountScreen(): React.JSX.Element {
   const { deleteAccount } = useAuth();
   const { mode, palette } = useAppearance();
   const isLight = mode === 'light';
+  const dangerBase = isLight ? '#b03052' : '#ef6181';
+  const dangerCardBg = isLight ? '#fff2f6' : 'rgba(239, 97, 129, 0.14)';
+  const dangerCardBorder = isLight ? '#f3c8d6' : 'rgba(239, 97, 129, 0.38)';
+  const neutralButtonBg = isLight ? '#ffffff' : palette.surface;
   const [deleting, setDeleting] = useState(false);
 
   const runDelete = useCallback(async (): Promise<void> => {
@@ -49,6 +53,7 @@ export function DeleteAccountScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: isLight ? '#f3f3f6' : palette.background }]} edges={['left', 'right', 'top']}>
+      <View pointerEvents="none" style={[styles.glowTop, { backgroundColor: isLight ? 'rgba(175, 162, 255, 0.2)' : 'rgba(108, 92, 214, 0.25)' }]} />
       <View style={styles.container}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -68,29 +73,134 @@ export function DeleteAccountScreen(): React.JSX.Element {
 
         <Text style={[styles.title, { color: palette.text }]}>Delete Account</Text>
         <Text style={[styles.subtitle, { color: palette.textMuted }]}>Delete your account from our servers</Text>
-        <Text style={[styles.info, { color: palette.text }]}>{INFO_COPY}</Text>
 
-        <Pressable
-          onPress={onPressDelete}
-          style={({ pressed }) => [
-            styles.deleteButton,
-            { backgroundColor: isLight ? '#2f2f95' : palette.accent },
-            (pressed || deleting) && styles.pressed,
+        <WarningCard
+          title="This action is irreversible"
+          items={[
+            'Your account will be permanently deleted',
+            'All personal data will be removed',
+            'This action cannot be undone',
           ]}
-          disabled={deleting}
-          accessibilityRole="button"
-          accessibilityLabel="Delete my account"
+          titleColor={dangerBase}
+          textColor={isLight ? '#8f3b56' : '#f0b7c5'}
+          style={{ backgroundColor: dangerCardBg, borderColor: dangerCardBorder }}
+        />
+
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: isLight ? '#f9f9fe' : palette.surface,
+              borderColor: isLight ? '#e2e4f4' : palette.border,
+              shadowColor: isLight ? '#9fa7cf' : '#0a0d22',
+            },
+          ]}
         >
-          <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete my account'}</Text>
+          <Text style={[styles.infoHeading, { color: palette.text }]}>What will happen next</Text>
+          <Text style={[styles.infoBlock, { color: palette.textMuted }]}>
+            {INFO_COPY}
+          </Text>
+          <Text style={[styles.infoBlock, { color: palette.textMuted }]}>
+            You will be logged out immediately after deletion, and the app will return you to the sign-in flow.
+          </Text>
+        </View>
+
+        <DangerButton
+          onPress={onPressDelete}
+          label={deleting ? 'Deleting…' : 'Delete my account'}
+          disabled={deleting}
+          backgroundColor={dangerBase}
+          accessibilityLabel="Delete my account"
+        />
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            {
+              backgroundColor: neutralButtonBg,
+              borderColor: isLight ? '#d8dcec' : palette.border,
+            },
+            pressed && styles.pressed,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Keep my account"
+        >
+          <Text style={[styles.secondaryButtonText, { color: palette.text }]}>Keep my account</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
+function WarningCard({
+  title,
+  items,
+  titleColor,
+  textColor,
+  style,
+}: {
+  title: string;
+  items: string[];
+  titleColor: string;
+  textColor: string;
+  style?: StyleProp<ViewStyle>;
+}): React.JSX.Element {
+  return (
+    <View style={[styles.warningCard, style]}>
+      <Text style={[styles.warningTitle, { color: titleColor }]}>{title}</Text>
+      <View style={styles.warningList}>
+        {items.map((item) => (
+          <View key={item} style={styles.warningRow}>
+            <Text style={[styles.warningBullet, { color: titleColor }]}>•</Text>
+            <Text style={[styles.warningText, { color: textColor }]}>{item}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function DangerButton({
+  onPress,
+  label,
+  disabled,
+  backgroundColor,
+  accessibilityLabel,
+}: {
+  onPress: () => void;
+  label: string;
+  disabled: boolean;
+  backgroundColor: string;
+  accessibilityLabel: string;
+}): React.JSX.Element {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.deleteButton,
+        { backgroundColor, opacity: disabled ? 0.65 : 1 },
+        (pressed || disabled) && styles.pressed,
+      ]}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      <Text style={styles.deleteButtonText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+  },
+  glowTop: {
+    position: 'absolute',
+    top: -170,
+    left: -40,
+    right: -40,
+    height: 340,
+    borderRadius: 220,
   },
   container: {
     flex: 1,
@@ -117,35 +227,96 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   title: {
-    fontSize: 36,
-    lineHeight: 40,
+    fontSize: 34,
+    lineHeight: 38,
     fontWeight: '800',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 19,
-    lineHeight: 24,
-    marginBottom: spacing.xl,
+    fontSize: 16,
+    lineHeight: 22,
+    marginBottom: spacing.lg,
   },
-  info: {
-    fontSize: 17,
+  warningCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  warningTitle: {
+    fontSize: 18,
     lineHeight: 24,
-    marginBottom: spacing.xxxl,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  warningList: {
+    gap: 6,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  warningBullet: {
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  infoCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: spacing.md,
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
+    marginBottom: spacing.lg,
+  },
+  infoHeading: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  infoBlock: {
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: spacing.sm,
   },
   deleteButton: {
     minHeight: 54,
-    borderRadius: 8,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     marginTop: 'auto',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   deleteButtonText: {
     color: '#ffffff',
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: '500',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xxxl,
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '600',
   },
   pressed: { opacity: 0.84 },
 });
