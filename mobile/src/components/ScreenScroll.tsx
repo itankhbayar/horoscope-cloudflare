@@ -12,12 +12,15 @@ import { useAppearance } from '../hooks/useAppearance';
 type Props = ScrollViewProps & {
   /** Extra bottom space so the last line clears the tab bar / home indicator comfortably. */
   includeTabBarPadding?: boolean;
+  /** When set, the scroll view fill uses this instead of global `palette.background` (e.g. Home cosmic background). */
+  scrollBackgroundColor?: string;
 };
 
 export const ScreenScroll = React.memo(function ScreenScroll({
   style,
   contentContainerStyle,
   includeTabBarPadding = true,
+  scrollBackgroundColor,
   children,
   ...rest
 }: Props): React.JSX.Element {
@@ -42,7 +45,11 @@ export const ScreenScroll = React.memo(function ScreenScroll({
 
   return (
     <ScrollView
-      style={[styles.scroll, { backgroundColor: palette.background }, style]}
+      style={[
+        styles.scroll,
+        { backgroundColor: scrollBackgroundColor ?? palette.background },
+        style,
+      ]}
       contentContainerStyle={contentPad}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}

@@ -26,11 +26,13 @@ import {
 } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 import { resetToMain } from '../navigation/navigationRef';
+import { useAppearance } from '../hooks/useAppearance';
 
 export function RegisterScreen(): React.JSX.Element {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width } = useWindowDimensions();
   const { register, loading } = useAuth();
+  const { palette, mode } = useAppearance();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,9 +68,10 @@ export function RegisterScreen(): React.JSX.Element {
 
   const hp = horizontalScreenPadding(width);
   const brandSize = useMemo(() => brandTitleSize(width), [width]);
+  const isLight = mode === 'light';
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -79,11 +82,14 @@ export function RegisterScreen(): React.JSX.Element {
           contentContainerStyle={[styles.scroll, { paddingHorizontal: hp }]}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.brand, { fontSize: brandSize }]} accessibilityRole="header">
+          <Text
+            style={[styles.brand, { fontSize: brandSize, color: isLight ? palette.accent : colors.gold }]}
+            accessibilityRole="header"
+          >
             ✦ Astralis
           </Text>
           <CosmicCard title="Create account">
-            <Text style={styles.hint}>
+            <Text style={[styles.hint, { color: palette.textMuted }]}>
               Birth date as YYYY-MM-DD. City must match the API city list (same as web).
             </Text>
             {errorMsg ? (
@@ -98,6 +104,8 @@ export function RegisterScreen(): React.JSX.Element {
               onChangeText={setFullName}
               autoComplete="name"
               textContentType="name"
+              palette={palette}
+              isLight={isLight}
             />
             <Field
               label="Email"
@@ -107,6 +115,8 @@ export function RegisterScreen(): React.JSX.Element {
               keyboardType="email-address"
               autoComplete="email"
               textContentType="emailAddress"
+              palette={palette}
+              isLight={isLight}
             />
             <Field
               label="Password"
@@ -116,6 +126,8 @@ export function RegisterScreen(): React.JSX.Element {
               secure
               autoComplete="password-new"
               textContentType="newPassword"
+              palette={palette}
+              isLight={isLight}
             />
             <Field
               label="Birth date (YYYY-MM-DD)"
@@ -123,12 +135,16 @@ export function RegisterScreen(): React.JSX.Element {
               value={birthDate}
               onChangeText={setBirthDate}
               autoComplete="birthdate-full"
+              palette={palette}
+              isLight={isLight}
             />
             <Field
               label="Birth time (optional, HH:MM)"
               labelNativeId="reg-birthtime-label"
               value={birthTime}
               onChangeText={setBirthTime}
+              palette={palette}
+              isLight={isLight}
             />
             <Field
               label="Birth city"
@@ -136,6 +152,8 @@ export function RegisterScreen(): React.JSX.Element {
               value={birthCity}
               onChangeText={setBirthCity}
               autoComplete="postal-address-locality"
+              palette={palette}
+              isLight={isLight}
             />
             <Pressable
               style={({ pressed }) => [
@@ -159,7 +177,7 @@ export function RegisterScreen(): React.JSX.Element {
               accessibilityLabel="Sign in with existing account"
               hitSlop={hitSlopComfortable}
             >
-              <Text style={styles.linkText}>Already have an account? Sign in</Text>
+              <Text style={[styles.linkText, { color: palette.accent }]}>Already have an account? Sign in</Text>
             </Pressable>
           </CosmicCard>
         </ScrollView>
@@ -177,6 +195,8 @@ const Field = React.memo(function Field({
   keyboardType,
   autoComplete,
   textContentType,
+  palette,
+  isLight,
 }: {
   label: string;
   labelNativeId: string;
@@ -186,20 +206,29 @@ const Field = React.memo(function Field({
   keyboardType?: 'default' | 'email-address';
   autoComplete?: TextInputProps['autoComplete'];
   textContentType?: TextInputProps['textContentType'];
+  palette: { text: string; textMuted: string; border: string; surface: string };
+  isLight: boolean;
 }): React.JSX.Element {
   return (
     <View style={styles.fieldWrap}>
-      <Text style={styles.label} nativeID={labelNativeId}>
+      <Text style={[styles.label, { color: palette.textMuted }]} nativeID={labelNativeId}>
         {label}
       </Text>
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            borderColor: palette.border,
+            color: palette.text,
+            backgroundColor: isLight ? '#ffffff' : palette.surface,
+          },
+        ]}
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secure}
         keyboardType={keyboardType ?? 'default'}
         autoCapitalize={keyboardType === 'email-address' ? 'none' : 'words'}
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={palette.textMuted}
         autoComplete={autoComplete}
         textContentType={textContentType}
         accessibilityLabel={label}

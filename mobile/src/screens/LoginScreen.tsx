@@ -25,11 +25,13 @@ import {
 } from '../theme';
 import { resetToMain } from '../navigation/navigationRef';
 import { getApiBaseUrl } from '@astralis/lib/apiClient';
+import { useAppearance } from '../hooks/useAppearance';
 
 export function LoginScreen(): React.JSX.Element {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width } = useWindowDimensions();
   const { login, loading } = useAuth();
+  const { palette, mode } = useAppearance();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -60,9 +62,10 @@ export function LoginScreen(): React.JSX.Element {
 
   const hp = horizontalScreenPadding(width);
   const brandSize = useMemo(() => brandTitleSize(width), [width]);
+  const isLight = mode === 'light';
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -74,7 +77,7 @@ export function LoginScreen(): React.JSX.Element {
           showsVerticalScrollIndicator={false}
         >
           <Text
-            style={[styles.brand, { fontSize: brandSize }]}
+            style={[styles.brand, { fontSize: brandSize, color: isLight ? palette.accent : colors.gold }]}
             accessibilityRole="header"
             accessibilityLabel="Astralis"
           >
@@ -87,24 +90,31 @@ export function LoginScreen(): React.JSX.Element {
               </Text>
             ) : null}
             {showLoopbackHint ? (
-              <Text style={styles.hint}>
+              <Text style={[styles.hint, { color: palette.textMuted }]}>
                 {
                   "On a real phone, 127.0.0.1 is the phone itself. Put your PC's LAN URL in mobile/.env as EXPO_PUBLIC_API_BASE_URL (e.g. http://192.168.x.x:8787), restart Expo with -c, and keep Wrangler running (npm run dev in backend listens on all interfaces)."
                 }
               </Text>
             ) : null}
             {showLanTimeoutHint ? (
-              <Text style={styles.hint}>
+              <Text style={[styles.hint, { color: palette.textMuted }]}>
                 {
                   "Timeout = phone cannot reach your PC. (1) Safari → same http://IP:8787/ — expect JSON. (2) Windows: run backend/scripts/allow-wrangler-dev-firewall.ps1 as Admin (or npm run allow-firewall from backend); Wi‑Fi on Public profile needs this rule on all profiles. (3) ipconfig IPv4 must match .env. (4) Router AP isolation → try another Wi‑Fi or use https://…workers.dev in .env."
                 }
               </Text>
             ) : null}
-            <Text style={styles.label} nativeID="login-email-label">
+            <Text style={[styles.label, { color: palette.textMuted }]} nativeID="login-email-label">
               Email
             </Text>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  borderColor: palette.border,
+                  color: palette.text,
+                  backgroundColor: isLight ? '#ffffff' : palette.surface,
+                },
+              ]}
               autoCapitalize="none"
               keyboardType="email-address"
               textContentType="username"
@@ -112,23 +122,30 @@ export function LoginScreen(): React.JSX.Element {
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={palette.textMuted}
               accessibilityLabel="Email"
               accessibilityLabelledBy="login-email-label"
               returnKeyType="next"
             />
-            <Text style={styles.label} nativeID="login-password-label">
+            <Text style={[styles.label, { color: palette.textMuted }]} nativeID="login-password-label">
               Password
             </Text>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  borderColor: palette.border,
+                  color: palette.text,
+                  backgroundColor: isLight ? '#ffffff' : palette.surface,
+                },
+              ]}
               secureTextEntry
               textContentType="password"
               autoComplete="password"
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={palette.textMuted}
               accessibilityLabel="Password"
               accessibilityLabelledBy="login-password-label"
               returnKeyType="go"
@@ -156,7 +173,7 @@ export function LoginScreen(): React.JSX.Element {
               accessibilityLabel="Create an account"
               hitSlop={hitSlopComfortable}
             >
-              <Text style={styles.linkText}>New here? Create an account</Text>
+              <Text style={[styles.linkText, { color: palette.accent }]}>New here? Create an account</Text>
             </Pressable>
           </CosmicCard>
         </ScrollView>

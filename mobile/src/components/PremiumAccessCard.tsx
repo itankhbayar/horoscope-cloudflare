@@ -133,7 +133,13 @@ export function PremiumAccessCard(): React.JSX.Element {
 
   return (
     <CosmicCard title="Premium">
-      <View style={[styles.planStatus, { borderColor: palette.border }]}>
+      <View
+        style={[
+          styles.planStatus,
+          isPremium ? styles.planStatusActive : styles.planStatusFree,
+          { borderColor: palette.border },
+        ]}
+      >
         <Text style={[styles.statusLabel, { color: palette.textMuted }]}>Current plan</Text>
         <Text style={[styles.statusValue, { color: palette.text }]}>{isPremium ? 'Premium active' : 'Free plan'}</Text>
       </View>
@@ -194,7 +200,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(42, 30, 90, 0.35)',
+  },
+  planStatusActive: {
+    backgroundColor: 'rgba(102, 78, 236, 0.36)',
+  },
+  planStatusFree: {
+    backgroundColor: 'rgba(42, 30, 90, 0.25)',
   },
   statusLabel: {
     fontSize: 12,

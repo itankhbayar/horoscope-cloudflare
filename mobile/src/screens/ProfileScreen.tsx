@@ -193,7 +193,7 @@ export function ProfileScreen(): React.JSX.Element {
               <SettingsGroup isLight={isLight}>
                 <SettingsItem icon="✎" label="Edit Profile" onPress={onStartEdit} />
                 <SettingsItem icon="↻" label="Account Settings" onPress={goToAccountSettings} />
-                <SettingsItem icon="🔔" label="Manage Notifications" onPress={goToManageNotifications} />
+                <SettingsItem icon="🔔︎" label="Manage Notifications" onPress={goToManageNotifications} />
                 <SettingsItem icon="◐" label="App Appearance" onPress={goToAppAppearance} last />
               </SettingsGroup>
               <PremiumAccessCard />
