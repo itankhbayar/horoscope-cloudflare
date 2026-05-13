@@ -1,24 +1,24 @@
-import React, { useMemo } from 'react';
-import type { ReactElement } from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform, StyleSheet, Text } from 'react-native';
+import React, { useMemo, type ReactElement } from 'react';
+import { createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import type { MainTabParamList } from './types';
+import { BottomNavigation } from './BottomNavigation';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CompatibilityScreen } from '../screens/CompatibilityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ChartScreen } from '../screens/ChartScreen';
 import { ExploreScreen } from '../screens/ExploreScreen';
-import { colors, MIN_TOUCH, spacing } from '../theme';
+import { useSanctuaryTheme } from '../components/home/sanctuaryTheme';
+import { MIN_TOUCH, spacing } from '../theme';
 import { useAppearance } from '../hooks/useAppearance';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-/** Tintable / high-contrast symbols (emoji hearts & decorative stars often ignore `color`). */
-const GLYPH_TODAY = '\u2728'; // ✨ still reads ok; tints where the font supports it
-const GLYPH_MATCH = '\u2661'; // ♡ WHITE HEART SUIT — follows tab `color`
-const GLYPH_CHART = '\u25CE'; // ◎ BULLSEYE — wheel / chart
-const GLYPH_EXPLORE = '\u25C8'; // ◈ lozenge icon for explore/discovery
-const GLYPH_PROFILE = '\uD83D\uDC64'; // 👤 bust in silhouette for profile tab
+/** Simple high-contrast symbols (tint with tab `color`). */
+const GLYPH_HOME = '\u2302'; // ⌂
+const GLYPH_READINGS = '\u2726'; // ✦
+const GLYPH_CHART = '\u2299'; // ⊙
+const GLYPH_EXPLORE = '\u2606'; // ☆ outline star
 
 type TabBarIconProps = { focused: boolean; color: string; size: number };
 
@@ -42,14 +42,15 @@ function tabIcon(glyph: string): (props: TabBarIconProps) => ReactElement {
   return ({ color, size }) => <TabIcon glyph={glyph} color={color} size={size} />;
 }
 
-const iconToday = tabIcon(GLYPH_TODAY);
-const iconMatch = tabIcon(GLYPH_MATCH);
+const iconHome = tabIcon(GLYPH_HOME);
+const iconReadings = tabIcon(GLYPH_READINGS);
 const iconChart = tabIcon(GLYPH_CHART);
 const iconExplore = tabIcon(GLYPH_EXPLORE);
-const iconProfile = tabIcon(GLYPH_PROFILE);
+const iconProfile = tabIcon('\uD83D\uDC64');
 
 export function MainTabs(): ReactElement {
-  const { palette } = useAppearance();
+  const { palette, mode } = useAppearance();
+  const sanctuaryTheme = useSanctuaryTheme();
   const screenOptions = useMemo(
     () => ({
       headerStyle: {
@@ -59,18 +60,41 @@ export function MainTabs(): ReactElement {
       headerTitleStyle: [styles.headerTitle, { color: palette.text }],
       headerTitleAlign: 'center' as const,
       headerShadowVisible: false,
+      tabBar: (props: BottomTabBarProps) => <BottomNavigation {...props} />,
+      /** Renders behind tabs; BottomTabBar uses transparent root when this is set (see RN source). */
+      tabBarBackground: () => (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              backgroundColor: mode === 'dark' ? sanctuaryTheme.tabBarBg : palette.surface,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderColor: mode === 'dark' ? sanctuaryTheme.tabBarBgEdge : palette.border,
+            },
+          ]}
+        />
+      ),
+      // Keep tab bar in normal layout — `position: 'absolute'` collapses the custom wrapper height
+      // so the bar can render with zero height and disappear.
       tabBarStyle: {
-        backgroundColor: palette.surface,
-        borderTopColor: palette.border,
+        backgroundColor: 'transparent',
+        borderTopWidth: 0,
+        elevation: 0,
         paddingTop: spacing.sm,
         minHeight: MIN_TOUCH + spacing.lg,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        overflow: 'hidden' as const,
       },
       tabBarLabelStyle: styles.tabLabel,
-      tabBarActiveTintColor: palette.accent,
-      tabBarInactiveTintColor: palette.text,
+      tabBarActiveTintColor: mode === 'dark' ? sanctuaryTheme.lavender : palette.accent,
+      tabBarInactiveTintColor: mode === 'dark' ? 'rgba(255,255,255,0.52)' : palette.textMuted,
       tabBarHideOnKeyboard: true,
     }),
-    [palette.accent, palette.border, palette.surface, palette.text],
+    [mode, palette.accent, palette.surface, palette.text, palette.textMuted, palette.border, sanctuaryTheme],
   );
 
   return (
@@ -79,10 +103,11 @@ export function MainTabs(): ReactElement {
         name="Home"
         component={HomeScreen}
         options={{
-          title: 'Today',
-          tabBarLabel: 'Today',
-          tabBarIcon: iconToday,
-          tabBarAccessibilityLabel: 'Today, daily horoscope',
+          headerShown: false,
+          title: 'Home',
+          tabBarLabel: 'Home',
+          tabBarIcon: iconHome,
+          tabBarAccessibilityLabel: 'Home, daily horoscope',
         }}
       />
       <Tab.Screen
@@ -90,9 +115,9 @@ export function MainTabs(): ReactElement {
         component={CompatibilityScreen}
         options={{
           title: 'Compatibility',
-          tabBarLabel: 'Match',
-          tabBarIcon: iconMatch,
-          tabBarAccessibilityLabel: 'Match, compatibility',
+          tabBarLabel: 'Readings',
+          tabBarIcon: iconReadings,
+          tabBarAccessibilityLabel: 'Readings, compatibility',
         }}
       />
       <Tab.Screen
@@ -100,9 +125,9 @@ export function MainTabs(): ReactElement {
         component={ChartScreen}
         options={{
           title: 'Chart',
-          tabBarLabel: 'Chart',
+          tabBarLabel: 'Birth Chart',
           tabBarIcon: iconChart,
-          tabBarAccessibilityLabel: 'Chart',
+          tabBarAccessibilityLabel: 'Birth chart',
         }}
       />
       <Tab.Screen
@@ -133,13 +158,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontWeight: '700',
     fontSize: 17,
-    color: colors.text,
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: Platform.OS === 'ios' ? 4 : 6,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: Platform.OS === 'ios' ? 2 : 4,
     marginBottom: Platform.OS === 'ios' ? 2 : 4,
+    letterSpacing: 0.4,
   },
   tabIcon: { lineHeight: Platform.OS === 'android' ? 34 : 32 },
 });

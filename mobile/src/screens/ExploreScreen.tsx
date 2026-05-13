@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { screenTitleSize, spacing } from '../theme';
+import { useAppearance } from '../hooks/useAppearance';
 
 type ExploreCategory = {
   title: string;
@@ -24,34 +25,43 @@ const EXPLORE_CATEGORIES: ExploreCategory[] = [
 
 export function ExploreScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
+  const { palette, mode } = useAppearance();
+  const isLight = mode === 'light';
   const titleSize = useMemo(() => screenTitleSize(width), [width]);
 
   return (
-    <ScreenScroll style={styles.scroll} contentContainerStyle={styles.container}>
-      <Text style={[styles.title, { fontSize: titleSize }]} accessibilityRole="header">
+    <ScreenScroll
+      style={[styles.scroll, { backgroundColor: palette.background }]}
+      contentContainerStyle={styles.container}
+    >
+      <Text style={[styles.title, { fontSize: titleSize, color: palette.text }]} accessibilityRole="header">
         Explore
       </Text>
       <View style={styles.grid}>
         {EXPLORE_CATEGORIES.map((category) => (
-          <ExploreCard key={category.title} category={category} />
+          <ExploreCard key={category.title} category={category} isLight={isLight} />
         ))}
       </View>
     </ScreenScroll>
   );
 }
 
-function ExploreCard({ category }: { category: ExploreCategory }): React.JSX.Element {
+function ExploreCard({ category, isLight }: { category: ExploreCategory; isLight: boolean }): React.JSX.Element {
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        isLight && styles.cardLight,
+        pressed && styles.pressed,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={`Open ${category.title.replace('\n', ' ')}`}
     >
-      <Text style={styles.cardTitle}>{category.title}</Text>
+      <Text style={[styles.cardTitle, isLight && styles.cardTitleLight]}>{category.title}</Text>
       <View style={styles.imageDock}>
         <Image source={{ uri: category.imageUrl }} style={styles.image} resizeMode="cover" />
         <View style={[styles.tintOverlay, { backgroundColor: category.tint }]} />
-        <View style={styles.noiseOverlay} />
+        <View style={[styles.noiseOverlay, isLight && styles.noiseOverlayLight]} />
       </View>
     </Pressable>
   );
@@ -89,6 +99,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     padding: 12,
   },
+  cardLight: {
+    backgroundColor: '#eceffe',
+    borderColor: 'rgba(97, 109, 196, 0.18)',
+  },
   cardTitle: {
     color: '#F4F5FF',
     fontSize: 21,
@@ -96,6 +110,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     maxWidth: '58%',
     zIndex: 2,
+  },
+  cardTitleLight: {
+    color: '#232847',
   },
   imageDock: {
     position: 'absolute',
@@ -116,6 +133,9 @@ const styles = StyleSheet.create({
   noiseOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  noiseOverlayLight: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
   },
   pressed: { opacity: 0.9 },
 });
