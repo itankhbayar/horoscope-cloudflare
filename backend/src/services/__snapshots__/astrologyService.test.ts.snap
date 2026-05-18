@@ -1,0 +1,238 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`computeNatalChart > matches snapshot for canonical birth input 1`] = `
+{
+  "ascendant": 193.02515916539926,
+  "aspectSummary": [
+    {
+      "body1": "Moon",
+      "body2": "Jupiter",
+      "orb": 3.53,
+      "type": "trine",
+    },
+    {
+      "body1": "Moon",
+      "body2": "Uranus",
+      "orb": 4.13,
+      "type": "sextile",
+    },
+    {
+      "body1": "Moon",
+      "body2": "Neptune",
+      "orb": 1.42,
+      "type": "sextile",
+    },
+    {
+      "body1": "Moon",
+      "body2": "Pluto",
+      "orb": 3.1,
+      "type": "trine",
+    },
+    {
+      "body1": "Venus",
+      "body2": "Jupiter",
+      "orb": 2.67,
+      "type": "sextile",
+    },
+    {
+      "body1": "Venus",
+      "body2": "Saturn",
+      "orb": 5.54,
+      "type": "trine",
+    },
+    {
+      "body1": "Venus",
+      "body2": "Neptune",
+      "orb": 4.79,
+      "type": "trine",
+    },
+    {
+      "body1": "Venus",
+      "body2": "Pluto",
+      "orb": 3.1,
+      "type": "opposition",
+    },
+    {
+      "body1": "Mars",
+      "body2": "Jupiter",
+      "orb": 4.96,
+      "type": "square",
+    },
+    {
+      "body1": "Mars",
+      "body2": "Uranus",
+      "orb": 2.7,
+      "type": "square",
+    },
+    {
+      "body1": "Mars",
+      "body2": "Neptune",
+      "orb": 2.85,
+      "type": "square",
+    },
+    {
+      "body1": "Jupiter",
+      "body2": "Uranus",
+      "orb": 7.67,
+      "type": "opposition",
+    },
+    {
+      "body1": "Jupiter",
+      "body2": "Neptune",
+      "orb": 2.12,
+      "type": "opposition",
+    },
+    {
+      "body1": "Jupiter",
+      "body2": "Pluto",
+      "orb": 0.43,
+      "type": "trine",
+    },
+    {
+      "body1": "Uranus",
+      "body2": "Neptune",
+      "orb": 5.55,
+      "type": "conjunction",
+    },
+    {
+      "body1": "Neptune",
+      "body2": "Pluto",
+      "orb": 1.68,
+      "type": "sextile",
+    },
+  ],
+  "birth": {
+    "birthDate": "1990-06-15",
+    "birthTime": "14:30",
+    "latitude": 47.9212,
+    "longitude": 106.9186,
+    "timezoneOffset": 8,
+  },
+  "houseSigns": [
+    {
+      "number": 1,
+      "sign": "libra",
+    },
+    {
+      "number": 2,
+      "sign": "scorpio",
+    },
+    {
+      "number": 3,
+      "sign": "sagittarius",
+    },
+    {
+      "number": 4,
+      "sign": "capricorn",
+    },
+    {
+      "number": 5,
+      "sign": "aquarius",
+    },
+    {
+      "number": 6,
+      "sign": "pisces",
+    },
+    {
+      "number": 7,
+      "sign": "aries",
+    },
+    {
+      "number": 8,
+      "sign": "taurus",
+    },
+    {
+      "number": 9,
+      "sign": "gemini",
+    },
+    {
+      "number": 10,
+      "sign": "cancer",
+    },
+    {
+      "number": 11,
+      "sign": "leo",
+    },
+    {
+      "number": 12,
+      "sign": "virgo",
+    },
+  ],
+  "midheaven": 106.32431424568222,
+  "moonSign": "pisces",
+  "planets": [
+    {
+      "degreeInSign": 23.91,
+      "house": 9,
+      "name": "Sun",
+      "retrograde": false,
+      "sign": "gemini",
+    },
+    {
+      "degreeInSign": 12.31,
+      "house": 5,
+      "name": "Moon",
+      "retrograde": false,
+      "sign": "pisces",
+    },
+    {
+      "degreeInSign": 5.3,
+      "house": 8,
+      "name": "Mercury",
+      "retrograde": false,
+      "sign": "gemini",
+    },
+    {
+      "degreeInSign": 18.51,
+      "house": 8,
+      "name": "Venus",
+      "retrograde": false,
+      "sign": "taurus",
+    },
+    {
+      "degreeInSign": 10.88,
+      "house": 6,
+      "name": "Mars",
+      "retrograde": false,
+      "sign": "aries",
+    },
+    {
+      "degreeInSign": 15.84,
+      "house": 10,
+      "name": "Jupiter",
+      "retrograde": false,
+      "sign": "cancer",
+    },
+    {
+      "degreeInSign": 24.05,
+      "house": 4,
+      "name": "Saturn",
+      "retrograde": true,
+      "sign": "capricorn",
+    },
+    {
+      "degreeInSign": 8.17,
+      "house": 3,
+      "name": "Uranus",
+      "retrograde": true,
+      "sign": "capricorn",
+    },
+    {
+      "degreeInSign": 13.72,
+      "house": 4,
+      "name": "Neptune",
+      "retrograde": true,
+      "sign": "capricorn",
+    },
+    {
+      "degreeInSign": 15.41,
+      "house": 2,
+      "name": "Pluto",
+      "retrograde": true,
+      "sign": "scorpio",
+    },
+  ],
+  "risingSign": "libra",
+  "sunSign": "gemini",
+}
+`;

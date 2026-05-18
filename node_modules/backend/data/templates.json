@@ -1,0 +1,46 @@
+{
+  "overview": [
+    {
+      "en": "For {sign} on {date} ({timezone}), {card} appearing {orientation} frames the day around {theme}. The mood leans {mood}, with {kw1}, {kw2}, and {kw3} as quiet threads through your choices.",
+      "mn": "{date} өдөр {timezone} бүсэд {sign}-д {card} {orientation}-ээр гарсан нь өдрийг {theme} сэдвээр тодорхойлж байна. Өдрийн өнгө {mood} бөгөөд {kw1}, {kw2}, {kw3} нь таны сонголтуудад зөөлөн нөлөөлнө."
+    },
+    {
+      "en": "Today's spread centers {card} for {sign}: a {orientation} posture invites {theme}. Keep {mood} energy close while you navigate practical details.",
+      "mn": "Өнөөдрийн уншлагад {sign}-д {card} төв байр эзэллээ. {orientation} байрлал нь {theme}-ыг онцолж байна. {mood} эрчээ хадгалж, өдөр тутмын зүйлсээ тайван зохицуулаарай."
+    },
+    {
+      "en": "The calendar reads {date}; {card} ({orientation}) asks {sign} to notice how {theme} shows up in small moments. Keywords: {kw1}, {kw2}, {kw3}.",
+      "mn": "{date}-ийн энергиэр {card} ({orientation}) нь {sign}-д {theme} жижиг мөчүүдэд хэрхэн илэрч байгааг анзаарахыг сануулж байна. Түлхүүр үгс: {kw1}, {kw2}, {kw3}."
+    }
+  ],
+  "love": [
+    {
+      "en": "In love and closeness, favor clarity over guessing. {card} suggests {orientation} pacing—honor your {mood} tone and let {kw1} guide difficult conversations.",
+      "mn": "Хайр дурлал, дотно харилцаанд таамаглахаас илүү тодорхой байдлыг сонго. {card} нь {orientation} хэмнэлийг санал болгож байна. {mood} байдлаа хадгалж, хэцүү ярианд {kw1}-ээ дага."
+    },
+    {
+      "en": "Partnership benefits from small rituals of care. With {card} {orientation}, {theme} matters: show up consistently rather than dramatically.",
+      "mn": "Харилцаанд халамжийн жижиг үйлдлүүд илүү үнэ цэнтэй. {card} {orientation}-тэй үед {theme} чухал тул огцом үйлдлээс илүү тогтвортой байдал үр дүнтэй."
+    }
+  ],
+  "career": [
+    {
+      "en": "Work and craft: choose one priority and finish a slice of it. {card} in {orientation} position highlights {theme}; keep {kw2} visible in planning.",
+      "mn": "Ажил мэргэжил дээр нэг чухал зорилтоо сонгоод тодорхой хэсгийг нь дуусга. {card} {orientation} байрлалаар {theme}-ыг онцолж байна. Төлөвлөлтдөө {kw2}-ыг санаж яваарай."
+    },
+    {
+      "en": "Career momentum favors proof over promises. {card} encourages {orientation} moves aligned with {theme}, especially when energy feels {mood}.",
+      "mn": "Карьерын өсөлтөд амлалт бус бодит үр дүн илүү чухал. {card} нь {orientation} алхмуудыг {theme}-тай уялдуулахыг зөвлөж байна, ялангуяа энерги {mood} үед."
+    }
+  ],
+  "energy": [
+    {
+      "en": "Energy today reads as {mood} with a {orientation} tilt from {card}. Practical tip: pace breaks, hydrate, and protect deep-work windows.",
+      "mn": "Өнөөдрийн энерги {mood} бөгөөд {card}-ийн {orientation} нөлөө мэдрэгдэнэ. Зөвлөмж: амралтын хэмнэлээ барьж, ус сайн ууж, төвлөрөх цагаа хамгаалаарай."
+    },
+    {
+      "en": "Rhythm is shaped by {theme}. Let {kw1} and {kw3} anchor how you spend attention—small wins compound.",
+      "mn": "Өдрийн хэмнэл {theme}-аар тодорхойлогдоно. {kw1}, {kw3}-ыг анхаарлын төвдөө байлга — жижиг ахицууд нийлж том үр дүн болдог."
+    }
+  ]
+}

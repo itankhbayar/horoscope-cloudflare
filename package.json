@@ -1,0 +1,13 @@
+{
+  "name": "horoscope-cloudflare",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend",
+    "mobile"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck -w @horoscope/shared && npm run typecheck -w backend && npm run type-check -w horoscope-frontend"
+  }
+}

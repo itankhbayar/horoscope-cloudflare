@@ -1,0 +1,40 @@
+{
+  "moods": [
+    { "en": "Reflective", "mn": "Эргэцүүлсэн" },
+    { "en": "Steady", "mn": "Тогтуун" },
+    { "en": "Electric", "mn": "Эрчтэй" },
+    { "en": "Tender", "mn": "Зөөлөн" },
+    { "en": "Bold", "mn": "Зоримог" },
+    { "en": "Quiet", "mn": "Нам гүм" },
+    { "en": "Hopeful", "mn": "Итгэл дүүрэн" },
+    { "en": "Curious", "mn": "Сониуч" }
+  ],
+  "keywords": [
+    { "en": "patience", "mn": "тэвчээр" },
+    { "en": "clarity", "mn": "тодорхой байдал" },
+    { "en": "trust", "mn": "итгэл" },
+    { "en": "boundaries", "mn": "хил хязгаар" },
+    { "en": "renewal", "mn": "шинэчлэл" },
+    { "en": "focus", "mn": "төвлөрөл" },
+    { "en": "courage", "mn": "зориг" },
+    { "en": "balance", "mn": "тэнцвэр" },
+    { "en": "intuition", "mn": "зөн совин" },
+    { "en": "grounding", "mn": "төвлөрөх" },
+    { "en": "momentum", "mn": "урагшлах эрч" },
+    { "en": "release", "mn": "суллах" },
+    { "en": "openness", "mn": "нээлттэй байдал" },
+    { "en": "depth", "mn": "гүнзгий байдал" },
+    { "en": "light", "mn": "гэрэл" },
+    { "en": "path", "mn": "зам мөр" }
+  ],
+  "themes": [
+    { "en": "threshold crossing", "mn": "шинэ босго давах" },
+    { "en": "inner alignment", "mn": "дотоод зохицол" },
+    { "en": "seasonal shift", "mn": "үе шатны өөрчлөлт" },
+    { "en": "quiet preparation", "mn": "чимээгүй бэлтгэл" },
+    { "en": "visible progress", "mn": "илэрхий ахиц" },
+    { "en": "emotional honesty", "mn": "сэтгэлийн үнэнч байдал" },
+    { "en": "creative risk", "mn": "бүтээлч эрсдэл" },
+    { "en": "restorative pause", "mn": "сэргээх түр зогсолт" }
+  ]
+}
