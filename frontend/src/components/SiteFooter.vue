@@ -120,7 +120,7 @@ const year = new Date().getFullYear();
 <style scoped>
 .site-footer {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   margin-top: auto;
   border-top: 1px solid var(--glass-border);
   background: rgba(10, 10, 26, 0.84);

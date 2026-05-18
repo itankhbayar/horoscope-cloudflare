@@ -1,3 +1,6 @@
+# Public web app URL (Stripe checkout success/cancel redirects).
+APP_PUBLIC_URL=http://localhost:5173
+
 # Stripe test keys (do not commit real values).
 #
 # Webhook signing secret MUST match how you receive events:

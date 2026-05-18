@@ -1,11 +1,9 @@
 import Stripe from 'stripe';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { DB } from '../db/client';
+import { premiumCheckoutUrls } from '../env';
 import { stripeWebhookEvents, users } from '../db/schema';
 import { getUserById } from './authService';
-
-const SUCCESS_URL = 'http://localhost:5173/premium/success';
-const CANCEL_URL = 'http://localhost:5173/premium/cancel';
 
 /**
  * Ephemeral keys must use a Stripe API version compatible with the installed
@@ -44,16 +42,19 @@ export async function createPremiumCheckoutSession(
   priceId: string,
   userId: string,
   customerEmail: string,
+  appPublicUrl: string,
 ): Promise<Stripe.Checkout.Session> {
   const price = await stripe.prices.retrieve(priceId);
   const mode: Stripe.Checkout.SessionCreateParams.Mode =
     price.type === 'recurring' ? 'subscription' : 'payment';
 
+  const { successUrl, cancelUrl } = premiumCheckoutUrls(appPublicUrl);
+
   return stripe.checkout.sessions.create({
     mode,
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: SUCCESS_URL,
-    cancel_url: CANCEL_URL,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     metadata: { userId },
     customer_email: customerEmail,
   });

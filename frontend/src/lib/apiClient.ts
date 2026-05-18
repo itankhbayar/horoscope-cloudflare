@@ -14,9 +14,8 @@ function readExpoPublicApiBaseUrl(): string {
 function resolveDefaultBaseUrl(): string {
   const expo = readExpoPublicApiBaseUrl();
   if (expo) return expo.replace(/\/$/, '');
-  const vite =
-    typeof import.meta !== 'undefined' &&
-    (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL?.trim();
+  const env = typeof import.meta !== 'undefined' ? import.meta.env : undefined;
+  const vite = (env?.VITE_API_BASE_URL ?? env?.VITE_API_URL)?.trim();
   if (vite && vite.length > 0) return vite.replace(/\/$/, '');
   return 'http://127.0.0.1:8787';
 }

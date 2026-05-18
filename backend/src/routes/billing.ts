@@ -14,6 +14,7 @@ import {
   releaseStripeWebhookClaim,
   syncPremiumFromStripeForUser,
 } from '../services/billingService';
+import { isAllowedReturnUrl, resolveAppPublicUrl } from '../env';
 import type { AppBindings, AppVariables } from '../types';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
@@ -45,18 +46,6 @@ function resolveDefaultMobilePriceId(env: AppBindings): string {
   return env.STRIPE_PRICE_ID!.trim();
 }
 
-function isAllowedReturnUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (u.protocol === 'https:') return true;
-    if (u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')) return true;
-    if (u.protocol === 'astralis:') return true;
-    return false;
-  } catch {
-    return false;
-  }
-}
-
 router.post('/create-checkout-session', authMiddleware, async (c) => {
   if (!billingEnvReady(c.env)) {
     return c.json({ error: 'Billing is not configured' }, 503);
@@ -70,6 +59,7 @@ router.post('/create-checkout-session', authMiddleware, async (c) => {
       c.env.STRIPE_PRICE_ID,
       userId,
       email,
+      resolveAppPublicUrl(c.env),
     );
     if (!session.url) {
       return c.json({ error: 'Checkout session missing redirect URL' }, 500);
@@ -144,8 +134,11 @@ router.post('/mobile/portal', authMiddleware, async (c) => {
     body = {};
   }
   const returnUrl = typeof body.returnUrl === 'string' ? body.returnUrl.trim() : '';
-  if (!returnUrl || !isAllowedReturnUrl(returnUrl)) {
-    return c.json({ error: 'Valid returnUrl is required (https, localhost http, or astralis://)' }, 400);
+  if (!returnUrl || !isAllowedReturnUrl(returnUrl, c.env)) {
+    return c.json(
+      { error: 'Valid returnUrl is required (APP_PUBLIC_URL https, localhost http, or astralis://)' },
+      400,
+    );
   }
 
   const db = getDb(c.env.horoscope_db);

@@ -38,9 +38,21 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-  const authed = await authService.isAuthenticated();
-  if (to.meta.requiresAuth && !authed) return { name: 'login' };
-  if (to.meta.guest && authed) return { name: 'home' };
+  const hasToken = await authService.isAuthenticated();
+  if (to.meta.requiresAuth && !hasToken) return { name: 'login' };
+  if (to.meta.guest && hasToken) {
+    try {
+      await Promise.race([
+        authService.fetchMe(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('auth-check-timeout')), 4000);
+        }),
+      ]);
+      return { name: 'home' };
+    } catch {
+      await authService.clearLocalSession();
+    }
+  }
   return true;
 });
 

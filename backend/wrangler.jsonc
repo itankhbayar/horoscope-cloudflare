@@ -30,6 +30,7 @@
 	//   "nodejs_compat"
 	// ],
 	"vars": {
+	  "APP_PUBLIC_URL": "https://horoscope-frontend.pages.dev",
 	  "JWT_SECRET": "horoscope-super-secret-key-2026",
 	  "CRON_TIMEZONE": "Asia/Ulaanbaatar",
 	  "ADMIN_SECRET": "dev-admin-secret-change-me"

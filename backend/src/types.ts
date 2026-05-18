@@ -2,6 +2,8 @@ export type AppBindings = {
   horoscope_db: D1Database;
   /** R2 bucket for profile avatars (configure in wrangler `r2_buckets`). */
   STORAGE?: R2Bucket;
+  /** Public web app URL for Stripe checkout redirects (no trailing slash). */
+  APP_PUBLIC_URL: string;
   JWT_SECRET: string;
   CRON_TIMEZONE?: string;
   AVATAR_PUBLIC_BASE_URL?: string;

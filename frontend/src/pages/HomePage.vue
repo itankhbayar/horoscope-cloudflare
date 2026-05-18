@@ -14,8 +14,9 @@ import ScreenLayout from '../components/layout/ScreenLayout.vue';
 
 const { t, locale } = useI18n();
 const { user } = useAuth();
-const { profile, load: loadProfile } = useProfile();
-const { horoscope, loading, load: loadHoroscope, reset: resetHoroscope } = useHoroscope();
+const { profile, error: profileError, load: loadProfile } = useProfile();
+const { horoscope, loading, error: horoscopeError, load: loadHoroscope, reset: resetHoroscope } =
+  useHoroscope();
 
 const selectedSign = ref<ZodiacSign | null>(null);
 
@@ -33,10 +34,9 @@ const today = computed(() =>
 
 onMounted(async () => {
   await loadProfile();
-  if (sunSign.value) {
-    selectedSign.value = sunSign.value;
-    await loadHoroscope(sunSign.value);
-  }
+  const sign = sunSign.value ?? 'aries';
+  selectedSign.value = sign;
+  await loadHoroscope(sign);
 });
 
 async function selectSign(sign: ZodiacSign): Promise<void> {
@@ -86,6 +86,9 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
       </div>
     </section>
 
+    <p v-if="profileError" class="api-error" role="alert">{{ profileError }}</p>
+    <p v-else-if="horoscopeError" class="api-error" role="alert">{{ horoscopeError }}</p>
+
     <LoadingSpinner v-if="loading" :label="t('home.readingStars')" />
 
     <section v-if="horoscope && !loading" class="horoscope-section">
@@ -116,6 +119,16 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
 </template>
 
 <style scoped>
+.api-error {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 90, 90, 0.12);
+  border: 1px solid rgba(255, 120, 120, 0.35);
+  color: #ffb4b4;
+  font-size: 0.9rem;
+}
+
 .home-page {
   padding-top: 0.2rem;
 }

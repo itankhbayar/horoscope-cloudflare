@@ -63,6 +63,7 @@ const navLinks = computed(() => [
 ]);
 
 const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? '');
+const isGuestRoute = computed(() => Boolean(route.meta.guest));
 const mobileMenuOpen = ref(false);
 
 function toggleMobileMenu(): void {
@@ -149,13 +150,13 @@ watch(
       </div>
     </nav>
 
-    <main class="page-content">
+    <main class="page-content" :class="{ 'page-content--guest': isGuestRoute }">
       <div v-if="!authInitialized" class="auth-boot">
         <p class="auth-boot-text">{{ t('app.loading') }}</p>
       </div>
       <router-view v-else />
     </main>
-    <SiteFooter />
+    <SiteFooter v-if="authInitialized && !isGuestRoute" />
   </div>
 </template>
 
@@ -169,12 +170,16 @@ watch(
 }
 .page-content {
   position: relative;
-  z-index: 1;
+  z-index: 5;
   flex: 1;
   width: 100%;
-  min-height: calc(100vh - 5.5rem);
+  min-height: 0;
   display: flex;
   flex-direction: column;
+}
+.page-content--guest {
+  min-height: 0;
+  flex: none;
 }
 .auth-boot {
   flex: 1;

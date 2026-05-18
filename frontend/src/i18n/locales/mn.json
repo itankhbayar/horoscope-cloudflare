@@ -33,7 +33,7 @@
     "fullName": "Бүтэн нэр",
     "fullNamePlaceholder": "Овог нэр",
     "email": "И-мэйл",
-    "emailPlaceholder": "ta@example.com",
+    "emailPlaceholder": "ta{'@'}example.com",
     "password": "Нууц үг",
     "passwordPlaceholder": "Хамгийн багадаа 6 тэмдэгт",
     "passwordPlaceholderShort": "••••••••",

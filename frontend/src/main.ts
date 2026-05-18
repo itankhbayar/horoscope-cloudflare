@@ -6,7 +6,9 @@ import router from './router';
 import i18n, { loadInitialLocale, persistLocale } from './i18n';
 import { configureApi, setApiLocale } from './lib/apiClient';
 
-const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+const fromEnv = (
+  import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL
+)?.trim();
 /** In dev, empty base = same origin so Vite proxies `/api` → Worker (see vite.config.ts). */
 const apiBase =
   fromEnv && fromEnv.length > 0
