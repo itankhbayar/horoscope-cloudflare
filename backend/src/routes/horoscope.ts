@@ -4,9 +4,10 @@ import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
 import { getOrCreateDailyHoroscope } from '../services/horoscopeService';
 import { isZodiacSign, ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
-import { natalCharts } from '../db/schema';
+import { natalCharts, users } from '../db/schema';
 import { searchCities } from '../utils/cities';
 import { parseLang } from '../utils/lang';
+import { safeDateISO } from '../utils/localDate';
 import type { AppBindings, AppVariables } from '../types';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
@@ -35,7 +36,13 @@ router.get('/daily', authMiddleware, async (c) => {
   const db = getDb(c.env.horoscope_db);
   const chart = await db.select().from(natalCharts).where(eq(natalCharts.userId, userId)).get();
   if (!chart) return c.json({ error: 'Natal chart not found' }, 404);
-  const horoscope = await getOrCreateDailyHoroscope(db, chart.sunSign as ZodiacSign, lang);
+  const user = await db
+    .select({ timezone: users.timezone })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  const dateISO = safeDateISO(user?.timezone ?? 'UTC');
+  const horoscope = await getOrCreateDailyHoroscope(db, chart.sunSign as ZodiacSign, lang, dateISO);
   return c.json({
     ...horoscope,
     sunSign: chart.sunSign,

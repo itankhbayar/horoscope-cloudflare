@@ -4,6 +4,7 @@ import { dailyHoroscopes } from '../db/schema';
 import { getOrCreateDailyHoroscope } from './horoscopeService';
 import { ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
 import { SUPPORTED_LANGS, type Lang } from '../utils/lang';
+import { safeDateISOForDate } from '../utils/localDate';
 
 export interface PrewarmResult {
   date: string;
@@ -15,25 +16,11 @@ export interface PrewarmResult {
 }
 
 export function toDateIsoForTimezone(timestampMs: number, timezone: string): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(timestampMs));
-
-  const year = parts.find((part) => part.type === 'year')?.value ?? '1970';
-  const month = parts.find((part) => part.type === 'month')?.value ?? '01';
-  const day = parts.find((part) => part.type === 'day')?.value ?? '01';
-  return `${year}-${month}-${day}`;
+  return safeDateISOForDate(new Date(timestampMs), timezone);
 }
 
 export function resolveCronDateISO(scheduledTimeMs: number, timezone = 'UTC'): string {
-  try {
-    return toDateIsoForTimezone(scheduledTimeMs, timezone);
-  } catch {
-    return toDateIsoForTimezone(scheduledTimeMs, 'UTC');
-  }
+  return safeDateISOForDate(new Date(scheduledTimeMs), timezone);
 }
 
 export async function prewarmDailyHoroscopes(

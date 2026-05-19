@@ -1,5 +1,5 @@
 import { isZodiacSign, type ZodiacSign } from '../utils/zodiac';
-import { toDateIsoForTimezone } from '../services/horoscopePrewarmService';
+import { safeDateISOForDate } from '../utils/localDate';
 
 const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
@@ -46,7 +46,7 @@ export function parseTarotQueryParams(
       ok: true,
       sign,
       timezone,
-      date: toDateIsoForTimezone(Date.now(), timezone),
+      date: safeDateISOForDate(new Date(), timezone),
     };
   }
   if (!isValidCalendarDate(date)) {
@@ -56,5 +56,5 @@ export function parseTarotQueryParams(
 }
 
 export function calendarTodayInTimezone(timezone: string, nowMs = Date.now()): string {
-  return toDateIsoForTimezone(nowMs, timezone);
+  return safeDateISOForDate(new Date(nowMs), timezone);
 }

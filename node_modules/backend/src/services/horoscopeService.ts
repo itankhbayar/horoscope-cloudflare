@@ -4,6 +4,7 @@ import { dailyHoroscopes, type DailyHoroscope } from '../db/schema';
 import { generateDailyHoroscope } from '../utils/horoscopeTemplates';
 import type { ZodiacSign } from '../utils/zodiac';
 import type { Lang } from '../utils/lang';
+import { safeDateISO } from '../utils/localDate';
 
 export interface HoroscopeResponse {
   sign: ZodiacSign;
@@ -17,17 +18,14 @@ export interface HoroscopeResponse {
   luckyColor: string;
 }
 
-function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
 export async function getOrCreateDailyHoroscope(
   db: DB,
   sign: ZodiacSign,
   lang: Lang,
   dateISO?: string,
+  timezone?: string,
 ): Promise<HoroscopeResponse> {
-  const date = dateISO ?? todayISO();
+  const date = dateISO ?? safeDateISO(timezone);
   const existing = await db
     .select()
     .from(dailyHoroscopes)
