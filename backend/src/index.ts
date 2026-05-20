@@ -13,6 +13,7 @@ import { getDb } from './db/client';
 import { isAllowedCorsOrigin } from './env';
 import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscopePrewarmService';
 import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
+import { CRON_DAILY } from './cron';
 import type { AppBindings, AppVariables } from './types';
 
 const DEFAULT_TIMEZONE = 'Asia/Ulaanbaatar';
@@ -52,18 +53,22 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal server error' }, 500);
 });
 
-const CRON_DAILY = '1 16 * * *';
-
 const worker: ExportedHandler<AppBindings> = {
   fetch: app.fetch,
   scheduled(controller, env, ctx) {
     ctx.waitUntil(
       (async () => {
-        const db = getDb(env.horoscope_db);
         const cron = controller.cron ?? '';
 
-        if (cron !== CRON_DAILY) return;
+        if (cron !== CRON_DAILY) {
+          console.error('[cron] Unmatched scheduled trigger; skipping prewarm', {
+            receivedCron: cron,
+            expectedCron: CRON_DAILY,
+          });
+          return;
+        }
 
+        const db = getDb(env.horoscope_db);
         const timezone = env.CRON_TIMEZONE ?? DEFAULT_TIMEZONE;
         const dateISO = resolveCronDateISO(controller.scheduledTime, timezone);
 

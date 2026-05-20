@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { getDb } from '../db/client';
+import { authMiddleware } from '../middleware/auth';
+import { requirePremium } from '../middleware/premium';
 import { parseTarotQueryParams } from '../tarot/tarotQuery';
 import { getCachedTarotDaily } from '../services/tarotService';
 import { parseLang } from '../utils/lang';
@@ -7,7 +9,7 @@ import type { AppBindings, AppVariables } from '../types';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
-router.get('/', async (c) => {
+router.get('/', authMiddleware, requirePremium, async (c) => {
   const parsed = parseTarotQueryParams(
     c.req.query('sign'),
     c.req.query('timezone'),

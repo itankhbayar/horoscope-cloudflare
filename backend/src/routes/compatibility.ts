@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
+import { requirePremium } from '../middleware/premium';
 import {
   compareUsers,
   computeSignCompatibility,
@@ -12,7 +13,7 @@ import type { AppBindings, AppVariables } from '../types';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
-router.post('/signs', async (c) => {
+router.post('/signs', authMiddleware, requirePremium, async (c) => {
   const { sign1, sign2, persist } = await c.req.json<{
     sign1: string;
     sign2: string;
@@ -30,7 +31,7 @@ router.post('/signs', async (c) => {
   return c.json(result);
 });
 
-router.post('/users', authMiddleware, async (c) => {
+router.post('/users', authMiddleware, requirePremium, async (c) => {
   const userId = requireUserId(c);
   const body = await c.req.json<{ otherUserId: string; persist?: boolean }>();
   if (!body.otherUserId) return c.json({ error: 'otherUserId required' }, 400);

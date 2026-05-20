@@ -8,6 +8,7 @@ export async function compareSigns(
 ): Promise<CompatibilityResult> {
   return apiRequest<CompatibilityResult>('/api/compatibility/signs', {
     method: 'POST',
+    auth: true,
     body: { sign1, sign2, persist },
   });
 }

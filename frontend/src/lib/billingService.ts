@@ -6,3 +6,11 @@ export async function createPremiumCheckoutSession(): Promise<{ url: string }> {
     auth: true,
   });
 }
+
+export async function syncPremiumCheckoutSession(sessionId: string): Promise<{ isPremium: boolean }> {
+  return apiRequest<{ isPremium: boolean }>('/api/billing/checkout/sync', {
+    method: 'POST',
+    auth: true,
+    body: { sessionId },
+  });
+}

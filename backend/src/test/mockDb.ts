@@ -27,7 +27,14 @@ export function createDbCapture() {
         insertCalls.push(row);
         return {
           onConflictDoNothing: vi.fn(() => ({
-            returning: vi.fn(() => Promise.resolve([{ id: (row as { id: string }).id }])),
+            returning: vi.fn(() =>
+              Promise.resolve([
+                {
+                  id: (row as { id?: string }).id,
+                  eventId: (row as { eventId?: string }).eventId,
+                },
+              ]),
+            ),
           })),
         };
       }),

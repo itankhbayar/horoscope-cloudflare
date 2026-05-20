@@ -5,13 +5,12 @@ import { authMiddleware, requireUserId } from '../middleware/auth';
 import { getUserById } from '../services/authService';
 import {
   assertAllowedPremiumPriceId,
-  claimStripeWebhookEvent,
   createBillingPortalSession,
   createMobilePremiumPaymentSheet,
   createPremiumCheckoutSession,
   createStripeClient,
-  processStripeWebhookEvent,
-  releaseStripeWebhookClaim,
+  processStripeWebhookEventIdempotently,
+  syncPremiumFromCheckoutSession,
   syncPremiumFromStripeForUser,
 } from '../services/billingService';
 import { isAllowedReturnUrl, resolveAppPublicUrl } from '../env';
@@ -30,14 +29,19 @@ const WEBHOOK_HANDLED = new Set<string>([
   'customer.subscription.deleted',
 ]);
 
-function billingEnvReady(env: AppBindings): env is AppBindings & {
+function stripeClientEnvReady(env: AppBindings): env is AppBindings & {
+  STRIPE_SECRET_KEY: string;
+  STRIPE_PRICE_ID: string;
+} {
+  return Boolean(env.STRIPE_SECRET_KEY?.trim() && env.STRIPE_PRICE_ID?.trim());
+}
+
+function webhookEnvReady(env: AppBindings): env is AppBindings & {
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   STRIPE_PRICE_ID: string;
 } {
-  return Boolean(
-    env.STRIPE_SECRET_KEY?.trim() && env.STRIPE_WEBHOOK_SECRET?.trim() && env.STRIPE_PRICE_ID?.trim(),
-  );
+  return Boolean(stripeClientEnvReady(env) && env.STRIPE_WEBHOOK_SECRET?.trim());
 }
 
 function resolveDefaultMobilePriceId(env: AppBindings): string {
@@ -47,7 +51,7 @@ function resolveDefaultMobilePriceId(env: AppBindings): string {
 }
 
 router.post('/create-checkout-session', authMiddleware, async (c) => {
-  if (!billingEnvReady(c.env)) {
+  if (!stripeClientEnvReady(c.env)) {
     return c.json({ error: 'Billing is not configured' }, 503);
   }
   const userId = requireUserId(c);
@@ -71,8 +75,46 @@ router.post('/create-checkout-session', authMiddleware, async (c) => {
   }
 });
 
+router.post('/checkout/sync', authMiddleware, async (c) => {
+  if (!stripeClientEnvReady(c.env)) {
+    return c.json({ error: 'Billing is not configured' }, 503);
+  }
+
+  let body: { sessionId?: string } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    body = {};
+  }
+
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+  if (!sessionId) {
+    return c.json({ error: 'sessionId is required' }, 400);
+  }
+
+  const db = getDb(c.env.horoscope_db);
+  const stripe = createStripeClient(c.env.STRIPE_SECRET_KEY);
+  const userId = requireUserId(c);
+
+  try {
+    const result = await syncPremiumFromCheckoutSession(stripe, db, sessionId, userId);
+    return c.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Could not sync checkout session';
+    if (msg === 'User not found') return c.json({ error: msg }, 404);
+    if (
+      msg === 'Checkout session does not belong to user' ||
+      msg === 'Checkout session is not paid'
+    ) {
+      return c.json({ error: msg }, 400);
+    }
+    console.error('checkout/sync failed', String(err));
+    return c.json({ error: 'Could not sync checkout session' }, 500);
+  }
+});
+
 router.post('/mobile/checkout', authMiddleware, async (c) => {
-  if (!billingEnvReady(c.env)) {
+  if (!stripeClientEnvReady(c.env)) {
     return c.json({ error: 'Billing is not configured' }, 503);
   }
   const userId = requireUserId(c);
@@ -123,7 +165,7 @@ router.post('/mobile/checkout', authMiddleware, async (c) => {
 });
 
 router.post('/mobile/portal', authMiddleware, async (c) => {
-  if (!billingEnvReady(c.env)) {
+  if (!stripeClientEnvReady(c.env)) {
     return c.json({ error: 'Billing is not configured' }, 503);
   }
   const userId = requireUserId(c);
@@ -164,7 +206,7 @@ router.post('/mobile/portal', authMiddleware, async (c) => {
 });
 
 router.post('/mobile/restore', authMiddleware, async (c) => {
-  if (!billingEnvReady(c.env)) {
+  if (!stripeClientEnvReady(c.env)) {
     return c.json({ error: 'Billing is not configured' }, 503);
   }
   const userId = requireUserId(c);
@@ -182,7 +224,7 @@ router.post('/mobile/restore', authMiddleware, async (c) => {
 });
 
 router.post('/webhook', async (c) => {
-  if (!billingEnvReady(c.env)) {
+  if (!webhookEnvReady(c.env)) {
     return c.json({ error: 'Billing is not configured' }, 503);
   }
 
@@ -214,16 +256,17 @@ router.post('/webhook', async (c) => {
   }
 
   const db = getDb(c.env.horoscope_db);
-  const claimed = await claimStripeWebhookEvent(db, event.id);
-  if (!claimed) {
-    return c.json({ received: true });
-  }
-
   try {
-    await processStripeWebhookEvent(db, event);
+    const result = await processStripeWebhookEventIdempotently(db, event);
+    if (result.action === 'skip') {
+      console.log('[billing] duplicate Stripe webhook skipped', {
+        eventId: event.id,
+        eventType: event.type,
+        reason: result.reason,
+      });
+    }
   } catch (err) {
     console.error('stripe webhook processing failed', event.type, String(err));
-    await releaseStripeWebhookClaim(db, event.id);
     return c.text('Processing failed', 500);
   }
 

@@ -25,7 +25,10 @@ export async function fetchTarotDaily(params: FetchTarotParams): Promise<TarotAp
   if (params.lang != null && String(params.lang).trim() !== '') {
     q.set('lang', tarotApiLang(params.lang));
   }
-  return apiRequest<TarotApiResponse>(`/api/tarot?${q.toString()}`, { localized: false });
+  return apiRequest<TarotApiResponse>(`/api/tarot?${q.toString()}`, {
+    auth: true,
+    localized: false,
+  });
 }
 
 export function isTarotNotFound(err: unknown): boolean {

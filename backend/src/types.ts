@@ -1,3 +1,5 @@
+import type { User } from './db/schema';
+
 export type AppBindings = {
   horoscope_db: D1Database;
   /** R2 bucket for profile avatars (configure in wrangler `r2_buckets`). */
@@ -18,4 +20,5 @@ export type AppBindings = {
 export type AppVariables = {
   userId: string;
   userEmail: string;
+  user: User;
 };

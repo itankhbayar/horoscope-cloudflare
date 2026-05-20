@@ -49,11 +49,14 @@ export async function createPremiumCheckoutSession(
     price.type === 'recurring' ? 'subscription' : 'payment';
 
   const { successUrl, cancelUrl } = premiumCheckoutUrls(appPublicUrl);
+  const checkoutSuccessUrl = `${successUrl}${
+    successUrl.includes('?') ? '&' : '?'
+  }session_id={CHECKOUT_SESSION_ID}`;
 
   return stripe.checkout.sessions.create({
     mode,
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: successUrl,
+    success_url: checkoutSuccessUrl,
     cancel_url: cancelUrl,
     metadata: { userId },
     customer_email: customerEmail,
@@ -219,18 +222,100 @@ export async function createBillingPortalSession(
   });
 }
 
-/** Returns true if this event was newly claimed (should apply side effects). */
-export async function claimStripeWebhookEvent(db: DB, eventId: string): Promise<boolean> {
+export type StripeWebhookClaim =
+  | { action: 'process'; reason: 'new' | 'retry' | 'stale' }
+  | { action: 'skip'; reason: 'processed' | 'processing' };
+
+const STRIPE_WEBHOOK_STALE_CLAIM_MINUTES = 15;
+
+/** Durably claims a Stripe event before applying side effects. */
+export async function claimStripeWebhookEvent(
+  db: DB,
+  eventId: string,
+  eventType: string,
+): Promise<StripeWebhookClaim> {
   const rows = await db
     .insert(stripeWebhookEvents)
-    .values({ id: eventId })
+    .values({ eventId, eventType })
     .onConflictDoNothing()
-    .returning({ id: stripeWebhookEvents.id });
-  return rows.length > 0;
+    .returning({ eventId: stripeWebhookEvents.eventId });
+  if (rows.length > 0) {
+    return { action: 'process', reason: 'new' };
+  }
+
+  const existing = await db
+    .select()
+    .from(stripeWebhookEvents)
+    .where(eq(stripeWebhookEvents.eventId, eventId))
+    .get();
+
+  if (existing?.processedAt) {
+    return { action: 'skip', reason: 'processed' };
+  }
+
+  if (existing?.status === 'failed') {
+    const retryRows = await db
+      .update(stripeWebhookEvents)
+      .set({
+        eventType,
+        claimedAt: sql`(CURRENT_TIMESTAMP)`,
+        status: 'processing',
+        error: null,
+      })
+      .where(and(eq(stripeWebhookEvents.eventId, eventId), eq(stripeWebhookEvents.status, 'failed')))
+      .returning({ eventId: stripeWebhookEvents.eventId });
+    if (retryRows.length > 0) {
+      return { action: 'process', reason: 'retry' };
+    }
+  }
+
+  if (existing?.status === 'processing') {
+    const staleRows = await db
+      .update(stripeWebhookEvents)
+      .set({
+        eventType,
+        claimedAt: sql`(CURRENT_TIMESTAMP)`,
+        error: null,
+      })
+      .where(
+        and(
+          eq(stripeWebhookEvents.eventId, eventId),
+          eq(stripeWebhookEvents.status, 'processing'),
+          sql`${stripeWebhookEvents.claimedAt} < datetime('now', ${`-${STRIPE_WEBHOOK_STALE_CLAIM_MINUTES} minutes`})`,
+        ),
+      )
+      .returning({ eventId: stripeWebhookEvents.eventId });
+    if (staleRows.length > 0) {
+      return { action: 'process', reason: 'stale' };
+    }
+  }
+
+  return { action: 'skip', reason: 'processing' };
 }
 
-export async function releaseStripeWebhookClaim(db: DB, eventId: string): Promise<void> {
-  await db.delete(stripeWebhookEvents).where(eq(stripeWebhookEvents.id, eventId));
+export async function markStripeWebhookEventProcessed(db: DB, eventId: string): Promise<void> {
+  await db
+    .update(stripeWebhookEvents)
+    .set({
+      processedAt: sql`(CURRENT_TIMESTAMP)`,
+      status: 'processed',
+      error: null,
+    })
+    .where(eq(stripeWebhookEvents.eventId, eventId));
+}
+
+export async function markStripeWebhookEventFailed(
+  db: DB,
+  eventId: string,
+  error: string,
+): Promise<void> {
+  await db
+    .update(stripeWebhookEvents)
+    .set({
+      status: 'failed',
+      error: error.slice(0, 2000),
+    })
+    .where(eq(stripeWebhookEvents.eventId, eventId));
 }
 
 export async function grantPremiumFromCheckoutSession(
@@ -271,6 +356,30 @@ export async function grantPremiumFromCheckoutSession(
       updatedAt: sql`(CURRENT_TIMESTAMP)`,
     })
     .where(eq(users.id, userId));
+}
+
+export async function syncPremiumFromCheckoutSession(
+  stripe: Stripe,
+  db: DB,
+  sessionId: string,
+  userId: string,
+): Promise<{ isPremium: boolean }> {
+  const user = await getUserById(db, userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  if (session.metadata?.userId?.trim() !== userId) {
+    throw new Error('Checkout session does not belong to user');
+  }
+
+  if (session.status !== 'complete' || session.payment_status !== 'paid') {
+    throw new Error('Checkout session is not paid');
+  }
+
+  await grantPremiumFromCheckoutSession(db, session);
+  return { isPremium: true };
 }
 
 async function grantPremiumForUserId(db: DB, userId: string): Promise<void> {
@@ -420,6 +529,25 @@ export async function processStripeWebhookEvent(db: DB, event: Stripe.Event): Pr
     }
     default:
       return;
+  }
+}
+
+export async function processStripeWebhookEventIdempotently(
+  db: DB,
+  event: Stripe.Event,
+): Promise<StripeWebhookClaim> {
+  const claim = await claimStripeWebhookEvent(db, event.id, event.type);
+  if (claim.action === 'skip') {
+    return claim;
+  }
+
+  try {
+    await processStripeWebhookEvent(db, event);
+    await markStripeWebhookEventProcessed(db, event.id);
+    return claim;
+  } catch (err) {
+    await markStripeWebhookEventFailed(db, event.id, String(err));
+    throw err;
   }
 }
 

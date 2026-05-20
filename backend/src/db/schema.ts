@@ -28,10 +28,14 @@ export const users = sqliteTable(
 );
 
 export const stripeWebhookEvents = sqliteTable('stripe_webhook_events', {
-  id: text('id').primaryKey(),
-  receivedAt: text('received_at')
+  eventId: text('event_id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  claimedAt: text('claimed_at')
     .notNull()
     .default(sql`(CURRENT_TIMESTAMP)`),
+  processedAt: text('processed_at'),
+  status: text('status').notNull().default('processing'),
+  error: text('error'),
 });
 
 export const birthProfiles = sqliteTable(

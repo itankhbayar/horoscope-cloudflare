@@ -1,19 +1,27 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
 import { useAuth } from '../composables/useAuth';
+import { billingService } from '../lib';
 
 const { t } = useI18n();
 const router = useRouter();
+const route = useRoute();
 const { refreshUser } = useAuth();
 const error = ref<string | null>(null);
 const syncing = ref(true);
 
 onMounted(async () => {
   try {
+    const sessionId = Array.isArray(route.query.session_id)
+      ? route.query.session_id[0]
+      : route.query.session_id;
+    if (sessionId) {
+      await billingService.syncPremiumCheckoutSession(sessionId);
+    }
     await refreshUser();
   } catch (e) {
     error.value = (e as Error).message ?? t('premium.syncError');
