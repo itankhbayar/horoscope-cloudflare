@@ -30,6 +30,10 @@ Skip any `ALTER` that errors with “duplicate column name” if the column alre
 
 For **production**, run the same `migrations apply` with **`--remote`** once per environment.
 
+### Auth rate limiting
+
+`POST /api/auth/login` and `POST /api/auth/register` use a small in-memory fixed-window limiter keyed by `CF-Connecting-IP` with forwarded-header fallbacks. This is useful for local/dev and basic per-isolate protection, but it is not a shared global production limit. Configure Cloudflare WAF/rate limiting rules, or replace the middleware storage with a shared binding such as KV or Durable Objects, for production-grade enforcement across isolates and regions.
+
 `wrangler.jsonc` sets **`dev.ip` to `0.0.0.0`**, so **`npm run dev` or `npx wrangler dev`** listens on **0.0.0.0:8787** and phones on your LAN can reach the Worker (not only `127.0.0.1`). If connections time out from another device on Windows, run **`scripts/allow-wrangler-dev-firewall.ps1`** as Administrator (or `npm run allow-firewall` from an elevated shell). The script allows TCP 8787 on **all** network profiles so **Public** Wi‑Fi is covered.
 
 ```txt

@@ -2,24 +2,42 @@ import { Hono } from 'hono';
 import { getDb } from '../db/client';
 import { HttpError, getUserById, loginUser, registerUser } from '../services/authService';
 import { authMiddleware, requireUserId } from '../middleware/auth';
+import { createRateLimitMiddleware } from '../middleware/rateLimit';
 import type { AppBindings, AppVariables } from '../types';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
-router.post('/register', async (c) => {
+const loginRateLimit = createRateLimitMiddleware({
+  keyPrefix: 'auth:login',
+  limit: 5,
+  windowMs: 60_000,
+});
+
+const registerRateLimit = createRateLimitMiddleware({
+  keyPrefix: 'auth:register',
+  limit: 3,
+  windowMs: 60_000,
+});
+
+const REGISTER_ERROR = 'Registration failed';
+
+router.post('/register', registerRateLimit, async (c) => {
   try {
     const body = await c.req.json();
     const db = getDb(c.env.horoscope_db);
     const result = await registerUser(db, c.env.JWT_SECRET, body);
     return c.json(result);
   } catch (err) {
-    if (err instanceof HttpError) return c.json({ error: err.message }, err.status as any);
+    if (err instanceof HttpError) {
+      if (err.status === 409) return c.json({ error: REGISTER_ERROR }, 400);
+      return c.json({ error: err.message }, err.status as any);
+    }
     console.error('register failed', err);
-    return c.json({ error: 'Registration failed' }, 500);
+    return c.json({ error: REGISTER_ERROR }, 500);
   }
 });
 
-router.post('/login', async (c) => {
+router.post('/login', loginRateLimit, async (c) => {
   try {
     const body = await c.req.json();
     const db = getDb(c.env.horoscope_db);
