@@ -51,6 +51,7 @@ describe('POST /api/auth/register validation', () => {
           password: 'secret12',
           birthDate: '1990-01-15',
           birthCity: 'Ulaanbaatar',
+          birthDataConsent: true,
           latitude: 'not-a-number',
         }),
       },
@@ -75,6 +76,7 @@ describe('POST /api/auth/register validation', () => {
           password: 'secret12',
           birthDate: '1990-01-15',
           birthCity: 'Ulaanbaatar',
+          birthDataConsent: true,
           latitude: 47.92,
           longitude: 106.91,
           timezoneOffset: 8,
@@ -90,6 +92,7 @@ describe('POST /api/auth/register validation', () => {
         latitude: 47.92,
         longitude: 106.91,
         timezoneOffset: 8,
+        birthDataConsent: true,
       }),
     );
   });
@@ -107,6 +110,7 @@ describe('POST /api/auth/register validation', () => {
           password: 'secret1',
           birthDate: '1990-01-15',
           birthCity: 'Ulaanbaatar',
+          birthDataConsent: true,
         }),
       },
       mockEnv,
@@ -132,6 +136,7 @@ describe('POST /api/auth/register validation', () => {
           password: 'a'.repeat(129),
           birthDate: '1990-01-15',
           birthCity: 'Ulaanbaatar',
+          birthDataConsent: true,
         }),
       },
       mockEnv,
@@ -157,6 +162,7 @@ describe('POST /api/auth/register validation', () => {
           password: 'qwerty123',
           birthDate: '1990-01-15',
           birthCity: 'Ulaanbaatar',
+          birthDataConsent: true,
         }),
       },
       mockEnv,
@@ -183,6 +189,7 @@ describe('POST /api/auth/register validation', () => {
           password: passphrase,
           birthDate: '1990-01-15',
           birthCity: 'Ulaanbaatar',
+          birthDataConsent: true,
         }),
       },
       mockEnv,
@@ -194,5 +201,30 @@ describe('POST /api/auth/register validation', () => {
       'test-secret',
       expect.objectContaining({ password: passphrase }),
     );
+  });
+
+  it('requires explicit birth data processing consent', async () => {
+    const app = createApp();
+    const res = await app.request(
+      '/api/auth/register',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: 'Test',
+          email: 'test@example.com',
+          password: 'secret12',
+          birthDate: '1990-01-15',
+          birthCity: 'Ulaanbaatar',
+          birthDataConsent: false,
+        }),
+      },
+      mockEnv,
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.mockRegisterUser).not.toHaveBeenCalled();
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toContain('birthDataConsent');
   });
 });

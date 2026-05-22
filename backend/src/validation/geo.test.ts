@@ -9,6 +9,7 @@ describe('registerBodySchema geo fields', () => {
     password: 'secret12',
     birthDate: '1990-01-15',
     birthCity: 'Ulaanbaatar',
+    birthDataConsent: true,
   };
 
   it('accepts valid coordinates and timezone offset', () => {

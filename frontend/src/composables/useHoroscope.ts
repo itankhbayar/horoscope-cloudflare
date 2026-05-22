@@ -2,6 +2,8 @@ import { ref } from 'vue';
 import { horoscopeService } from '../lib';
 import { getApiLocale } from '../lib/apiClient';
 import type { DailyHoroscope, ZodiacSign } from '../lib/types';
+import { track } from '../lib/analytics';
+import { captureFrontendException } from '../lib/errorTracking';
 
 const cache = new Map<string, DailyHoroscope>();
 
@@ -15,6 +17,7 @@ export function useHoroscope() {
     const key = `${lang}:${sign}:${date ?? 'today'}`;
     if (cache.has(key)) {
       horoscope.value = cache.get(key)!;
+      track('horoscope_viewed', { sign, date: date ?? 'today', source: 'memory_cache' });
       return;
     }
     loading.value = true;
@@ -23,8 +26,10 @@ export function useHoroscope() {
       const data = await horoscopeService.fetchDailyHoroscope(sign, date);
       cache.set(key, data);
       horoscope.value = data;
+      track('horoscope_viewed', { sign, date: data.date, lang, source: 'api' });
     } catch (err) {
       error.value = (err as Error).message;
+      captureFrontendException(err, { feature: { name: 'horoscope', sign } });
     } finally {
       loading.value = false;
     }
@@ -35,8 +40,10 @@ export function useHoroscope() {
     error.value = null;
     try {
       horoscope.value = await horoscopeService.fetchMyDailyHoroscope();
+      track('horoscope_viewed', { source: 'personalized' });
     } catch (err) {
       error.value = (err as Error).message;
+      captureFrontendException(err, { feature: { name: 'horoscope_personalized' } });
     } finally {
       loading.value = false;
     }

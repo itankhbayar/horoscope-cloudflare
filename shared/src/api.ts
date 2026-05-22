@@ -17,6 +17,7 @@ export interface RegisterPayload {
   latitude?: number | null;
   longitude?: number | null;
   timezoneOffset?: number | null;
+  birthDataConsent: boolean;
 }
 
 export interface LoginPayload {

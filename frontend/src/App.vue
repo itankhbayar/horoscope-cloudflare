@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { useAuth } from './composables/useAuth';
 import LanguageSwitcher from './components/LanguageSwitcher.vue';
 import SiteFooter from './components/SiteFooter.vue';
+import PrivacyConsentBanner from './components/PrivacyConsentBanner.vue';
 import { authService } from './lib';
 
 const router = useRouter();
@@ -157,6 +158,7 @@ watch(
       <router-view v-else />
     </main>
     <SiteFooter v-if="authInitialized && !isGuestRoute" />
+    <PrivacyConsentBanner />
   </div>
 </template>
 

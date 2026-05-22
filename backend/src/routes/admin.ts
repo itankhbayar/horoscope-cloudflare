@@ -8,6 +8,8 @@ import { prewarmTarotForTimezoneDate } from '../services/tarotPrewarmService';
 import { isValidIanaTimeZone, isValidCalendarDate } from '../tarot/tarotQuery';
 import type { AppBindings, AppVariables } from '../types';
 import { secureSecretEqual } from '../utils/secureCompare';
+import { captureException } from '../utils/sentry';
+import { logFromContext } from '../utils/logger';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -20,7 +22,7 @@ function isAuthorized(c: { req: { header: (name: string) => string | undefined }
 
 router.post('/prewarm', async (c) => {
   if (!isAuthorized(c)) {
-    console.warn('[admin] Unauthorized prewarm attempt', {
+    logFromContext(c, 'warn', 'admin_prewarm_unauthorized', {
       hasSecretConfigured: Boolean(c.env.ADMIN_SECRET),
       hasHeader: Boolean(c.req.header('x-admin-secret')),
     });
@@ -31,11 +33,11 @@ router.post('/prewarm', async (c) => {
   const dateISO = resolveCronDateISO(Date.now(), timezone);
   const db = getDb(c.env.horoscope_db);
 
-  console.log('[admin] Manual horoscope prewarm started', { timezone, dateISO });
+  logFromContext(c, 'info', 'admin_horoscope_prewarm_started', { timezone, dateISO });
 
   try {
     const result = await prewarmDailyHoroscopes(db, dateISO, timezone);
-    console.log('[admin] Manual horoscope prewarm completed', result);
+    logFromContext(c, 'info', 'admin_horoscope_prewarm_completed', { ...result });
     return c.json({
       success: true,
       date: result.date,
@@ -46,11 +48,12 @@ router.post('/prewarm', async (c) => {
       total: result.total,
     });
   } catch (err) {
-    console.error('[admin] Manual horoscope prewarm failed', {
+    logFromContext(c, 'error', 'admin_horoscope_prewarm_failed', {
       timezone,
       dateISO,
-      error: String(err),
+      error: err,
     });
+    captureException(err, { admin: { job: 'horoscope_prewarm', dateISO, timezone } });
     return c.json(
       {
         success: false,
@@ -64,6 +67,10 @@ router.post('/prewarm', async (c) => {
 
 router.post('/prewarm-tarot', async (c) => {
   if (!isAuthorized(c)) {
+    logFromContext(c, 'warn', 'admin_tarot_prewarm_unauthorized', {
+      hasSecretConfigured: Boolean(c.env.ADMIN_SECRET),
+      hasHeader: Boolean(c.req.header('x-admin-secret')),
+    });
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
@@ -80,13 +87,15 @@ router.post('/prewarm-tarot', async (c) => {
   }
 
   const db = getDb(c.env.horoscope_db);
-  console.log('[admin] Manual tarot prewarm', { timezone, dateISO });
+  logFromContext(c, 'info', 'admin_tarot_prewarm_started', { timezone, dateISO });
 
   try {
     const result = await prewarmTarotForTimezoneDate(db, dateISO, timezone);
+    logFromContext(c, 'info', 'admin_tarot_prewarm_completed', { ...result });
     return c.json({ success: true, ...result });
   } catch (err) {
-    console.error('[admin] Manual tarot prewarm failed', { error: String(err) });
+    logFromContext(c, 'error', 'admin_tarot_prewarm_failed', { timezone, dateISO, error: err });
+    captureException(err, { admin: { job: 'tarot_prewarm', dateISO, timezone } });
     return c.json({ success: false, error: 'Tarot prewarm failed', details: String(err) }, 500);
   }
 });

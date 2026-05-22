@@ -7,6 +7,8 @@ import ScreenLayout from '../components/layout/ScreenLayout.vue';
 import { useAuth } from '../composables/useAuth';
 import { billingService } from '../lib';
 import { ApiClientError } from '../lib/apiClient';
+import { track } from '../lib/analytics';
+import { captureFrontendException } from '../lib/errorTracking';
 
 const { t } = useI18n();
 const { user } = useAuth();
@@ -18,12 +20,14 @@ const isPremium = computed(() => Boolean(user.value?.isPremium));
 async function goPremium() {
   checkoutError.value = null;
   checkoutLoading.value = true;
+  track('checkout_started', { channel: 'web' });
   try {
     const { url } = await billingService.createPremiumCheckoutSession();
     window.location.href = url;
   } catch (e) {
     checkoutError.value =
       e instanceof ApiClientError ? e.message : (e as Error).message ?? t('premium.checkoutFailed');
+    captureFrontendException(e, { billing: { flow: 'create_checkout_session' } });
   } finally {
     checkoutLoading.value = false;
   }
@@ -46,6 +50,8 @@ const features = computed(() => [
     icon: '☽',
   },
 ]);
+
+track('paywall_viewed', { isPremium: isPremium.value });
 </script>
 
 <template>

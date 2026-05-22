@@ -55,6 +55,13 @@ export async function deleteAccount(): Promise<void> {
   await clearLocalSession();
 }
 
+export async function exportMyData(): Promise<Record<string, unknown>> {
+  return apiRequest<Record<string, unknown>>('/api/account/export', {
+    auth: true,
+    localized: false,
+  });
+}
+
 export async function fetchMe(): Promise<AuthUser> {
   return apiRequest<AuthUser>('/api/auth/me', { auth: true });
 }

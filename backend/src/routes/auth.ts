@@ -10,6 +10,8 @@ import {
 import type { AppBindings, AppVariables } from '../types';
 import { formatZodError } from '../validation/hook';
 import { registerBodySchema } from '../validation/authSchemas';
+import { captureException } from '../utils/sentry';
+import { logFromContext, metric } from '../utils/logger';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -43,13 +45,16 @@ router.post('/register', registerRateLimit, async (c) => {
 
     const db = getDb(c.env.horoscope_db);
     const result = await registerUser(db, c.env.JWT_SECRET, parsed.data);
+    metric(c.env, 'signup_completed');
     return c.json(result);
   } catch (err) {
     if (err instanceof HttpError) {
+      metric(c.env, 'auth_failure', { route: 'register', status: err.status });
       if (err.status === 409) return c.json({ error: REGISTER_ERROR }, 400);
       return c.json({ error: err.message }, err.status as any);
     }
-    console.error('register failed', err);
+    logFromContext(c, 'error', 'register_failed', { error: err });
+    captureException(err, { route: { path: '/api/auth/register' } });
     return c.json({ error: REGISTER_ERROR }, 500);
   }
 });
@@ -59,10 +64,15 @@ router.post('/login', loginRateLimit, async (c) => {
     const body = await c.req.json();
     const db = getDb(c.env.horoscope_db);
     const result = await loginUser(db, c.env.JWT_SECRET, body);
+    metric(c.env, 'login_completed');
     return c.json(result);
   } catch (err) {
-    if (err instanceof HttpError) return c.json({ error: err.message }, err.status as any);
-    console.error('login failed', err);
+    if (err instanceof HttpError) {
+      metric(c.env, 'auth_failure', { route: 'login', status: err.status });
+      return c.json({ error: err.message }, err.status as any);
+    }
+    logFromContext(c, 'error', 'login_failed', { error: err });
+    captureException(err, { route: { path: '/api/auth/login' } });
     return c.json({ error: 'Login failed' }, 500);
   }
 });

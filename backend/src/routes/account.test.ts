@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 
 const mocks = vi.hoisted(() => ({
   mockDeleteAccount: vi.fn(),
+  mockExportAccountData: vi.fn(),
 }));
 
 vi.mock('../db/client', () => ({
@@ -23,6 +24,7 @@ vi.mock('../middleware/auth', () => ({
 
 vi.mock('../services/accountService', () => ({
   deleteAccount: mocks.mockDeleteAccount,
+  exportAccountData: mocks.mockExportAccountData,
 }));
 
 import accountRoutes from './account';
@@ -55,6 +57,33 @@ describe('account routes', () => {
     expect(res.status).toBe(200);
     expect(mocks.mockDeleteAccount).toHaveBeenCalled();
     await expect(res.json()).resolves.toEqual({ ok: true, message: 'Account deleted' });
+  });
+
+  it('exports authenticated account data as JSON download', async () => {
+    mocks.mockExportAccountData.mockResolvedValue({
+      exportedAt: '2026-05-22T00:00:00.000Z',
+      profile: { id: 'user-1' },
+      birthProfile: { birthDate: '1990-01-01' },
+      subscription: { isPremium: true },
+      preferences: { notifications: null },
+    });
+    const app = createApp();
+    const res = await app.request(
+      '/api/account/export',
+      {
+        headers: { Authorization: 'Bearer t' },
+      },
+      mockEnv,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Disposition')).toContain('astralis-data-export.json');
+    expect(mocks.mockExportAccountData).toHaveBeenCalled();
+    await expect(res.json()).resolves.toMatchObject({
+      profile: { id: 'user-1' },
+      birthProfile: { birthDate: '1990-01-01' },
+      subscription: { isPremium: true },
+    });
   });
 
   it('rejects unauthorized account deletion', async () => {

@@ -5,6 +5,7 @@ import { getOrCreateDailyHoroscope } from './horoscopeService';
 import { ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
 import { SUPPORTED_LANGS, type Lang } from '../utils/lang';
 import { safeDateISOForDate } from '../utils/localDate';
+import { log } from '../utils/logger';
 
 export interface PrewarmResult {
   date: string;
@@ -59,7 +60,7 @@ export async function prewarmDailyHoroscopes(
         generated += 1;
       } catch (err) {
         failed += 1;
-        console.error('[cron] Failed prewarm item', { sign, lang, dateISO, error: String(err) });
+        log({}, 'error', 'cron_horoscope_prewarm_item_failed', { sign, lang, dateISO, error: err });
       }
     }
   }

@@ -33,6 +33,12 @@ PWNED_PASSWORD_CHECK_ENABLED=false
 # Keep false unless you intentionally want registration to fail when HIBP is unavailable.
 PWNED_PASSWORD_FAIL_CLOSED=false
 
+# Optional production observability. Leave SENTRY_DSN unset in local dev.
+APP_ENV=development
+SENTRY_DSN=
+SENTRY_RELEASE=
+SENTRY_TRACES_SAMPLE_RATE=0.05
+
 # Webhook local testing (requires Stripe CLI + wrangler dev on 8787):
 #   npm run stripe:listen
 # Copy the printed "whsec_..." into STRIPE_WEBHOOK_SECRET and restart wrangler dev.

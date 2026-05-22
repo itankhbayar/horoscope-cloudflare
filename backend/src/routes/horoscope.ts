@@ -9,6 +9,7 @@ import { searchCities } from '../utils/cities';
 import { parseLang } from '../utils/lang';
 import { safeDateISO } from '../utils/localDate';
 import type { AppBindings, AppVariables } from '../types';
+import { metric } from '../utils/logger';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 const DAILY_HOROSCOPE_CACHE_TTL_SECONDS = 60 * 60 * 6;
@@ -40,10 +41,15 @@ router.get('/daily/:sign', async (c) => {
   const cache = caches.default;
   const cacheKey = dailyHoroscopeCacheKey(sign, dateISO, lang);
   const cached = await cache.match(cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    metric(c.env, 'daily_horoscope_cache_hit', { sign, lang, variant: 'free' });
+    return cached;
+  }
+  metric(c.env, 'daily_horoscope_cache_miss', { sign, lang, variant: 'free' });
 
   const db = getDb(c.env.horoscope_db);
   const horoscope = await getOrCreateDailyHoroscope(db, sign, lang, dateISO);
+  metric(c.env, 'horoscope_viewed', { sign, lang, variant: 'free' });
   const response = c.json(horoscope);
   response.headers.set('Cache-Control', DAILY_HOROSCOPE_CACHE_CONTROL);
   if (response.status === 200) {
@@ -65,6 +71,7 @@ router.get('/daily', authMiddleware, async (c) => {
     .get();
   const dateISO = safeDateISO(user?.timezone ?? 'UTC');
   const horoscope = await getOrCreateDailyHoroscope(db, chart.sunSign as ZodiacSign, lang, dateISO);
+  metric(c.env, 'horoscope_viewed', { sign: chart.sunSign, lang, variant: 'authenticated' });
   return c.json({
     ...horoscope,
     sunSign: chart.sunSign,

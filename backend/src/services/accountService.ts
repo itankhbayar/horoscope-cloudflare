@@ -8,6 +8,7 @@ import {
   pushTokens,
   users,
 } from '../db/schema';
+import { getFullProfile } from './profileService';
 
 const AVATAR_PREFIX = 'profile/';
 const AVATAR_EXTS = ['jpg', 'jpeg', 'png', 'webp'] as const;
@@ -81,4 +82,44 @@ export async function deleteAccount(db: DB, userId: string, storage?: R2Bucket):
   await db
     .delete(users)
     .where(eq(users.id, userId));
+}
+
+export async function exportAccountData(db: DB, userId: string): Promise<Record<string, unknown>> {
+  const profile = await getFullProfile(db, userId);
+  const preferences = await db
+    .select()
+    .from(notificationPreferences)
+    .where(eq(notificationPreferences.userId, userId))
+    .get();
+  const user = await db
+    .select({
+      id: users.id,
+      isPremium: users.isPremium,
+      stripeCustomerId: users.stripeCustomerId,
+      stripeSubscriptionId: users.stripeSubscriptionId,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+
+  return {
+    exportedAt: new Date().toISOString(),
+    profile: profile.user,
+    birthProfile: profile.birthProfile,
+    natalChart: profile.natalChart,
+    subscription: user
+      ? {
+          isPremium: Boolean(user.isPremium),
+          stripeCustomerId: user.stripeCustomerId,
+          stripeSubscriptionId: user.stripeSubscriptionId,
+        }
+      : null,
+    preferences: {
+      notifications: preferences ?? null,
+    },
+    retentionNotice:
+      'Account deletion removes account, birth profile, natal chart, notification preferences, and push tokens. Payment processors may retain billing records under their own legal obligations.',
+  };
 }

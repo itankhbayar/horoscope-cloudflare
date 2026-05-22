@@ -25,6 +25,8 @@ import {
   REVENUECAT_SYNC_NOT_CONFIGURED,
   REVENUECAT_WEBHOOK_NOT_CONFIGURED,
 } from './billingRevenueCatErrors';
+import { captureException } from '../utils/sentry';
+import { logFromContext, metric } from '../utils/logger';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -78,9 +80,11 @@ router.post('/create-checkout-session', authMiddleware, async (c) => {
     if (!session.url) {
       return c.json({ error: 'Checkout session missing redirect URL' }, 500);
     }
+    metric(c.env, 'checkout_started', { channel: 'web' });
     return c.json({ url: session.url });
   } catch (err) {
-    console.error('create-checkout-session failed', String(err));
+    logFromContext(c, 'error', 'checkout_session_failed', { error: err });
+    captureException(err, { billing: { flow: 'create_checkout_session' } });
     return c.json({ error: 'Could not start checkout' }, 500);
   }
 });
@@ -108,6 +112,7 @@ router.post('/checkout/sync', authMiddleware, async (c) => {
 
   try {
     const result = await syncPremiumFromCheckoutSession(stripe, db, sessionId, userId);
+    if (result.isPremium) metric(c.env, 'premium_purchased', { source: 'checkout_sync' });
     return c.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Could not sync checkout session';
@@ -118,7 +123,8 @@ router.post('/checkout/sync', authMiddleware, async (c) => {
     ) {
       return c.json({ error: msg }, 400);
     }
-    console.error('checkout/sync failed', String(err));
+    logFromContext(c, 'error', 'checkout_sync_failed', { error: err });
+    captureException(err, { billing: { flow: 'checkout_sync' } });
     return c.json({ error: 'Could not sync checkout session' }, 500);
   }
 });
@@ -160,10 +166,12 @@ router.post('/mobile/checkout', authMiddleware, async (c) => {
       priceId,
       idempotencyKey,
     });
+    metric(c.env, 'checkout_started', { channel: 'mobile', mode: sheet.mode });
     return c.json(sheet);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Could not start mobile checkout';
-    console.error('mobile/checkout failed', String(err));
+    logFromContext(c, 'error', 'mobile_checkout_failed', { error: err });
+    captureException(err, { billing: { flow: 'mobile_checkout' } });
     if (msg.includes('Invalid or disallowed')) {
       return c.json({ error: 'Invalid or disallowed price id' }, 400);
     }
@@ -210,7 +218,8 @@ router.post('/mobile/portal', authMiddleware, async (c) => {
     }
     return c.json({ url: session.url });
   } catch (err) {
-    console.error('mobile/portal failed', String(err));
+    logFromContext(c, 'error', 'mobile_portal_failed', { error: err });
+    captureException(err, { billing: { flow: 'mobile_portal' } });
     return c.json({ error: 'Could not open billing portal' }, 500);
   }
 });
@@ -224,11 +233,13 @@ router.post('/mobile/restore', authMiddleware, async (c) => {
   const stripe = createStripeClient(c.env.STRIPE_SECRET_KEY);
   try {
     const result = await syncPremiumFromStripeForUser(stripe, db, userId);
+    metric(c.env, 'subscription_restored', { source: result.source, isPremium: result.isPremium });
     return c.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Could not restore premium';
     if (msg === 'User not found') return c.json({ error: msg }, 404);
-    console.error('mobile/restore failed', String(err));
+    logFromContext(c, 'error', 'mobile_restore_failed', { error: err });
+    captureException(err, { billing: { flow: 'mobile_restore' } });
     return c.json({ error: 'Could not restore premium' }, 500);
   }
 });
@@ -267,9 +278,15 @@ router.post('/revenuecat/webhook', async (c) => {
     const result = await processRevenueCatWebhook(db, payload, {
       apiKey: c.env.REVENUECAT_API_KEY,
     });
+    metric(c.env, 'revenuecat_webhook_processed', {
+      eventType: payload.event?.type,
+      handled: result.handled,
+      isPremium: result.isPremium,
+    });
     return c.json({ received: true, ...result });
   } catch (err) {
-    console.error('revenuecat webhook failed', String(err));
+    logFromContext(c, 'error', 'revenuecat_webhook_failed', { error: err });
+    captureException(err, { billing: { flow: 'revenuecat_webhook' } });
     return c.json({ error: 'Webhook processing failed' }, 500);
   }
 });
@@ -284,11 +301,13 @@ router.post('/revenuecat/sync', authMiddleware, async (c) => {
 
   try {
     const result = await syncPremiumFromRevenueCatApi(db, c.env.REVENUECAT_API_KEY, userId);
+    metric(c.env, 'subscription_restored', { source: 'revenuecat_api', isPremium: result.isPremium });
     return c.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Could not sync RevenueCat status';
     if (msg === 'User not found') return c.json({ error: msg }, 404);
-    console.error('revenuecat/sync failed', String(err));
+    logFromContext(c, 'error', 'revenuecat_sync_failed', { error: err });
+    captureException(err, { billing: { flow: 'revenuecat_sync' } });
     return c.json({ error: 'Could not sync RevenueCat status' }, 500);
   }
 });
@@ -314,29 +333,37 @@ router.post('/webhook', async (c) => {
   try {
     event = await stripe.webhooks.constructEventAsync(rawBody, signature, webhookSecret);
   } catch (err) {
-    console.error('stripe webhook signature failed', String(err));
-    console.error(
-      '[billing] If using stripe listen, set STRIPE_WEBHOOK_SECRET to the whsec_... value printed in that terminal, then restart wrangler dev. Dashboard webhook secrets differ from the CLI.',
-    );
+    logFromContext(c, 'warn', 'stripe_webhook_signature_failed', { error: err });
+    metric(c.env, 'stripe_webhook_signature_failed');
     return c.text('Invalid signature', 400);
   }
 
   if (!WEBHOOK_HANDLED.has(event.type)) {
+    metric(c.env, 'stripe_webhook_ignored', { eventType: event.type });
     return c.json({ received: true });
   }
 
   const db = getDb(c.env.horoscope_db);
   try {
     const result = await processStripeWebhookEventIdempotently(db, event);
+    metric(c.env, 'stripe_webhook_processed', {
+      eventType: event.type,
+      action: result.action,
+      reason: result.reason,
+    });
+    if (event.type === 'checkout.session.completed' && result.action === 'process') {
+      metric(c.env, 'premium_purchased', { source: 'stripe_webhook' });
+    }
     if (result.action === 'skip') {
-      console.log('[billing] duplicate Stripe webhook skipped', {
+      logFromContext(c, 'info', 'stripe_webhook_duplicate_skipped', {
         eventId: event.id,
         eventType: event.type,
         reason: result.reason,
       });
     }
   } catch (err) {
-    console.error('stripe webhook processing failed', event.type, String(err));
+    logFromContext(c, 'error', 'stripe_webhook_processing_failed', { eventType: event.type, error: err });
+    captureException(err, { billing: { flow: 'stripe_webhook', eventType: event.type } });
     return c.text('Processing failed', 500);
   }
 

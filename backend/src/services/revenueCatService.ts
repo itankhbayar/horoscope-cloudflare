@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { DB } from '../db/client';
 import { users } from '../db/schema';
 import { getUserById } from './authService';
+import { log } from '../utils/logger';
 
 /** RevenueCat entitlement identifier configured in the dashboard (matches mobile). */
 export const REVENUECAT_PREMIUM_ENTITLEMENT_ID = 'premium';
@@ -153,7 +154,7 @@ export async function processRevenueCatWebhook(
 ): Promise<{ handled: boolean; userId?: string; isPremium?: boolean }> {
   const appUserId = payload.event?.app_user_id?.trim();
   if (!appUserId) {
-    console.error('[revenuecat] webhook missing app_user_id', payload.event?.type);
+    log({}, 'warn', 'revenuecat_webhook_missing_app_user_id', { eventType: payload.event?.type });
     return { handled: false };
   }
 
@@ -164,7 +165,7 @@ export async function processRevenueCatWebhook(
       const subscriber = await fetchRevenueCatSubscriber(options.apiKey, appUserId);
       isPremium = hasActivePremiumFromEntitlements(subscriber.subscriber?.entitlements);
     } catch (err) {
-      console.error('[revenuecat] subscriber fetch failed during webhook', String(err));
+      log({}, 'error', 'revenuecat_subscriber_fetch_failed_during_webhook', { error: err });
       return { handled: false };
     }
   }

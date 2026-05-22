@@ -23,10 +23,17 @@ export type AppBindings = {
   REVENUECAT_API_KEY?: string;
   /** Authorization secret configured in RevenueCat webhook settings. */
   REVENUECAT_WEBHOOK_SECRET?: string;
+  /** Deployment environment label for logs and Sentry. */
+  APP_ENV?: string;
+  ENVIRONMENT?: string;
+  SENTRY_DSN?: string;
+  SENTRY_RELEASE?: string;
+  SENTRY_TRACES_SAMPLE_RATE?: string;
 };
 
 export type AppVariables = {
   userId: string;
   userEmail: string;
   user: User;
+  requestId: string;
 };

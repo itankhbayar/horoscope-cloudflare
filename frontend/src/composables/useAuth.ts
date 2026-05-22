@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue';
 import { authService } from '../lib';
 import type { AuthUser, LoginPayload, RegisterPayload } from '../lib/types';
+import { identifyAnalyticsUser, track } from '../lib/analytics';
+import { captureFrontendException } from '../lib/errorTracking';
 
 const user = ref<AuthUser | null>(null);
 const loading = ref(false);
@@ -44,8 +46,11 @@ async function login(payload: LoginPayload): Promise<void> {
   try {
     const result = await authService.login(payload);
     user.value = result.user;
+    identifyAnalyticsUser(result.user.id);
+    track('login');
   } catch (err) {
     error.value = (err as Error).message;
+    captureFrontendException(err, { auth: { flow: 'login' } });
     throw err;
   } finally {
     loading.value = false;
@@ -58,8 +63,11 @@ async function register(payload: RegisterPayload): Promise<void> {
   try {
     const result = await authService.register(payload);
     user.value = result.user;
+    identifyAnalyticsUser(result.user.id);
+    track('signup_completed');
   } catch (err) {
     error.value = (err as Error).message;
+    captureFrontendException(err, { auth: { flow: 'register' } });
     throw err;
   } finally {
     loading.value = false;
@@ -69,11 +77,16 @@ async function register(payload: RegisterPayload): Promise<void> {
 async function logout(): Promise<void> {
   await authService.logout();
   user.value = null;
+  identifyAnalyticsUser(null);
 }
 
 async function deleteAccount(): Promise<void> {
   await authService.deleteAccount();
   user.value = null;
+}
+
+async function exportMyData(): Promise<Record<string, unknown>> {
+  return authService.exportMyData();
 }
 
 async function refreshUser(): Promise<void> {
@@ -97,6 +110,7 @@ export function useAuth() {
     register,
     logout,
     deleteAccount,
+    exportMyData,
     refreshUser,
   };
 }

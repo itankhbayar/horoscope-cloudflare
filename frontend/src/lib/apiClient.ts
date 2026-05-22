@@ -1,5 +1,6 @@
 import { getStorage } from './storage';
 import type { ApiError } from './types';
+import { captureFrontendException } from './errorTracking';
 
 export const TOKEN_KEY = 'horoscope_token';
 
@@ -139,8 +140,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         baseUrl === ''
           ? 'Start the Worker (cd backend && npm run dev) so Vite can proxy /api to port 8787.'
           : `Is the API running at ${baseUrl}?`;
-      throw new ApiClientError(408, `Request timed out after ${timeoutMs}ms. ${hint}`);
+      const timeoutError = new ApiClientError(408, `Request timed out after ${timeoutMs}ms. ${hint}`);
+      captureFrontendException(timeoutError, { api: { path, method, status: 408 } });
+      throw timeoutError;
     }
+    captureFrontendException(err, { api: { path, method } });
     throw err;
   }
   let data: unknown = null;
@@ -158,7 +162,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       const e = (data as { error?: unknown }).error;
       if (typeof e === 'string' && e.length > 0) message = e;
     }
-    throw new ApiClientError(response.status, message);
+    const apiError = new ApiClientError(response.status, message);
+    captureFrontendException(apiError, { api: { path, method, status: response.status } });
+    throw apiError;
   }
   return data as T;
 }

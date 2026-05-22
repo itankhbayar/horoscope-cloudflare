@@ -379,7 +379,7 @@ describe('Stripe billing webhook integration', () => {
   });
 
   it('records invoice.payment_failed and preserves premium because no grace-period mutation exists', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     insertUser(sqlite, {
       isPremium: true,
       stripeCustomerId: 'cus_test_123',
@@ -405,10 +405,8 @@ describe('Stripe billing webhook integration', () => {
         stripe_subscription_id: 'sub_test_123',
       }),
     );
-    expect(consoleError).toHaveBeenCalledWith(
-      '[billing] invoice.payment_failed',
-      expect.objectContaining({ invoiceId: 'in_test_failed', customerId: 'cus_test_123' }),
-    );
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('billing_invoice_payment_failed'));
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('"invoiceId":"in_test_failed"'));
   });
 
   it('returns 400 for invalid Stripe webhook signatures', async () => {

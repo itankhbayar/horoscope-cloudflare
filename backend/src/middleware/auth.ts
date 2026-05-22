@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { getDb } from '../db/client';
 import { verifyTokenForUser } from '../services/authService';
 import type { AppBindings, AppVariables } from '../types';
+import { logFromContext, metric } from '../utils/logger';
 
 export const authMiddleware: MiddlewareHandler<{
   Bindings: AppBindings;
@@ -9,6 +10,8 @@ export const authMiddleware: MiddlewareHandler<{
 }> = async (c, next) => {
   const header = c.req.header('Authorization');
   if (!header || !header.startsWith('Bearer ')) {
+    metric(c.env, 'auth_failure', { reason: 'missing_bearer' });
+    logFromContext(c, 'warn', 'auth_failure', { reason: 'missing_bearer' });
     return c.json({ error: 'Unauthorized' }, 401);
   }
   const token = header.slice('Bearer '.length).trim();
@@ -19,6 +22,8 @@ export const authMiddleware: MiddlewareHandler<{
     c.set('userEmail', payload.email);
     await next();
   } catch (err) {
+    metric(c.env, 'auth_failure', { reason: 'invalid_token' });
+    logFromContext(c, 'warn', 'auth_failure', { reason: 'invalid_token' });
     return c.json({ error: 'Invalid or expired token' }, 401);
   }
 };

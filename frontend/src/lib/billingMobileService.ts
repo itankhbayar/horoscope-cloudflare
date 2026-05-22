@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { track } from './analytics';
 
 export type MobilePremiumCheckoutResponse =
   | {
@@ -16,6 +17,7 @@ export type MobilePremiumCheckoutResponse =
 export async function createMobilePremiumCheckout(
   body: { priceId?: string; idempotencyKey?: string } = {},
 ): Promise<MobilePremiumCheckoutResponse> {
+  track('checkout_started', { channel: 'mobile' });
   return apiRequest<MobilePremiumCheckoutResponse>('/api/billing/mobile/checkout', {
     method: 'POST',
     body,
@@ -37,7 +39,7 @@ export async function restoreMobilePremiumStatus(): Promise<{
   isPremium: boolean;
   source: 'subscription' | 'customer' | 'none';
 }> {
-  return apiRequest<{ isPremium: boolean; source: 'subscription' | 'customer' | 'none' }>(
+  const result = await apiRequest<{ isPremium: boolean; source: 'subscription' | 'customer' | 'none' }>(
     '/api/billing/mobile/restore',
     {
       method: 'POST',
@@ -45,4 +47,6 @@ export async function restoreMobilePremiumStatus(): Promise<{
       localized: false,
     },
   );
+  track('subscription_restored', { source: result.source, isPremium: result.isPremium });
+  return result;
 }

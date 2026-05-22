@@ -68,20 +68,19 @@ describe('scheduled handler', () => {
   });
 
   it('logs a clear error and skips prewarm when cron does not match CRON_DAILY', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { ctx, flush } = createScheduledContext();
 
     worker.scheduled?.({ cron: '0 0 * * *', scheduledTime: 1 } as ScheduledController, env, ctx);
     await flush();
 
-    expect(errorSpy).toHaveBeenCalledWith('[cron] Unmatched scheduled trigger; skipping prewarm', {
-      receivedCron: '0 0 * * *',
-      expectedCron: CRON_DAILY,
-    });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('cron_skipped_unmatched_trigger'));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('"receivedCron":"0 0 * * *"'));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(`"expectedCron":"${CRON_DAILY}"`));
     expect(mocks.getDb).not.toHaveBeenCalled();
     expect(mocks.prewarmDailyHoroscopes).not.toHaveBeenCalled();
     expect(mocks.prewarmTarotForTimezoneDate).not.toHaveBeenCalled();
 
-    errorSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });

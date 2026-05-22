@@ -32,6 +32,9 @@ export const registerBodySchema = z.object({
   latitude: optionalNullableLatitudeSchema,
   longitude: optionalNullableLongitudeSchema,
   timezoneOffset: optionalNullableTimezoneOffsetSchema,
+  birthDataConsent: z.literal(true, {
+    error: 'You must acknowledge birth data processing to create an astrology profile',
+  }),
 });
 
 export type RegisterBody = z.infer<typeof registerBodySchema>;

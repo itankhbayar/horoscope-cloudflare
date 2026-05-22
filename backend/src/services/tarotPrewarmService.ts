@@ -3,6 +3,7 @@ import { tarotPayloadNeedsBilingualRefresh } from '../tarot/tarotPayloadQuality'
 import { ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
 import { getTarotDailyRow, upsertTarotDaily } from './tarotService';
 import { validateTarotPayload } from '../tarot/tarotValidator';
+import { log } from '../utils/logger';
 
 export interface TarotPrewarmResult {
   date: string;
@@ -37,9 +38,9 @@ export async function prewarmTarotForTimezoneDate(
           continue;
         }
         if (stillValid.ok && tarotPayloadNeedsBilingualRefresh(stillValid.value)) {
-          console.warn('[tarot-prewarm] Stale or English-only MN cache, regenerating', { sign, dateISO, timezone });
+          log({}, 'warn', 'tarot_prewarm_stale_cache_regenerating', { sign, dateISO, timezone });
         } else if (!stillValid.ok) {
-          console.warn('[tarot-prewarm] Invalid cached payload, regenerating', { sign, dateISO, timezone });
+          log({}, 'warn', 'tarot_prewarm_invalid_cache_regenerating', { sign, dateISO, timezone });
         }
       }
 
@@ -47,7 +48,7 @@ export async function prewarmTarotForTimezoneDate(
       generated += 1;
     } catch (err) {
       failed += 1;
-      console.error('[tarot-prewarm] item failed', { sign, dateISO, timezone, error: String(err) });
+      log({}, 'error', 'tarot_prewarm_item_failed', { sign, dateISO, timezone, error: err });
     }
   }
 

@@ -5,6 +5,9 @@ import App from './App.vue';
 import router from './router';
 import i18n, { loadInitialLocale, persistLocale } from './i18n';
 import { configureApi, setApiLocale } from './lib/apiClient';
+import { initAnalytics, track } from './lib/analytics';
+import { initErrorTracking } from './lib/errorTracking';
+import { hasAnalyticsConsent } from './lib/privacyConsent';
 
 const fromEnv = (
   import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL
@@ -24,4 +27,11 @@ const initialLocale = loadInitialLocale();
 persistLocale(initialLocale);
 setApiLocale(initialLocale);
 
-createApp(App).use(router).use(i18n).mount('#app');
+if (hasAnalyticsConsent()) initAnalytics();
+
+const app = createApp(App);
+app.use(router).use(i18n);
+initErrorTracking(app, router);
+app.mount('#app');
+
+track('app_open', { locale: initialLocale });

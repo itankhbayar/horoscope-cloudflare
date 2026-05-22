@@ -12,6 +12,8 @@ import TarotPage from '../pages/TarotPage.vue';
 import PrivacyPage from '../pages/PrivacyPage.vue';
 import TermsPage from '../pages/TermsPage.vue';
 import DeleteAccountPage from '../pages/DeleteAccountPage.vue';
+import HoroscopeSignPage from '../pages/HoroscopeSignPage.vue';
+import CompatibilityStaticPage from '../pages/CompatibilityStaticPage.vue';
 import { authService } from '../lib';
 
 const router = createRouter({
@@ -37,6 +39,9 @@ const router = createRouter({
     },
     { path: '/login', name: 'login', component: LoginPage, meta: { guest: true } },
     { path: '/register', name: 'register', component: RegisterPage, meta: { guest: true } },
+    { path: '/horoscope/:sign', name: 'horoscope-sign', component: HoroscopeSignPage },
+    { path: '/horoscope/:sign/today', name: 'horoscope-sign-today', component: HoroscopeSignPage },
+    { path: '/compatibility/:sign1/:sign2', name: 'compatibility-static', component: CompatibilityStaticPage },
     { path: '/privacy', name: 'privacy', component: PrivacyPage },
     { path: '/terms', name: 'terms', component: TermsPage },
     { path: '/delete-account', name: 'delete-account', component: DeleteAccountPage },

@@ -1,6 +1,8 @@
 import { ref } from 'vue';
 import { compatibilityService } from '../lib';
 import type { CompatibilityResult, ZodiacSign } from '../lib/types';
+import { track } from '../lib/analytics';
+import { captureFrontendException } from '../lib/errorTracking';
 
 export function useCompatibility() {
   const result = ref<CompatibilityResult | null>(null);
@@ -12,8 +14,10 @@ export function useCompatibility() {
     error.value = null;
     try {
       result.value = await compatibilityService.compareSigns(sign1, sign2);
+      track('compatibility_viewed', { mode: 'signs', sign1, sign2 });
     } catch (err) {
       error.value = (err as Error).message;
+      captureFrontendException(err, { feature: { name: 'compatibility', mode: 'signs' } });
     } finally {
       loading.value = false;
     }

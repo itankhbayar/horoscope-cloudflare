@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import type { AppBindings, AppVariables } from '../types';
+import { logFromContext, metric } from '../utils/logger';
 
 type RateLimitOptions = {
   keyPrefix: string;
@@ -60,6 +61,11 @@ export function createRateLimitMiddleware(
     if (bucket.count > options.limit) {
       const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
       c.header('Retry-After', String(retryAfter));
+      logFromContext(c, 'warn', 'rate_limit_exceeded', {
+        keyPrefix: options.keyPrefix,
+        retryAfter,
+      });
+      metric(c.env, 'rate_limit_exceeded', { keyPrefix: options.keyPrefix });
       return c.json({ error: 'Too many requests, please try again later' }, 429);
     }
 

@@ -184,7 +184,7 @@ describe('grantPremiumFromCheckoutSession', () => {
   });
 
   it('skips update when metadata.userId is missing', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { db, setCalls } = createDbCapture();
 
     await grantPremiumFromCheckoutSession(db, {
@@ -194,12 +194,12 @@ describe('grantPremiumFromCheckoutSession', () => {
     } as unknown as Stripe.Checkout.Session);
 
     expect(setCalls).toHaveLength(0);
-    expect(consoleError).toHaveBeenCalled();
-    consoleError.mockRestore();
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('billing_checkout_session_missing_user_id'));
+    consoleWarn.mockRestore();
   });
 
   it('skips update when user is unknown', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { db, setCalls } = createDbCapture();
     mocks.getUserById.mockResolvedValue(null);
 
@@ -209,8 +209,8 @@ describe('grantPremiumFromCheckoutSession', () => {
     } as unknown as Stripe.Checkout.Session);
 
     expect(setCalls).toHaveLength(0);
-    expect(consoleError).toHaveBeenCalled();
-    consoleError.mockRestore();
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('billing_checkout_session_unknown_user'));
+    consoleWarn.mockRestore();
   });
 });
 
@@ -360,7 +360,7 @@ describe('syncPremiumFromSubscription', () => {
   });
 
   it('logs and skips when user cannot be resolved', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { db, setCalls } = createDbCapture();
 
     await syncPremiumFromSubscription(db, {
@@ -371,8 +371,8 @@ describe('syncPremiumFromSubscription', () => {
     } as unknown as Stripe.Subscription);
 
     expect(setCalls).toHaveLength(0);
-    expect(consoleError).toHaveBeenCalled();
-    consoleError.mockRestore();
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('billing_subscription_missing_user'));
+    consoleWarn.mockRestore();
   });
 });
 
@@ -435,7 +435,7 @@ describe('handleInvoicePaid', () => {
 
 describe('handleInvoicePaymentFailed', () => {
   it('logs failure without throwing', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { db } = createDbCapture();
 
     await expect(
@@ -446,11 +446,9 @@ describe('handleInvoicePaymentFailed', () => {
       } as Stripe.Invoice),
     ).resolves.toBeUndefined();
 
-    expect(consoleError).toHaveBeenCalledWith(
-      '[billing] invoice.payment_failed',
-      expect.objectContaining({ invoiceId: 'in_fail', customerId: 'cus_fail' }),
-    );
-    consoleError.mockRestore();
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('billing_invoice_payment_failed'));
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('"invoiceId":"in_fail"'));
+    consoleWarn.mockRestore();
   });
 });
 
@@ -557,7 +555,7 @@ describe('processStripeWebhookEvent', () => {
   });
 
   it('routes invoice.payment_failed without db premium changes', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { db, setCalls } = createDbCapture();
 
     await processStripeWebhookEvent(
@@ -570,8 +568,8 @@ describe('processStripeWebhookEvent', () => {
     );
 
     expect(setCalls).toHaveLength(0);
-    expect(consoleError).toHaveBeenCalled();
-    consoleError.mockRestore();
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('billing_invoice_payment_failed'));
+    consoleWarn.mockRestore();
   });
 
   it('routes payment_intent.succeeded', async () => {

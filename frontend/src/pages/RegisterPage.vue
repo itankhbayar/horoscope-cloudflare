@@ -6,6 +6,7 @@ import { useAuth } from '../composables/useAuth';
 import { horoscopeService } from '../lib';
 import type { City } from '../lib/types';
 import FormLayout from '../components/layout/FormLayout.vue';
+import { track } from '../lib/analytics';
 
 const router = useRouter();
 const { t } = useI18n();
@@ -17,6 +18,7 @@ const password = ref('');
 const birthDate = ref('');
 const birthTime = ref('');
 const birthCity = ref('');
+const birthDataConsent = ref(false);
 const errorMsg = ref('');
 const isLoading = ref(false);
 const suggestions = ref<City[]>([]);
@@ -58,6 +60,7 @@ function pickCity(city: City): void {
 async function handleRegister(): Promise<void> {
   errorMsg.value = '';
   isLoading.value = true;
+  track('signup_started');
   try {
     const cityName = selectedCity.value?.name ?? (birthCity.value.split(',')[0] ?? '').trim();
     await register({
@@ -71,6 +74,7 @@ async function handleRegister(): Promise<void> {
       latitude: selectedCity.value?.latitude ?? null,
       longitude: selectedCity.value?.longitude ?? null,
       timezoneOffset: selectedCity.value?.timezoneOffset ?? null,
+      birthDataConsent: birthDataConsent.value,
     });
     router.push('/');
   } catch (err) {
@@ -137,6 +141,16 @@ async function handleRegister(): Promise<void> {
           </ul>
         </div>
 
+        <label class="consent-box">
+          <input v-model="birthDataConsent" type="checkbox" required />
+          <span>
+            I understand Astralis collects my birth date, optional birth time, and birth location to
+            calculate astrology placements and generate horoscope, chart, and compatibility insights.
+            I can delete my account and birth data later. See the
+            <router-link to="/privacy">Privacy Policy</router-link>.
+          </span>
+        </label>
+
         <div v-if="errorMsg" class="error-msg">{{ errorMsg }}</div>
 
         <button type="submit" class="btn-celestial" :disabled="isLoading">
@@ -172,6 +186,25 @@ async function handleRegister(): Promise<void> {
   50% { transform: translateY(-6px); }
 }
 .city-group { position: relative; }
+.consent-box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.8rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.consent-box input {
+  margin-top: 0.18rem;
+}
+.consent-box a {
+  color: var(--gold-light);
+}
 .suggestions {
   position: absolute;
   top: 100%;

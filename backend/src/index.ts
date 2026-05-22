@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import * as Sentry from '@sentry/cloudflare';
 import authRoutes from './routes/auth';
 import profileRoutes from './routes/profile';
 import horoscopeRoutes from './routes/horoscope';
@@ -15,12 +16,20 @@ import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscope
 import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
 import { CRON_DAILY } from './cron';
 import type { AppBindings, AppVariables } from './types';
+import { requestContextMiddleware } from './utils/requestContext';
+import { captureException, sentryOptions } from './utils/sentry';
+import { log, logFromContext, metric } from './utils/logger';
 
 const DEFAULT_TIMEZONE = 'Asia/Ulaanbaatar';
 
 const app = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
 // Stripe-Signature: allow if a proxy/browser preflights; webhook body must stay raw for verification.
+app.use(
+  '/*',
+  requestContextMiddleware,
+);
+
 app.use(
   '/*',
   cors({
@@ -34,7 +43,29 @@ app.use(
 
 app.get('/', (c) => c.text('Backend working'));
 
-app.get('/health', (c) => c.json({ ok: true }));
+app.get('/health', async (c) => {
+  const started = Date.now();
+  try {
+    await c.env.horoscope_db.prepare('SELECT 1 AS ok').first?.();
+    return c.json({
+      ok: true,
+      dependencies: { d1: 'ok' },
+      environment: c.env.APP_ENV ?? c.env.ENVIRONMENT ?? 'development',
+      durationMs: Date.now() - started,
+    });
+  } catch (err) {
+    logFromContext(c, 'error', 'health_check_failed', { error: err });
+    captureException(err, { route: { path: '/health' } });
+    return c.json(
+      {
+        ok: false,
+        dependencies: { d1: 'error' },
+        durationMs: Date.now() - started,
+      },
+      503,
+    );
+  }
+});
 
 app.route('/api/auth', authRoutes);
 app.route('/api/profile', profileRoutes);
@@ -49,7 +80,8 @@ app.route('/admin', adminRoutes);
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 
 app.onError((err, c) => {
-  console.error('unhandled error', err);
+  logFromContext(c, 'error', 'route_unhandled_exception', { error: err });
+  captureException(err, { route: { path: c.req.path, method: c.req.method } });
   return c.json({ error: 'Internal server error' }, 500);
 });
 
@@ -58,10 +90,11 @@ const worker: ExportedHandler<AppBindings> = {
   scheduled(controller, env, ctx) {
     ctx.waitUntil(
       (async () => {
+        const started = Date.now();
         const cron = controller.cron ?? '';
 
         if (cron !== CRON_DAILY) {
-          console.error('[cron] Unmatched scheduled trigger; skipping prewarm', {
+          log(env, 'warn', 'cron_skipped_unmatched_trigger', {
             receivedCron: cron,
             expectedCron: CRON_DAILY,
           });
@@ -72,7 +105,7 @@ const worker: ExportedHandler<AppBindings> = {
         const timezone = env.CRON_TIMEZONE ?? DEFAULT_TIMEZONE;
         const dateISO = resolveCronDateISO(controller.scheduledTime, timezone);
 
-        console.log('[cron] Daily prewarm start', {
+        log(env, 'info', 'cron_started', {
           cron,
           scheduledTime: controller.scheduledTime,
           timezone,
@@ -80,29 +113,50 @@ const worker: ExportedHandler<AppBindings> = {
         });
 
         try {
+          const jobStarted = Date.now();
           const horoscope = await prewarmDailyHoroscopes(db, dateISO, timezone);
-          console.log('[cron] Horoscope prewarm completed', horoscope);
+          log(env, 'info', 'cron_horoscope_prewarm_completed', {
+            ...horoscope,
+            durationMs: Date.now() - jobStarted,
+          });
+          metric(env, 'cron_horoscope_prewarm_success', { generated: horoscope.generated, failed: horoscope.failed });
         } catch (err) {
-          console.error('[cron] Horoscope prewarm failed', {
+          log(env, 'error', 'cron_horoscope_prewarm_failed', {
             timezone,
             dateISO,
             error: String(err),
           });
+          metric(env, 'cron_horoscope_prewarm_failure', { dateISO });
+          captureException(err, { cron: { job: 'horoscope_prewarm', dateISO, timezone } });
         }
 
         try {
+          const jobStarted = Date.now();
           const tarot = await prewarmTarotForTimezoneDate(db, dateISO, timezone);
-          console.log('[cron] Tarot prewarm completed', tarot);
+          log(env, 'info', 'cron_tarot_prewarm_completed', {
+            ...tarot,
+            durationMs: Date.now() - jobStarted,
+          });
+          metric(env, 'cron_tarot_prewarm_success', { generated: tarot.generated, failed: tarot.failed });
         } catch (err) {
-          console.error('[cron] Tarot prewarm failed', {
+          log(env, 'error', 'cron_tarot_prewarm_failed', {
             timezone,
             dateISO,
             error: String(err),
           });
+          metric(env, 'cron_tarot_prewarm_failure', { dateISO });
+          captureException(err, { cron: { job: 'tarot_prewarm', dateISO, timezone } });
         }
+
+        log(env, 'info', 'cron_completed', {
+          cron,
+          dateISO,
+          timezone,
+          durationMs: Date.now() - started,
+        });
       })(),
     );
   },
 };
 
-export default worker;
+export default Sentry.withSentry(sentryOptions, worker);

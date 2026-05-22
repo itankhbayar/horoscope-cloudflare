@@ -9,6 +9,7 @@ import { tarotPayloadNeedsBilingualRefresh } from '../tarot/tarotPayloadQuality'
 import type { TarotApiResponse, TarotPersistedPayload } from '../tarot/tarotTypes';
 import type { Lang } from '../utils/lang';
 import type { ZodiacSign } from '../utils/zodiac';
+import { log } from '../utils/logger';
 
 export async function getTarotDailyRow(
   db: DB,
@@ -126,7 +127,7 @@ export async function getCachedTarotDaily(
 
   const resolved = resolvePersistedPayload(row);
   if (resolved && tarotPayloadNeedsBilingualRefresh(resolved.value)) {
-    console.warn('[tarot] Stale bilingual cache, regenerating on read', { sign, date, timezone });
+    log({}, 'warn', 'tarot_stale_bilingual_cache_regenerating', { sign, date, timezone });
     await upsertTarotDaily(db, sign, timezone, date);
     const again = await getTarotDailyRow(db, sign, timezone, date);
     if (again) row = again;
@@ -136,7 +137,7 @@ export async function getCachedTarotDaily(
     return { status: 200, body: mapRowToResponse(row, lang) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[tarot] Unreadable row', { id: row.id, sign, date, timezone, msg });
+    log({}, 'error', 'tarot_unreadable_row', { id: row.id, sign, date, timezone, error: msg });
     return {
       status: 503,
       body: {

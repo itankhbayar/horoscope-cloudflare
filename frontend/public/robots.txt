@@ -1,4 +1,12 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /api
+Disallow: /profile
+Disallow: /chart
+Disallow: /tarot
+Disallow: /premium/success
+Disallow: /premium/cancel
+Disallow: /account
 
 Sitemap: https://horoscope-frontend.pages.dev/sitemap.xml

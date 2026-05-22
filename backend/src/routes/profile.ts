@@ -9,6 +9,8 @@ import {
   updateProfileAvatar,
 } from '../services/profileService';
 import type { AppBindings, AppVariables } from '../types';
+import { captureException } from '../utils/sentry';
+import { logFromContext } from '../utils/logger';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -86,7 +88,8 @@ router.post('/avatar', async (c) => {
     }
     const msg = err instanceof Error ? `${err.message}\n${(err as Error & { cause?: Error }).cause?.message ?? ''}` : String(err);
     if (msg.includes('no such column: avatar_url') || msg.includes('no such column: display_name')) {
-      console.error('avatar upload failed (D1 schema missing profile columns)', err);
+      logFromContext(c, 'error', 'avatar_upload_schema_missing_columns', { error: err });
+      captureException(err, { route: { path: '/api/profile/avatar' } });
       return c.json(
         {
           error:
@@ -95,7 +98,8 @@ router.post('/avatar', async (c) => {
         503,
       );
     }
-    console.error('avatar upload failed', err);
+    logFromContext(c, 'error', 'avatar_upload_failed', { error: err });
+    captureException(err, { route: { path: '/api/profile/avatar' } });
     return c.json({ error: 'Failed to upload avatar' }, 500);
   }
 });

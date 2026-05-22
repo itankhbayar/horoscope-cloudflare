@@ -2,6 +2,7 @@ import { createMiddleware } from 'hono/factory';
 import { getDb } from '../db/client';
 import { getUserById } from '../services/authService';
 import type { AppBindings, AppVariables } from '../types';
+import { metric } from '../utils/logger';
 
 type EntitlementSnapshot = {
   isPremium?: unknown;
@@ -44,6 +45,7 @@ export const requirePremium = createMiddleware<{
 }>(async (c, next) => {
   const userId = c.get('userId');
   if (!userId) {
+    metric(c.env, 'premium_gate_rejected', { reason: 'missing_user' });
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
@@ -51,6 +53,7 @@ export const requirePremium = createMiddleware<{
   const freshUser = await getUserById(db, userId);
 
   if (!freshUser || !hasActivePremiumEntitlement(freshUser)) {
+    metric(c.env, 'premium_gate_rejected', { reason: freshUser ? 'not_premium' : 'unknown_user' });
     return c.json({ error: 'Premium subscription required' }, 403);
   }
 

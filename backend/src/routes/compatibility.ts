@@ -10,6 +10,7 @@ import {
 import { isZodiacSign, type ZodiacSign } from '../utils/zodiac';
 import { parseLang } from '../utils/lang';
 import type { AppBindings, AppVariables } from '../types';
+import { metric } from '../utils/logger';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -24,6 +25,7 @@ router.post('/signs', authMiddleware, requirePremium, async (c) => {
   }
   const lang = parseLang(c.req.query('lang') ?? c.req.header('Accept-Language'));
   const result = computeSignCompatibility(sign1 as ZodiacSign, sign2 as ZodiacSign, lang);
+  metric(c.env, 'compatibility_viewed', { mode: 'signs', lang });
   if (persist) {
     const db = getDb(c.env.horoscope_db);
     await persistCompatibility(db, result);
@@ -39,6 +41,7 @@ router.post('/users', authMiddleware, requirePremium, async (c) => {
   const db = getDb(c.env.horoscope_db);
   try {
     const result = await compareUsers(db, userId, body.otherUserId, lang);
+    metric(c.env, 'compatibility_viewed', { mode: 'users', lang });
     if (body.persist) await persistCompatibility(db, result);
     return c.json(result);
   } catch (err) {

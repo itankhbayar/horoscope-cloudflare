@@ -4,6 +4,7 @@ import type { DB } from '../db/client';
 import { premiumCheckoutUrls } from '../env';
 import { stripeWebhookEvents, users } from '../db/schema';
 import { getUserById } from './authService';
+import { log } from '../utils/logger';
 
 /**
  * Ephemeral keys must use a Stripe API version compatible with the installed
@@ -324,13 +325,13 @@ export async function grantPremiumFromCheckoutSession(
 ): Promise<void> {
   const userId = session.metadata?.userId?.trim();
   if (!userId) {
-    console.error('[billing] checkout.session.completed missing metadata.userId', session.id);
+    log({}, 'warn', 'billing_checkout_session_missing_user_id', { sessionId: session.id });
     return;
   }
 
   const user = await getUserById(db, userId);
   if (!user) {
-    console.error('[billing] checkout.session.completed unknown user', userId);
+    log({}, 'warn', 'billing_checkout_session_unknown_user', { sessionId: session.id });
     return;
   }
 
@@ -385,7 +386,7 @@ export async function syncPremiumFromCheckoutSession(
 async function grantPremiumForUserId(db: DB, userId: string): Promise<void> {
   const user = await getUserById(db, userId);
   if (!user) {
-    console.error('[billing] grant premium unknown user', userId);
+    log({}, 'warn', 'billing_grant_premium_unknown_user');
     return;
   }
   await db
@@ -426,7 +427,7 @@ export async function grantPremiumFromPaymentIntent(db: DB, pi: Stripe.PaymentIn
 export async function syncPremiumFromSubscription(db: DB, sub: Stripe.Subscription): Promise<void> {
   const userId = await resolveUserIdFromSubscription(db, sub);
   if (!userId) {
-    console.error('[billing] subscription missing resolvable user', sub.id);
+    log({}, 'warn', 'billing_subscription_missing_user', { subscriptionId: sub.id });
     return;
   }
 
@@ -444,7 +445,7 @@ export async function syncPremiumFromSubscription(db: DB, sub: Stripe.Subscripti
 export async function revokePremiumFromSubscription(db: DB, sub: Stripe.Subscription): Promise<void> {
   const userId = await resolveUserIdFromSubscription(db, sub);
   if (!userId) {
-    console.error('[billing] subscription.deleted missing resolvable user', sub.id);
+    log({}, 'warn', 'billing_subscription_deleted_missing_user', { subscriptionId: sub.id });
     return;
   }
   await db
@@ -470,7 +471,7 @@ export async function handleInvoicePaid(db: DB, invoice: Stripe.Invoice): Promis
 
   const userId = await resolveUserIdFromCustomerId(db, customerId);
   if (!userId) {
-    console.error('[billing] invoice.paid unknown customer', customerId);
+    log({}, 'warn', 'billing_invoice_paid_unknown_customer');
     return;
   }
 
@@ -487,9 +488,8 @@ export async function handleInvoicePaid(db: DB, invoice: Stripe.Invoice): Promis
 export async function handleInvoicePaymentFailed(db: DB, invoice: Stripe.Invoice): Promise<void> {
   const customerId =
     typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id ?? null;
-  console.error('[billing] invoice.payment_failed', {
+  log({}, 'warn', 'billing_invoice_payment_failed', {
     invoiceId: invoice.id,
-    customerId,
     subscription: invoice.subscription,
   });
 }

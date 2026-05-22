@@ -26,6 +26,17 @@ useDocumentMeta({
         </p>
 
         <section>
+          <h2>Lawful Basis</h2>
+          <p>
+            We process account and authentication data to provide the service you request. Birth
+            date, optional birth time, birth location, and chart data are processed with your
+            explicit acknowledgment so Astralis can generate astrology insights. Billing identifiers
+            are processed for contract performance and legal/accounting obligations. Optional
+            analytics are used only with your consent where required.
+          </p>
+        </section>
+
+        <section>
           <h2>Information We Collect</h2>
           <p>
             We collect account and profile details such as your name, email address, password hash,
@@ -53,7 +64,19 @@ useDocumentMeta({
             Subscription checkout and billing are handled by Stripe or by Apple/Google app store
             billing where available. We store billing identifiers such as Stripe customer or
             subscription IDs so we can activate Premium access, sync subscription state, and provide
-            billing support. We do not store full card numbers.
+            billing support. Stripe and app stores process payment details under their own privacy
+            terms. We do not store full card numbers.
+          </p>
+        </section>
+
+        <section>
+          <h2>Analytics And Tracking Consent</h2>
+          <p>
+            Astralis may use PostHog product analytics and Sentry error tracking to understand
+            feature usage, crashes, API failures, and checkout reliability. Analytics events avoid
+            birth time, birth location, raw chart placements, passwords, payment details, tokens, and
+            secrets. You can allow or decline analytics in the privacy banner and update that choice
+            later from the Privacy button.
           </p>
         </section>
 
@@ -66,11 +89,13 @@ useDocumentMeta({
         </section>
 
         <section>
-          <h2>Analytics And Crash Reporting</h2>
+          <h2>Retention</h2>
           <p>
-            The current app does not include a dedicated third-party analytics or crash reporting SDK.
-            If we add analytics or crash reporting later, we will update this policy to describe the
-            provider, event categories, retention, and opt-out choices where applicable.
+            Account, profile, birth profile, natal chart, notification preferences, and push token
+            data are kept while your account is active. Account deletion removes those records from
+            Astralis systems and anonymizes saved compatibility links. Payment processors may retain
+            transaction records when required for fraud prevention, tax, accounting, dispute, or
+            legal obligations.
           </p>
         </section>
 
@@ -85,6 +110,15 @@ useDocumentMeta({
           <p>
             Subscription cancellation may also need to be managed through Apple, Google, or Stripe
             billing settings, depending on where you subscribed.
+          </p>
+        </section>
+
+        <section>
+          <h2>Your Rights</h2>
+          <p>
+            Depending on your location, you may request access, export, correction, deletion,
+            restriction, objection, or withdrawal of consent. Authenticated users can export their
+            account data from Profile. You can also contact us for privacy requests.
           </p>
         </section>
 

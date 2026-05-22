@@ -16,7 +16,9 @@
     "deploy:cf:production": "npm run build && npm run verify:locales && npm run verify:ssg && npm run verify:api-url && node scripts/ensure-pages-production.mjs && wrangler pages deploy dist --project-name=horoscope-frontend --branch=main --commit-dirty=true && wrangler pages deploy dist --project-name=horoscope-frontend --branch=frontend --commit-dirty=true"
   },
   "dependencies": {
+    "@sentry/vue": "^10.53.1",
     "pinia": "^3.0.4",
+    "posthog-js": "^1.375.0",
     "vue": "^3.5.32",
     "vue-i18n": "^11.4.0",
     "vue-router": "^4.6.4"

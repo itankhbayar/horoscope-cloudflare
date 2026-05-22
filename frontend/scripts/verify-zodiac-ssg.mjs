@@ -19,40 +19,64 @@ const signs = [
 const legalRoutes = ['privacy', 'terms', 'delete-account'];
 
 function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
+  if (!condition) throw new Error(message);
+}
+
+function assertSeoHtml(file, label) {
+  assert(existsSync(file), `Missing ${file}`);
+  const html = readFileSync(file, 'utf8');
+  assert(html.includes('<title>') && !html.includes('Astralis Â·'), `${label}: missing specific title`);
+  assert(html.includes('<meta name="description"'), `${label}: missing meta description`);
+  assert(html.includes('<meta name="robots" content="index,follow"'), `${label}: missing index robots`);
+  assert(!html.includes('noindex'), `${label}: public page contains noindex`);
+  assert(html.includes('<link rel="canonical"'), `${label}: missing canonical`);
+  assert(html.includes('property="og:title"'), `${label}: missing Open Graph title`);
+  assert(html.includes('property="og:image"'), `${label}: missing Open Graph image`);
+  assert(html.includes('name="twitter:card"'), `${label}: missing Twitter card`);
+  assert(html.includes('application/ld+json'), `${label}: missing JSON-LD`);
+  return html;
 }
 
 for (const slug of signs) {
-  const file = join(distDir, 'horoscope', slug, 'index.html');
-  assert(existsSync(file), `Missing ${file}`);
-  const html = readFileSync(file, 'utf8');
   const signName = slug[0].toUpperCase() + slug.slice(1);
-  assert(html.includes(`<title>${signName} Horoscope Today</title>`), `${slug}: missing SEO title`);
-  assert(html.includes('<meta name="description"'), `${slug}: missing meta description`);
-  assert(html.includes(`<link rel="canonical"`), `${slug}: missing canonical`);
-  assert(html.includes('application/ld+json'), `${slug}: missing JSON-LD`);
-  assert(html.includes('/register'), `${slug}: missing signup CTA`);
-  assert(html.includes('/premium'), `${slug}: missing premium CTA`);
+  const html = assertSeoHtml(join(distDir, 'horoscope', slug, 'index.html'), slug);
+  assert(html.includes(`${signName} Horoscope Today`), `${slug}: missing horoscope content`);
+  assert(html.includes('Daily horoscope preview'), `${slug}: missing textual horoscope preview`);
+  assert(html.includes(`/og/horoscope-${slug}.svg`), `${slug}: missing dynamic OG image`);
+
+  const todayHtml = assertSeoHtml(join(distDir, 'horoscope', slug, 'today', 'index.html'), `${slug}/today`);
+  assert(todayHtml.includes(`${signName} Horoscope Today`), `${slug}/today: missing today content`);
 }
+
+for (const slug of legalRoutes) {
+  assertSeoHtml(join(distDir, slug, 'index.html'), slug);
+}
+
+const compatibilityHtml = assertSeoHtml(
+  join(distDir, 'compatibility', 'aries', 'leo', 'index.html'),
+  'compatibility/aries/leo',
+);
+assert(compatibilityHtml.includes('Aries and Leo Compatibility'), 'compatibility page missing content');
 
 const sitemap = readFileSync(join(distDir, 'sitemap.xml'), 'utf8');
 for (const slug of signs) {
   assert(sitemap.includes(`/horoscope/${slug}`), `sitemap missing ${slug}`);
+  assert(sitemap.includes(`/horoscope/${slug}/today`), `sitemap missing ${slug}/today`);
 }
-for (const slug of legalRoutes) {
-  const file = join(distDir, slug, 'index.html');
-  assert(existsSync(file), `Missing ${file}`);
-  const html = readFileSync(file, 'utf8');
-  assert(html.includes('<link rel="canonical"'), `${slug}: missing canonical`);
-  assert(html.includes('application/ld+json'), `${slug}: missing JSON-LD`);
-  assert(sitemap.includes(`/${slug}`), `sitemap missing ${slug}`);
-}
+for (const slug of legalRoutes) assert(sitemap.includes(`/${slug}`), `sitemap missing ${slug}`);
+assert(sitemap.includes('/compatibility/aries/leo'), 'sitemap missing compatibility pages');
+assert(sitemap.includes('<lastmod>'), 'sitemap missing lastmod values');
 
 const robots = readFileSync(join(distDir, 'robots.txt'), 'utf8');
+assert(robots.includes('Allow: /'), 'robots.txt missing public allow');
+assert(robots.includes('Disallow: /admin'), 'robots.txt missing admin block');
+assert(robots.includes('Disallow: /api'), 'robots.txt missing api block');
+assert(robots.includes('Disallow: /profile'), 'robots.txt missing account block');
 assert(robots.includes('Sitemap:'), 'robots.txt missing sitemap directive');
 
+assert(existsSync(join(distDir, 'og', 'default.svg')), 'missing default OG image');
+assert(existsSync(join(distDir, 'og', 'horoscope-aries.svg')), 'missing dynamic horoscope OG image');
+
 console.log(
-  `Verified ${signs.length} prerendered zodiac pages, ${legalRoutes.length} legal pages, sitemap.xml, and robots.txt`,
+  `Verified ${signs.length * 2} prerendered horoscope pages, compatibility pages, legal pages, sitemap.xml, robots.txt, and OG images`,
 );

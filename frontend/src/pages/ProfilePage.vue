@@ -9,12 +9,14 @@ import ScreenLayout from '../components/layout/ScreenLayout.vue';
 
 const router = useRouter();
 const { profile, loading, avatarUploading, error, load, saveProfile, uploadAvatar } = useProfile();
-const { deleteAccount } = useAuth();
+const { deleteAccount, exportMyData } = useAuth();
 
 const editMode = ref(false);
 const showDeleteConfirm = ref(false);
 const deletingAccount = ref(false);
+const exportingData = ref(false);
 const deleteError = ref('');
+const exportError = ref('');
 const formDisplayName = ref('');
 const formBio = ref('');
 const formTimezone = ref('');
@@ -148,6 +150,26 @@ async function confirmDeleteAccount(): Promise<void> {
     deletingAccount.value = false;
   }
 }
+
+async function downloadMyData(): Promise<void> {
+  if (exportingData.value) return;
+  exportingData.value = true;
+  exportError.value = '';
+  try {
+    const data = await exportMyData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'astralis-data-export.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    exportError.value = err instanceof Error ? err.message : 'Failed to export data.';
+  } finally {
+    exportingData.value = false;
+  }
+}
 </script>
 
 <template>
@@ -229,6 +251,17 @@ async function confirmDeleteAccount(): Promise<void> {
             <p class="tile-value">Refine your identity and personalize how your chart appears.</p>
             <div class="actions">
               <button class="primary-btn" :disabled="loading" @click="startEdit">Edit Profile</button>
+            </div>
+          </div>
+          <div class="glass-card tile">
+            <p class="tile-icon" aria-hidden="true">↓</p>
+            <p class="tile-label">Privacy export</p>
+            <p class="tile-value">Download your profile, birth data, chart data, subscription status, and preferences as JSON.</p>
+            <p v-if="exportError" class="field-error" role="alert">{{ exportError }}</p>
+            <div class="actions">
+              <button class="secondary-btn" :disabled="loading || exportingData" @click="downloadMyData">
+                {{ exportingData ? 'Preparing...' : 'Export my data' }}
+              </button>
             </div>
           </div>
           <div class="glass-card tile danger-tile">
