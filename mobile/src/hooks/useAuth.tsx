@@ -11,6 +11,8 @@ import { configureApi, setApiLocale } from '@astralis/lib/apiClient';
 import * as authService from '@astralis/lib/authService';
 import type { AuthUser, LoginPayload, RegisterPayload } from '@astralis/lib/types';
 import { asyncStorageAdapter } from '../lib/storageAdapter';
+import { configureRevenueCat, logOutRevenueCat } from '../lib/revenueCat/revenueCatService';
+import { isRevenueCatConfigured } from '../lib/revenueCat/config';
 
 const ME_TIMEOUT_MS = 8000;
 
@@ -64,7 +66,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
                 setTimeout(() => reject(new Error('me-timeout')), ME_TIMEOUT_MS);
               }),
             ]);
-            if (alive) setUser(me);
+            if (alive) {
+              setUser(me);
+              if (isRevenueCatConfigured()) {
+                await configureRevenueCat(me.id);
+              }
+            }
           } catch {
             await authService.clearLocalSession();
             if (alive) setUser(null);
@@ -88,6 +95,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     try {
       const result = await authService.login(payload);
       setUser(result.user);
+      if (isRevenueCatConfigured()) {
+        await configureRevenueCat(result.user.id);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Login failed';
       setError(msg);
@@ -103,6 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     try {
       const result = await authService.register(payload);
       setUser(result.user);
+      if (isRevenueCatConfigured()) {
+        await configureRevenueCat(result.user.id);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Register failed';
       setError(msg);
@@ -114,11 +127,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 
   const logout = useCallback(async () => {
     await authService.logout();
+    if (isRevenueCatConfigured()) {
+      await logOutRevenueCat();
+    }
     setUser(null);
   }, []);
 
   const deleteAccount = useCallback(async () => {
     await authService.deleteAccount();
+    if (isRevenueCatConfigured()) {
+      await logOutRevenueCat();
+    }
     setUser(null);
   }, []);
 

@@ -43,6 +43,16 @@ function jsonPost(ip: string, body: unknown = {}): RequestInit {
   };
 }
 
+function registerBody(email = 'new@example.com'): Record<string, unknown> {
+  return {
+    fullName: 'New User',
+    email,
+    password: 'secure passphrase',
+    birthDate: '1990-01-01',
+    birthCity: 'Ulaanbaatar',
+  };
+}
+
 describe('auth route rate limiting', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -96,9 +106,17 @@ describe('auth route rate limiting', () => {
     const app = createApp();
 
     for (let i = 0; i < 3; i += 1) {
-      await app.request('/api/auth/register', jsonPost('203.0.113.12'), mockEnv);
+      await app.request(
+        '/api/auth/register',
+        jsonPost('203.0.113.12', registerBody(`new${i}@example.com`)),
+        mockEnv,
+      );
     }
-    const limited = await app.request('/api/auth/register', jsonPost('203.0.113.12'), mockEnv);
+    const limited = await app.request(
+      '/api/auth/register',
+      jsonPost('203.0.113.12', registerBody('limited@example.com')),
+      mockEnv,
+    );
 
     expect(limited.status).toBe(429);
     expect(limited.headers.get('Retry-After')).toBe('60');
@@ -112,7 +130,11 @@ describe('auth route rate limiting', () => {
     const app = createApp();
 
     for (let i = 0; i < 3; i += 1) {
-      const res = await app.request('/api/auth/register', jsonPost('203.0.113.16'), mockEnv);
+      const res = await app.request(
+        '/api/auth/register',
+        jsonPost('203.0.113.16', registerBody(`allowed${i}@example.com`)),
+        mockEnv,
+      );
       expect(res.status).toBe(200);
     }
 
@@ -247,7 +269,11 @@ describe('auth route rate limiting', () => {
     const app = createApp();
     mocks.registerUser.mockRejectedValueOnce(new HttpError(409, 'Email already registered'));
 
-    const res = await app.request('/api/auth/register', jsonPost('203.0.113.19'), mockEnv);
+    const res = await app.request(
+      '/api/auth/register',
+      jsonPost('203.0.113.19', registerBody('existing@example.com')),
+      mockEnv,
+    );
 
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ error: 'Registration failed' });

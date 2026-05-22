@@ -46,9 +46,24 @@ export const CITY_DATABASE: CityRecord[] = [
   { name: 'Lisbon', country: 'Portugal', latitude: 38.7223, longitude: -9.1393, timezoneOffset: 0 },
 ];
 
+const CITY_ALIASES = new Map<string, string>([
+  ['ulan bator', 'ulaanbaatar'],
+  ['ulan-bator', 'ulaanbaatar'],
+  ['ulanbator', 'ulaanbaatar'],
+  ['ulaan baatar', 'ulaanbaatar'],
+  ['ulaan-baatar', 'ulaanbaatar'],
+]);
+
+function normalizeCityQuery(query: string): string {
+  const cityOnly = query.split(',')[0] ?? query;
+  const normalized = cityOnly.trim().toLowerCase().replace(/\s+/g, ' ');
+  return CITY_ALIASES.get(normalized) ?? normalized;
+}
+
 export function lookupCity(query: string): CityRecord | null {
   if (!query) return null;
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeCityQuery(query);
+  if (!needle) return null;
   return (
     CITY_DATABASE.find((c) => c.name.toLowerCase() === needle) ??
     CITY_DATABASE.find((c) => c.name.toLowerCase().startsWith(needle)) ??
@@ -59,7 +74,7 @@ export function lookupCity(query: string): CityRecord | null {
 
 export function searchCities(query: string, limit = 10): CityRecord[] {
   if (!query) return CITY_DATABASE.slice(0, limit);
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeCityQuery(query);
   return CITY_DATABASE.filter(
     (c) =>
       c.name.toLowerCase().includes(needle) ||

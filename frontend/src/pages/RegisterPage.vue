@@ -24,8 +24,13 @@ const selectedCity = ref<City | null>(null);
 const showSuggestions = ref(false);
 
 let citySearchTimer: ReturnType<typeof setTimeout> | null = null;
+let pickingCity = false;
 
 watch(birthCity, (val) => {
+  if (pickingCity) {
+    pickingCity = false;
+    return;
+  }
   selectedCity.value = null;
   if (citySearchTimer) clearTimeout(citySearchTimer);
   if (!val || val.length < 2) {
@@ -43,8 +48,10 @@ watch(birthCity, (val) => {
 });
 
 function pickCity(city: City): void {
+  pickingCity = true;
   selectedCity.value = city;
   birthCity.value = `${city.name}, ${city.country}`;
+  suggestions.value = [];
   showSuggestions.value = false;
 }
 
@@ -98,7 +105,7 @@ async function handleRegister(): Promise<void> {
 
         <div class="form-group">
           <label class="form-label">{{ t('auth.password') }}</label>
-          <input v-model="password" type="password" class="form-input" :placeholder="t('auth.passwordPlaceholder')" required minlength="6" autocomplete="new-password" />
+          <input v-model="password" type="password" class="form-input" :placeholder="t('auth.passwordPlaceholder')" required minlength="8" maxlength="128" autocomplete="new-password" />
         </div>
 
         <FormLayout :columns="2">

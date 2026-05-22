@@ -3,6 +3,10 @@ npm install
 npm run dev
 ```
 
+### Local auth env
+
+Copy `backend/.dev.vars.example` to `backend/.dev.vars` for local development and set `JWT_SECRET`. Login and registration persist users before issuing a JWT, so a missing `JWT_SECRET` can make a valid account look like a generic `Login failed` response.
+
 ### D1 migrations (local dev)
 
 Avatar upload needs columns such as `avatar_url` on `users`. Apply pending migrations from `backend/`:
@@ -33,6 +37,12 @@ For **production**, run the same `migrations apply` with **`--remote`** once per
 ### Auth rate limiting
 
 `POST /api/auth/login` and `POST /api/auth/register` use a small in-memory fixed-window limiter keyed by `CF-Connecting-IP` with forwarded-header fallbacks. This is useful for local/dev and basic per-isolate protection, but it is not a shared global production limit. Configure Cloudflare WAF/rate limiting rules, or replace the middleware storage with a shared binding such as KV or Durable Objects, for production-grade enforcement across isolates and regions.
+
+### Password policy
+
+New registrations require passwords from 8 to 128 characters. Long passphrases and spaces are allowed; the backend intentionally does not require uppercase letters, numbers, or symbols. A small denylist rejects extremely common weak passwords such as `password`, `12345678`, and `qwerty123`.
+
+Optional breached-password detection is implemented with the HaveIBeenPwned k-anonymity range API and is disabled by default. Set `PWNED_PASSWORD_CHECK_ENABLED=true` to hash the password with SHA-1, send only the first 5 hash characters, and compare returned suffixes locally. Set `PWNED_PASSWORD_FAIL_CLOSED=true` only if registration should fail when the breach check is unavailable.
 
 `wrangler.jsonc` sets **`dev.ip` to `0.0.0.0`**, so **`npm run dev` or `npx wrangler dev`** listens on **0.0.0.0:8787** and phones on your LAN can reach the Worker (not only `127.0.0.1`). If connections time out from another device on Windows, run **`scripts/allow-wrangler-dev-firewall.ps1`** as Administrator (or `npm run allow-firewall` from an elevated shell). The script allows TCP 8787 on **all** network profiles so **Public** Wi‑Fi is covered.
 

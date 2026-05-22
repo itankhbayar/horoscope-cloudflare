@@ -40,3 +40,14 @@ npm run dev
 ```sh
 npm run build
 ```
+
+### Static zodiac SEO pages
+
+The Vite build runs `scripts/prerender-zodiac-pages.mjs` after bundling the SPA. It writes static public acquisition pages to `dist/horoscope/<sign>/index.html` for all 12 zodiac signs, plus `dist/sitemap.xml` and `dist/robots.txt`.
+
+These pages are intentionally standalone HTML so authenticated Vue Router routes and guards stay unchanged. Configure canonical URLs with `VITE_PUBLIC_SITE_URL` or `SITE_URL`; otherwise the generator defaults to `https://horoscope-frontend.pages.dev`.
+
+```sh
+npm run build-only
+npm run verify:ssg
+```

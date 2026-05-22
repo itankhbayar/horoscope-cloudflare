@@ -14,7 +14,7 @@ router.delete('/', async (c) => {
 
   try {
     await deleteAccount(db, userId, c.env.STORAGE);
-    return c.json({ ok: true });
+    return c.json({ ok: true, message: 'Account deleted' });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to delete account';
     if (message === 'User not found') {

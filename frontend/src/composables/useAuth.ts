@@ -71,6 +71,11 @@ async function logout(): Promise<void> {
   user.value = null;
 }
 
+async function deleteAccount(): Promise<void> {
+  await authService.deleteAccount();
+  user.value = null;
+}
+
 async function refreshUser(): Promise<void> {
   if (!(await authService.isAuthenticated())) {
     user.value = null;
@@ -91,6 +96,7 @@ export function useAuth() {
     login,
     register,
     logout,
+    deleteAccount,
     refreshUser,
   };
 }

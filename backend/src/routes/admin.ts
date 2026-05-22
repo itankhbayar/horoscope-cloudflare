@@ -7,6 +7,7 @@ import {
 import { prewarmTarotForTimezoneDate } from '../services/tarotPrewarmService';
 import { isValidIanaTimeZone, isValidCalendarDate } from '../tarot/tarotQuery';
 import type { AppBindings, AppVariables } from '../types';
+import { secureSecretEqual } from '../utils/secureCompare';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -14,8 +15,7 @@ function isAuthorized(c: { req: { header: (name: string) => string | undefined }
   const expected = c.env.ADMIN_SECRET;
   if (!expected) return false;
   const provided = c.req.header('x-admin-secret');
-  if (!provided) return false;
-  return provided === expected;
+  return secureSecretEqual(provided, expected);
 }
 
 router.post('/prewarm', async (c) => {

@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   mockCreateCheckoutSession: vi.fn(),
   mockCreateStripeClient: vi.fn(),
   mockSyncPremiumFromCheckoutSession: vi.fn(),
+  mockProcessRevenueCatWebhook: vi.fn(),
+  mockSyncPremiumFromRevenueCatApi: vi.fn(),
+  mockVerifyRevenueCatWebhookAuthorization: vi.fn(),
 }));
 
 vi.mock('../db/client', () => ({
@@ -38,6 +41,12 @@ vi.mock('../services/billingService', async (importOriginal) => {
   };
 });
 
+vi.mock('../services/revenueCatService', () => ({
+  processRevenueCatWebhook: mocks.mockProcessRevenueCatWebhook,
+  syncPremiumFromRevenueCatApi: mocks.mockSyncPremiumFromRevenueCatApi,
+  verifyRevenueCatWebhookAuthorization: mocks.mockVerifyRevenueCatWebhookAuthorization,
+}));
+
 import billingRoutes from './billing';
 
 function createApp(): Hono {
@@ -59,6 +68,9 @@ describe('billing routes', () => {
     mocks.mockCreateStripeClient.mockReturnValue({ stripe: true });
     mocks.mockCreateCheckoutSession.mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay' });
     mocks.mockSyncPremiumFromCheckoutSession.mockResolvedValue({ isPremium: true });
+    mocks.mockVerifyRevenueCatWebhookAuthorization.mockReturnValue(true);
+    mocks.mockProcessRevenueCatWebhook.mockResolvedValue({ isPremium: true, action: 'grant' });
+    mocks.mockSyncPremiumFromRevenueCatApi.mockResolvedValue({ isPremium: true, source: 'revenuecat_api' });
   });
 
   it('starts web checkout without requiring the webhook signing secret', async () => {
@@ -140,5 +152,84 @@ describe('billing routes', () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ error: 'sessionId is required' });
     expect(mocks.mockSyncPremiumFromCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('rejects RevenueCat webhook when billing is not configured', async () => {
+    const app = createApp();
+
+    const res = await app.request(
+      '/api/billing/revenuecat/webhook',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer rc-secret' },
+        body: JSON.stringify({ event: { type: 'INITIAL_PURCHASE', app_user_id: 'user-1' } }),
+      },
+      baseEnv,
+    );
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({
+      error: 'RevenueCat webhook is not configured. Set REVENUECAT_WEBHOOK_SECRET.',
+    });
+  });
+
+  it('rejects RevenueCat sync when API key is not configured', async () => {
+    const app = createApp();
+
+    const res = await app.request(
+      '/api/billing/revenuecat/sync',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+      },
+      baseEnv,
+    );
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({
+      error: 'RevenueCat sync is not configured. Set REVENUECAT_API_KEY.',
+    });
+    expect(mocks.mockSyncPremiumFromRevenueCatApi).not.toHaveBeenCalled();
+  });
+
+  it('processes RevenueCat webhook with valid authorization', async () => {
+    const app = createApp();
+    const env = { ...baseEnv, REVENUECAT_WEBHOOK_SECRET: 'rc-secret', REVENUECAT_API_KEY: 'rc-api' };
+
+    const res = await app.request(
+      '/api/billing/revenuecat/webhook',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer rc-secret', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: { type: 'INITIAL_PURCHASE', app_user_id: 'user-1' } }),
+      },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ received: true, isPremium: true });
+    expect(mocks.mockVerifyRevenueCatWebhookAuthorization).toHaveBeenCalledWith(
+      'Bearer rc-secret',
+      'rc-secret',
+    );
+    expect(mocks.mockProcessRevenueCatWebhook).toHaveBeenCalled();
+  });
+
+  it('syncs premium from RevenueCat API for authenticated users', async () => {
+    const app = createApp();
+    const env = { ...baseEnv, REVENUECAT_API_KEY: 'rc-api' };
+
+    const res = await app.request(
+      '/api/billing/revenuecat/sync',
+      {
+        method: 'POST',
+        headers: { Authorization: 'Bearer token' },
+      },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ isPremium: true, source: 'revenuecat_api' });
+    expect(mocks.mockSyncPremiumFromRevenueCatApi).toHaveBeenCalledWith({}, 'rc-api', 'user-1');
   });
 });

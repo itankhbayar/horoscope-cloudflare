@@ -11,6 +11,18 @@ import { safeDateISO } from '../utils/localDate';
 import type { AppBindings, AppVariables } from '../types';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
+const DAILY_HOROSCOPE_CACHE_TTL_SECONDS = 60 * 60 * 6;
+const DAILY_HOROSCOPE_CACHE_CONTROL = `public, max-age=300, s-maxage=${DAILY_HOROSCOPE_CACHE_TTL_SECONDS}`;
+const DAILY_HOROSCOPE_CACHE_ORIGIN = 'https://horoscope-cache.local';
+
+export function dailyHoroscopeCacheKey(sign: ZodiacSign, dateISO: string, lang: string): Request {
+  const url = new URL('/api/horoscope/daily', DAILY_HOROSCOPE_CACHE_ORIGIN);
+  url.searchParams.set('sign', sign);
+  url.searchParams.set('date', dateISO);
+  url.searchParams.set('lang', lang);
+  url.searchParams.set('variant', 'free');
+  return new Request(url.toString(), { method: 'GET' });
+}
 
 router.get('/signs', (c) => c.json(ZODIAC_SIGNS));
 
@@ -23,11 +35,21 @@ router.get('/cities', (c) => {
 router.get('/daily/:sign', async (c) => {
   const sign = c.req.param('sign').toLowerCase();
   if (!isZodiacSign(sign)) return c.json({ error: 'Unknown sign' }, 400);
-  const date = c.req.query('date') ?? undefined;
+  const dateISO = c.req.query('date') ?? safeDateISO('UTC');
   const lang = parseLang(c.req.query('lang') ?? c.req.header('Accept-Language'));
+  const cache = caches.default;
+  const cacheKey = dailyHoroscopeCacheKey(sign, dateISO, lang);
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const db = getDb(c.env.horoscope_db);
-  const horoscope = await getOrCreateDailyHoroscope(db, sign, lang, date);
-  return c.json(horoscope);
+  const horoscope = await getOrCreateDailyHoroscope(db, sign, lang, dateISO);
+  const response = c.json(horoscope);
+  response.headers.set('Cache-Control', DAILY_HOROSCOPE_CACHE_CONTROL);
+  if (response.status === 200) {
+    c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+  }
+  return response;
 });
 
 router.get('/daily', authMiddleware, async (c) => {

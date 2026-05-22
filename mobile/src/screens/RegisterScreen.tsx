@@ -124,6 +124,7 @@ export function RegisterScreen(): React.JSX.Element {
               value={password}
               onChangeText={setPassword}
               secure
+              maxLength={128}
               autoComplete="password-new"
               textContentType="newPassword"
               palette={palette}
@@ -193,6 +194,7 @@ const Field = React.memo(function Field({
   onChangeText,
   secure,
   keyboardType,
+  maxLength,
   autoComplete,
   textContentType,
   palette,
@@ -204,6 +206,7 @@ const Field = React.memo(function Field({
   onChangeText: (t: string) => void;
   secure?: boolean;
   keyboardType?: 'default' | 'email-address';
+  maxLength?: number;
   autoComplete?: TextInputProps['autoComplete'];
   textContentType?: TextInputProps['textContentType'];
   palette: { text: string; textMuted: string; border: string; surface: string };
@@ -227,6 +230,7 @@ const Field = React.memo(function Field({
         onChangeText={onChangeText}
         secureTextEntry={secure}
         keyboardType={keyboardType ?? 'default'}
+        maxLength={maxLength}
         autoCapitalize={keyboardType === 'email-address' ? 'none' : 'words'}
         placeholderTextColor={palette.textMuted}
         autoComplete={autoComplete}

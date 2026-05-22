@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { DB } from '../db/client';
 import { users, birthProfiles, natalCharts, type User } from '../db/schema';
 import { hashPassword, verifyPassword } from '../utils/password';
+import { validatePasswordPolicy } from '../utils/passwordPolicy';
 import { lookupCity } from '../utils/cities';
 import { computeNatalChart } from './astrologyService';
 
@@ -28,6 +29,7 @@ export interface AuthTokenPayload {
   userId: string;
   email: string;
   exp: number;
+  tokenVersion?: number;
   [key: string]: unknown;
 }
 
@@ -56,8 +58,10 @@ export async function registerUser(
   if (!email || !input.password || !input.fullName || !input.birthDate || !input.birthCity) {
     throw new HttpError(400, 'Missing required fields');
   }
-  if (input.password.length < 6) {
-    throw new HttpError(400, 'Password must be at least 6 characters');
+
+  const passwordPolicy = validatePasswordPolicy(input.password);
+  if (!passwordPolicy.ok) {
+    throw new HttpError(400, passwordPolicy.error);
   }
 
   const existing = await db.select().from(users).where(eq(users.email, email)).get();
@@ -124,7 +128,7 @@ export async function registerUser(
     aspects: chart.aspects,
   });
 
-  const token = await issueToken(jwtSecret, userId, email);
+  const token = await issueToken(jwtSecret, userId, email, 0);
   return {
     token,
     user: { id: userId, email, fullName: input.fullName.trim(), isPremium: false },
@@ -141,7 +145,7 @@ export async function loginUser(
   if (!user) throw new HttpError(401, 'Invalid email or password');
   const ok = await verifyPassword(input.password, user.passwordHash);
   if (!ok) throw new HttpError(401, 'Invalid email or password');
-  const token = await issueToken(jwtSecret, user.id, user.email);
+  const token = await issueToken(jwtSecret, user.id, user.email, getUserTokenVersion(user));
   return {
     token,
     user: {
@@ -153,10 +157,34 @@ export async function loginUser(
   };
 }
 
-export async function issueToken(secret: string, userId: string, email: string): Promise<string> {
+export function getPayloadTokenVersion(payload: Pick<AuthTokenPayload, 'tokenVersion'>): number {
+  const version = payload.tokenVersion;
+  return Number.isInteger(version) && typeof version === 'number' && version >= 0 ? version : 0;
+}
+
+function getUserTokenVersion(user: User | (Partial<User> & { tokenVersion?: unknown }) | null): number {
+  const version = user && 'tokenVersion' in user ? user.tokenVersion : undefined;
+  return Number.isInteger(version) && typeof version === 'number' && version >= 0 ? version : 0;
+}
+
+export function isTokenVersionValid(
+  user: (Partial<User> & { tokenVersion?: unknown }) | null,
+  payload: Pick<AuthTokenPayload, 'tokenVersion'>,
+): boolean {
+  if (!user) return false;
+  return getUserTokenVersion(user) === getPayloadTokenVersion(payload);
+}
+
+export async function issueToken(
+  secret: string,
+  userId: string,
+  email: string,
+  tokenVersion = 0,
+): Promise<string> {
   const payload: AuthTokenPayload = {
     userId,
     email,
+    tokenVersion,
     exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS,
   };
   return signJwt(payload, secret);
@@ -165,6 +193,19 @@ export async function issueToken(secret: string, userId: string, email: string):
 export async function verifyToken(secret: string, token: string): Promise<AuthTokenPayload> {
   const decoded = (await verifyJwt(token, secret, 'HS256')) as unknown as AuthTokenPayload;
   return decoded;
+}
+
+export async function verifyTokenForUser(
+  db: DB,
+  secret: string,
+  token: string,
+): Promise<AuthTokenPayload> {
+  const payload = await verifyToken(secret, token);
+  const user = await getUserById(db, payload.userId);
+  if (!isTokenVersionValid(user, payload)) {
+    throw new Error('Invalid or expired token');
+  }
+  return payload;
 }
 
 export async function getUserById(db: DB, userId: string): Promise<User | null> {

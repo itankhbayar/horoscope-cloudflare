@@ -3,7 +3,13 @@ import { getDb } from '../db/client';
 import { HttpError, getUserById, loginUser, registerUser } from '../services/authService';
 import { authMiddleware, requireUserId } from '../middleware/auth';
 import { createRateLimitMiddleware } from '../middleware/rateLimit';
+import {
+  checkBreachedPassword,
+  breachedPasswordOptionsFromEnv,
+} from '../services/breachedPasswordService';
 import type { AppBindings, AppVariables } from '../types';
+import { formatZodError } from '../validation/hook';
+import { registerBodySchema } from '../validation/authSchemas';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -23,9 +29,20 @@ const REGISTER_ERROR = 'Registration failed';
 
 router.post('/register', registerRateLimit, async (c) => {
   try {
-    const body = await c.req.json();
+    const rawBody = await c.req.json();
+    const parsed = registerBodySchema.safeParse(rawBody);
+    if (!parsed.success) return c.json({ error: formatZodError(parsed.error) }, 400);
+
+    const breachedPasswordCheck = await checkBreachedPassword(
+      parsed.data.password,
+      breachedPasswordOptionsFromEnv(c.env),
+    );
+    if (breachedPasswordCheck.status === 'breached' || breachedPasswordCheck.status === 'unavailable') {
+      return c.json({ error: 'Password does not meet security requirements' }, 400);
+    }
+
     const db = getDb(c.env.horoscope_db);
-    const result = await registerUser(db, c.env.JWT_SECRET, body);
+    const result = await registerUser(db, c.env.JWT_SECRET, parsed.data);
     return c.json(result);
   } catch (err) {
     if (err instanceof HttpError) {

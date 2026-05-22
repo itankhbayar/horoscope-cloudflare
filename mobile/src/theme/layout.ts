@@ -51,7 +51,7 @@ export function cardTitleSize(screenWidth: number): number {
 }
 
 /** Bottom inset for scroll content above tab bar + home indicator (tabs consume bottom safe area). */
-export function tabScrollBottomPadding(insets: Insets, extra = spacing.xxl): number {
+export function tabScrollBottomPadding(insets: Insets, extra: number = spacing.xxl): number {
   const bottom = insets.bottom ?? 0;
   return Math.max(bottom, spacing.md) + extra;
 }

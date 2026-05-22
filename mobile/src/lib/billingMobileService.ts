@@ -46,3 +46,18 @@ export async function restoreMobilePremiumStatus(): Promise<{
     },
   );
 }
+
+/** Sync premium flag from RevenueCat REST API (iOS restore / post-purchase). */
+export async function syncRevenueCatPremium(): Promise<{
+  isPremium: boolean;
+  source: 'revenuecat_api';
+}> {
+  return apiRequest<{ isPremium: boolean; source: 'revenuecat_api' }>(
+    '/api/billing/revenuecat/sync',
+    {
+      method: 'POST',
+      auth: true,
+      localized: false,
+    },
+  );
+}

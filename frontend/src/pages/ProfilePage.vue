@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useProfile } from '../composables/useProfile';
+import { useAuth } from '../composables/useAuth';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
 
+const router = useRouter();
 const { profile, loading, avatarUploading, error, load, saveProfile, uploadAvatar } = useProfile();
+const { deleteAccount } = useAuth();
 
 const editMode = ref(false);
+const showDeleteConfirm = ref(false);
+const deletingAccount = ref(false);
+const deleteError = ref('');
 const formDisplayName = ref('');
 const formBio = ref('');
 const formTimezone = ref('');
@@ -115,6 +122,32 @@ async function onAvatarSelected(event: Event): Promise<void> {
     }
   }
 }
+
+function openDeleteConfirm(): void {
+  deleteError.value = '';
+  showDeleteConfirm.value = true;
+}
+
+function closeDeleteConfirm(): void {
+  if (deletingAccount.value) return;
+  showDeleteConfirm.value = false;
+  deleteError.value = '';
+}
+
+async function confirmDeleteAccount(): Promise<void> {
+  if (deletingAccount.value) return;
+  deletingAccount.value = true;
+  deleteError.value = '';
+  try {
+    await deleteAccount();
+    showDeleteConfirm.value = false;
+    await router.replace('/login');
+  } catch (err) {
+    deleteError.value = err instanceof Error ? err.message : 'Failed to delete account.';
+  } finally {
+    deletingAccount.value = false;
+  }
+}
 </script>
 
 <template>
@@ -198,6 +231,17 @@ async function onAvatarSelected(event: Event): Promise<void> {
               <button class="primary-btn" :disabled="loading" @click="startEdit">Edit Profile</button>
             </div>
           </div>
+          <div class="glass-card tile danger-tile">
+            <p class="tile-icon" aria-hidden="true">!</p>
+            <p class="tile-label">Account deletion</p>
+            <p class="tile-value">
+              Permanently remove your account, profile, chart data, notification tokens, and cached
+              personalized content.
+            </p>
+            <div class="actions">
+              <button class="danger-btn" :disabled="loading" @click="openDeleteConfirm">Delete Account</button>
+            </div>
+          </div>
         </section>
 
         <section v-else class="glass-card profile-edit">
@@ -236,6 +280,35 @@ async function onAvatarSelected(event: Event): Promise<void> {
           </form>
         </section>
       </template>
+
+      <div v-if="showDeleteConfirm" class="modal-backdrop" role="presentation" @click.self="closeDeleteConfirm">
+        <section
+          class="glass-card delete-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-account-title"
+        >
+          <p class="modal-kicker">Permanent action</p>
+          <h2 id="delete-account-title">Delete your Astralis account?</h2>
+          <p>
+            This removes your profile, auth credentials, birth details, chart data, push tokens,
+            notification preferences, and personalized cached content tied to your account.
+          </p>
+          <p>
+            If you have an active subscription, also manage cancellation through Apple or Google
+            billing settings, or the Stripe billing portal where available.
+          </p>
+          <p v-if="deleteError" class="field-error" role="alert">{{ deleteError }}</p>
+          <div class="modal-actions">
+            <button class="secondary-btn" type="button" :disabled="deletingAccount" @click="closeDeleteConfirm">
+              Keep account
+            </button>
+            <button class="danger-btn" type="button" :disabled="deletingAccount" @click="confirmDeleteAccount">
+              {{ deletingAccount ? 'Deleting...' : 'Delete permanently' }}
+            </button>
+          </div>
+        </section>
+      </div>
     </ScreenLayout>
   </AppContainer>
 </template>
@@ -437,6 +510,15 @@ async function onAvatarSelected(event: Event): Promise<void> {
   color: var(--text-secondary);
 }
 
+.danger-tile {
+  border-color: rgba(255, 107, 107, 0.28);
+}
+
+.danger-tile .tile-icon,
+.danger-tile .tile-label {
+  color: var(--error);
+}
+
 .profile-edit {
   padding: var(--space-8);
   display: grid;
@@ -512,7 +594,8 @@ async function onAvatarSelected(event: Event): Promise<void> {
 }
 
 .secondary-btn,
-.primary-btn {
+.primary-btn,
+.danger-btn {
   min-height: 44px;
   padding: 0.7rem 1.2rem;
   border-radius: var(--radius-md);
@@ -545,11 +628,66 @@ async function onAvatarSelected(event: Event): Promise<void> {
   transform: translateY(-1px);
 }
 
+.danger-btn {
+  background: rgba(255, 107, 107, 0.14);
+  color: #ffb3b3;
+  border-color: rgba(255, 107, 107, 0.45);
+  font-weight: 700;
+}
+
+.danger-btn:hover:not(:disabled) {
+  border-color: var(--error);
+  box-shadow: 0 0 18px rgba(255, 107, 107, 0.15);
+  transform: translateY(-1px);
+}
+
 .secondary-btn:disabled,
-.primary-btn:disabled {
+.primary-btn:disabled,
+.danger-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
   transform: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(5, 5, 16, 0.74);
+}
+
+.delete-modal {
+  width: min(560px, 100%);
+  padding: var(--space-8);
+  display: grid;
+  gap: var(--space-4);
+  border-color: rgba(255, 107, 107, 0.32);
+}
+
+.delete-modal h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 5vw, 2.35rem);
+  color: var(--text-primary);
+}
+
+.delete-modal p {
+  color: var(--text-secondary);
+}
+
+.modal-kicker {
+  color: var(--error) !important;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  font-size: var(--text-xs);
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 @media (max-width: 980px) {
@@ -579,7 +717,8 @@ async function onAvatarSelected(event: Event): Promise<void> {
   }
 
   .secondary-btn,
-  .primary-btn {
+  .primary-btn,
+  .danger-btn {
     flex: 1 1 100%;
   }
 }

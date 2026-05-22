@@ -7,6 +7,10 @@ export type AppBindings = {
   /** Public web app URL for Stripe checkout redirects (no trailing slash). */
   APP_PUBLIC_URL: string;
   JWT_SECRET: string;
+  /** Enables HaveIBeenPwned k-anonymity password checks for new registrations. Disabled by default. */
+  PWNED_PASSWORD_CHECK_ENABLED?: string;
+  /** When true and HIBP checks are enabled, reject registration if the check is unavailable. */
+  PWNED_PASSWORD_FAIL_CLOSED?: string;
   CRON_TIMEZONE?: string;
   AVATAR_PUBLIC_BASE_URL?: string;
   ADMIN_SECRET?: string;
@@ -15,6 +19,10 @@ export type AppBindings = {
   STRIPE_PRICE_ID?: string;
   /** Optional extra test price ID allowed for POST /api/billing/mobile/checkout (same Stripe product/test mode). */
   STRIPE_PREMIUM_PRICE_ID_TEST?: string;
+  /** RevenueCat REST API key (secret) for subscriber sync from mobile restore. */
+  REVENUECAT_API_KEY?: string;
+  /** Authorization secret configured in RevenueCat webhook settings. */
+  REVENUECAT_WEBHOOK_SECRET?: string;
 };
 
 export type AppVariables = {

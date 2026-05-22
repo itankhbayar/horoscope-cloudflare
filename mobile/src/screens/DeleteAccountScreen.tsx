@@ -103,6 +103,10 @@ export function DeleteAccountScreen(): React.JSX.Element {
           <Text style={[styles.infoBlock, { color: palette.textMuted }]}>
             You will be logged out immediately after deletion, and the app will return you to the sign-in flow.
           </Text>
+          <Text style={[styles.infoBlock, { color: palette.textMuted }]}>
+            If you have an active subscription, also cancel or manage it in Apple App Store or Google Play billing
+            settings. Account deletion does not always cancel store-managed subscriptions.
+          </Text>
         </View>
 
         <DangerButton

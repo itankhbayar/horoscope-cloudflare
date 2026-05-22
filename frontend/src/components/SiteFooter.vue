@@ -22,8 +22,9 @@ const navLinks = computed(() =>
 );
 
 const legalLinks = computed(() => [
-  { href: 'https://example.com/terms', label: t('footer.terms') },
-  { href: 'https://example.com/privacy', label: t('footer.privacy') },
+  { to: '/terms', label: t('footer.terms') },
+  { to: '/privacy', label: t('footer.privacy') },
+  { to: '/delete-account', label: 'Delete account' },
 ]);
 
 const socialLinks = computed(() => [
@@ -58,10 +59,8 @@ const year = new Date().getFullYear();
       <nav class="footer-group" aria-labelledby="footer-legal-heading">
         <h3 id="footer-legal-heading" class="footer-heading">{{ t('footer.legal') }}</h3>
         <ul class="footer-links">
-          <li v-for="item in legalLinks" :key="item.href">
-            <a class="footer-link" :href="item.href" target="_blank" rel="noopener noreferrer">
-              {{ item.label }}
-            </a>
+          <li v-for="item in legalLinks" :key="item.to">
+            <router-link class="footer-link" :to="item.to">{{ item.label }}</router-link>
           </li>
         </ul>
       </nav>

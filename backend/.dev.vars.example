@@ -1,4 +1,7 @@
 # Public web app URL (Stripe checkout success/cancel redirects).
+# Required for auth JWT signing in local dev.
+JWT_SECRET=local-dev-jwt-secret-change-me
+
 APP_PUBLIC_URL=http://localhost:5173
 
 # Stripe test keys (do not commit real values).
@@ -18,6 +21,17 @@ STRIPE_PRICE_ID=price_xxx
 # Optional: extra test Price ID allowed for POST /api/billing/mobile/checkout (server allowlist).
 # If unset, mobile defaults to STRIPE_PRICE_ID.
 STRIPE_PREMIUM_PRICE_ID_TEST=price_xxx_test_only
+
+# RevenueCat (optional until Apple IAP is live — routes return 503 when unset)
+# REVENUECAT_API_KEY=
+# REVENUECAT_WEBHOOK_SECRET=
+
+# Optional password breach checks for new registrations.
+# Disabled by default. When enabled, the Worker uses the HaveIBeenPwned k-anonymity range API:
+# only the first 5 SHA-1 hash characters are sent, and suffixes are compared locally.
+PWNED_PASSWORD_CHECK_ENABLED=false
+# Keep false unless you intentionally want registration to fail when HIBP is unavailable.
+PWNED_PASSWORD_FAIL_CLOSED=false
 
 # Webhook local testing (requires Stripe CLI + wrangler dev on 8787):
 #   npm run stripe:listen

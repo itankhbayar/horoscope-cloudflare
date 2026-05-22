@@ -4,6 +4,7 @@ import {
   optionalNullableLongitudeSchema,
   optionalNullableTimezoneOffsetSchema,
 } from './geo';
+import { validatePasswordPolicy } from '../utils/passwordPolicy';
 
 const birthDateSchema = z
   .string()
@@ -15,7 +16,15 @@ const birthTimeSchema = z.union([z.null(), z.string().trim().max(32)]).optional(
 export const registerBodySchema = z.object({
   fullName: z.string().trim().min(1, 'fullName is required').max(120),
   email: z.string().trim().min(1, 'email is required').email('email must be valid'),
-  password: z.string().min(6, 'password must be at least 6 characters').max(256),
+  password: z.string().superRefine((password, ctx) => {
+    const result = validatePasswordPolicy(password);
+    if (!result.ok) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.error,
+      });
+    }
+  }),
   birthDate: birthDateSchema,
   birthTime: birthTimeSchema,
   birthCity: z.string().trim().min(1, 'birthCity is required').max(120),

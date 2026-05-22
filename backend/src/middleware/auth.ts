@@ -1,5 +1,6 @@
 import type { Context, MiddlewareHandler } from 'hono';
-import { verifyToken } from '../services/authService';
+import { getDb } from '../db/client';
+import { verifyTokenForUser } from '../services/authService';
 import type { AppBindings, AppVariables } from '../types';
 
 export const authMiddleware: MiddlewareHandler<{
@@ -12,7 +13,8 @@ export const authMiddleware: MiddlewareHandler<{
   }
   const token = header.slice('Bearer '.length).trim();
   try {
-    const payload = await verifyToken(c.env.JWT_SECRET, token);
+    const db = getDb(c.env.horoscope_db);
+    const payload = await verifyTokenForUser(db, c.env.JWT_SECRET, token);
     c.set('userId', payload.userId);
     c.set('userEmail', payload.email);
     await next();

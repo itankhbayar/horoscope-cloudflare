@@ -4,6 +4,7 @@ import {
   getPayloadTokenVersion,
   isTokenVersionValid,
   issueToken,
+  loginUser,
   verifyToken,
   verifyTokenForUser,
 } from './authService';
@@ -85,5 +86,26 @@ describe('verifyTokenForUser', () => {
 
     const session = await verifyTokenForUser(db, SECRET, token);
     expect(session.userId).toBe('user-1');
+  });
+});
+
+describe('loginUser deleted account behavior', () => {
+  it('rejects login when the account row has been deleted', async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            get: async () => undefined,
+          }),
+        }),
+      }),
+    } as any;
+
+    await expect(
+      loginUser(db, SECRET, { email: 'deleted@example.com', password: 'correct-password' }),
+    ).rejects.toMatchObject({
+      status: 401,
+      message: 'Invalid email or password',
+    });
   });
 });

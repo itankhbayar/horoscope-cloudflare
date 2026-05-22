@@ -35,7 +35,7 @@
     "email": "И-мэйл",
     "emailPlaceholder": "ta{'@'}example.com",
     "password": "Нууц үг",
-    "passwordPlaceholder": "Хамгийн багадаа 6 тэмдэгт",
+    "passwordPlaceholder": "Хамгийн багадаа 8 тэмдэгт",
     "passwordPlaceholderShort": "••••••••",
     "birthDate": "Төрсөн огноо",
     "birthDateRequired": "Төрсөн огноо *",

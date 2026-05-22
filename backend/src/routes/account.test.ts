@@ -54,8 +54,7 @@ describe('account routes', () => {
 
     expect(res.status).toBe(200);
     expect(mocks.mockDeleteAccount).toHaveBeenCalled();
-    const json = (await res.json()) as { ok: boolean };
-    expect(json.ok).toBe(true);
+    await expect(res.json()).resolves.toEqual({ ok: true, message: 'Account deleted' });
   });
 
   it('rejects unauthorized account deletion', async () => {

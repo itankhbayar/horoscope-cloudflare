@@ -47,6 +47,9 @@
       ]
     ],
     "extra": {
+      "privacyPolicyUrl": "https://horoscope-frontend.pages.dev/privacy",
+      "termsOfServiceUrl": "https://horoscope-frontend.pages.dev/terms",
+      "accountDeletionUrl": "https://horoscope-frontend.pages.dev/delete-account",
       "eas": {
         "projectId": "7dc13d4a-186c-4622-8a71-d7311cb13d22"
       }

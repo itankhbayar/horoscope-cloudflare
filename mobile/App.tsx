@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StripeProvider } from '@stripe/stripe-react-native';
@@ -32,16 +33,23 @@ export default function App(): React.JSX.Element {
   }, []);
 
   const stripePk = readStripePublishableKey();
+  const shell = (
+    <AppearanceProvider>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </AppearanceProvider>
+  );
 
   return (
     <SafeAreaProvider>
-      <StripeProvider publishableKey={stripePk} urlScheme="astralis">
-        <AppearanceProvider>
-          <AuthProvider>
-            <AppShell />
-          </AuthProvider>
-        </AppearanceProvider>
-      </StripeProvider>
+      {Platform.OS === 'ios' ? (
+        shell
+      ) : (
+        <StripeProvider publishableKey={stripePk} urlScheme="astralis">
+          {shell}
+        </StripeProvider>
+      )}
     </SafeAreaProvider>
   );
 }

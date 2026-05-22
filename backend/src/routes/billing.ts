@@ -14,7 +14,17 @@ import {
   syncPremiumFromStripeForUser,
 } from '../services/billingService';
 import { isAllowedReturnUrl, resolveAppPublicUrl } from '../env';
+import {
+  processRevenueCatWebhook,
+  syncPremiumFromRevenueCatApi,
+  verifyRevenueCatWebhookAuthorization,
+  type RevenueCatWebhookPayload,
+} from '../services/revenueCatService';
 import type { AppBindings, AppVariables } from '../types';
+import {
+  REVENUECAT_SYNC_NOT_CONFIGURED,
+  REVENUECAT_WEBHOOK_NOT_CONFIGURED,
+} from './billingRevenueCatErrors';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -220,6 +230,66 @@ router.post('/mobile/restore', authMiddleware, async (c) => {
     if (msg === 'User not found') return c.json({ error: msg }, 404);
     console.error('mobile/restore failed', String(err));
     return c.json({ error: 'Could not restore premium' }, 500);
+  }
+});
+
+function revenueCatEnvReady(env: AppBindings): env is AppBindings & {
+  REVENUECAT_WEBHOOK_SECRET: string;
+} {
+  return Boolean(env.REVENUECAT_WEBHOOK_SECRET?.trim());
+}
+
+function revenueCatApiEnvReady(env: AppBindings): env is AppBindings & {
+  REVENUECAT_API_KEY: string;
+} {
+  return Boolean(env.REVENUECAT_API_KEY?.trim());
+}
+
+router.post('/revenuecat/webhook', async (c) => {
+  if (!revenueCatEnvReady(c.env)) {
+    return c.json({ error: REVENUECAT_WEBHOOK_NOT_CONFIGURED }, 503);
+  }
+
+  const authorization = c.req.header('Authorization');
+  if (!verifyRevenueCatWebhookAuthorization(authorization, c.env.REVENUECAT_WEBHOOK_SECRET)) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  let payload: RevenueCatWebhookPayload;
+  try {
+    payload = (await c.req.json()) as RevenueCatWebhookPayload;
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+
+  const db = getDb(c.env.horoscope_db);
+  try {
+    const result = await processRevenueCatWebhook(db, payload, {
+      apiKey: c.env.REVENUECAT_API_KEY,
+    });
+    return c.json({ received: true, ...result });
+  } catch (err) {
+    console.error('revenuecat webhook failed', String(err));
+    return c.json({ error: 'Webhook processing failed' }, 500);
+  }
+});
+
+router.post('/revenuecat/sync', authMiddleware, async (c) => {
+  if (!revenueCatApiEnvReady(c.env)) {
+    return c.json({ error: REVENUECAT_SYNC_NOT_CONFIGURED }, 503);
+  }
+
+  const userId = requireUserId(c);
+  const db = getDb(c.env.horoscope_db);
+
+  try {
+    const result = await syncPremiumFromRevenueCatApi(db, c.env.REVENUECAT_API_KEY, userId);
+    return c.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Could not sync RevenueCat status';
+    if (msg === 'User not found') return c.json({ error: msg }, 404);
+    console.error('revenuecat/sync failed', String(err));
+    return c.json({ error: 'Could not sync RevenueCat status' }, 500);
   }
 });
 

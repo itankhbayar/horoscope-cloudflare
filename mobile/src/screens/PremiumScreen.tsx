@@ -1,46 +1,721 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { PremiumAccessCard } from '../components/PremiumAccessCard';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { AppearancePalette } from '../hooks/useAppearance';
+import { useAppearance } from '../hooks/useAppearance';
 import {
   bodyFontSize,
+  bodyLineHeight,
   colors,
+  hitSlopComfortable,
   horizontalScreenPadding,
+  MIN_TOUCH,
   screenTitleSize,
   spacing,
+  tabScrollBottomPadding,
 } from '../theme';
-import { useAppearance } from '../hooks/useAppearance';
+import { usePremiumCheckout } from '../hooks/usePremiumCheckout';
+import { usesRevenueCatBilling } from '../lib/billing/platform';
+
+type PremiumFeature = {
+  title: string;
+  value: string;
+  accent: string;
+};
+
+type ComparisonRow = {
+  label: string;
+  free: string;
+  premium: string;
+};
+
+type ProofItem = {
+  metric: string;
+  label: string;
+};
+
+type Testimonial = {
+  quote: string;
+  name: string;
+};
+
+type PricingPlan = {
+  id: 'monthly' | 'yearly';
+  title: string;
+  price: string;
+  cadence: string;
+  note: string;
+  badge?: string;
+  bestValue?: boolean;
+  priceId?: string;
+};
+
+const PREMIUM_EXPERIMENT = {
+  variant: 'conversion-v1',
+  trialDays: null as number | null,
+  urgencyCopy: 'Tonight is a strong window to go deeper.',
+};
+
+const COPY = {
+  heroBadge: 'Astralis Premium',
+  heroTitle: 'Unlock the guidance your chart has been holding back.',
+  heroSubtitle:
+    'Get deeper readings, clearer relationship insight, and a daily ritual that feels personal instead of generic.',
+  heroCta: 'Unlock full reading',
+  activeCta: 'Manage Premium',
+  secondaryTrust: 'Secure checkout. Cancel anytime.',
+  secondaryTrustIos: 'Billed through your Apple ID. Cancel anytime in Subscriptions.',
+  valueTitle: 'What Premium changes',
+  compareTitle: 'Free vs Premium',
+  proofTitle: 'Trusted by astrology seekers',
+  pricingTitle: 'Choose your access',
+  lockedTitle: 'Your next insight is waiting',
+  lockedCta: 'Unlock the full reading',
+  stickySubtitle: 'Premium members get every layer.',
+};
+
+const FEATURES: PremiumFeature[] = [
+  {
+    title: 'Unlimited Tarot',
+    value: 'Pull as often as you need and revisit the spread when your day shifts.',
+    accent: '#c9a34a',
+  },
+  {
+    title: 'Advanced Compatibility',
+    value: 'See where a connection flows, where it strains, and what to do with both.',
+    accent: '#e0789b',
+  },
+  {
+    title: 'Personalized Daily Guidance',
+    value: 'Turn transits into practical timing for love, focus, energy, and decisions.',
+    accent: '#7bd3d0',
+  },
+  {
+    title: 'Full Birth Chart Access',
+    value: 'Unlock the deeper map behind your sun, moon, rising, houses, and aspects.',
+    accent: '#a88cff',
+  },
+  {
+    title: 'Ad-free Experience',
+    value: 'Keep your ritual quiet, focused, and uninterrupted.',
+    accent: '#7bbf6a',
+  },
+];
+
+const COMPARISON: ComparisonRow[] = [
+  { label: 'Daily guidance', free: 'Today only', premium: 'Today, future, and deeper context' },
+  { label: 'Tarot readings', free: 'Limited previews', premium: 'Unlimited full readings' },
+  { label: 'Compatibility', free: 'Basic sign match', premium: 'Advanced relationship dynamics' },
+  { label: 'Birth chart', free: 'Core placements', premium: 'Full chart access' },
+  { label: 'Experience', free: 'Standard', premium: 'Ad-free and priority features' },
+];
+
+const PROOF: ProofItem[] = [
+  { metric: '4.8/5', label: 'average member rating' },
+  { metric: '38k+', label: 'readings unlocked' },
+  { metric: '92%', label: 'say guidance feels more personal' },
+];
+
+const TESTIMONIALS: Testimonial[] = [
+  { quote: 'Premium made the daily reading feel like it was written for my actual week.', name: 'Maya' },
+  { quote: 'The compatibility notes helped me name a pattern I kept missing.', name: 'Erdene' },
+];
+
+const PLANS: PricingPlan[] = [
+  {
+    id: 'monthly',
+    title: 'Monthly',
+    price: '$6.99',
+    cadence: 'per month',
+    note: 'Flexible access for your current season.',
+  },
+  {
+    id: 'yearly',
+    title: 'Yearly',
+    price: '$49.99',
+    cadence: 'per year',
+    note: 'Best for a full year of daily guidance.',
+    badge: 'Best value',
+    bestValue: true,
+  },
+];
 
 export function PremiumScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
-  const { palette } = useAppearance();
+  const insets = useSafeAreaInsets();
+  const { palette, mode } = useAppearance();
+  const { busy, isPremium, message, upgrade, manageBilling, refreshStatus, purchasesConfigured } =
+    usePremiumCheckout();
+  const isIosIap = usesRevenueCatBilling();
+  const purchasesUnavailable = isIosIap && !purchasesConfigured;
+  const [selectedPlanId, setSelectedPlanId] = useState<PricingPlan['id']>('yearly');
+  const fade = useRef(new Animated.Value(0)).current;
 
   const hp = horizontalScreenPadding(width);
-  const titleSize = screenTitleSize(width);
+  const titleSize = screenTitleSize(width) + 8;
   const bodySize = bodyFontSize(width);
+  const lineHeight = bodyLineHeight(width);
+  const selectedPlan = useMemo(
+    (): PricingPlan => PLANS.find((plan) => plan.id === selectedPlanId) ?? PLANS[1]!,
+    [selectedPlanId],
+  );
+  const stickyReserve = spacing.xxxl + 76;
+  const bottomPadding = tabScrollBottomPadding(insets, stickyReserve);
+  const isLight = mode === 'light';
+
+  useEffect(() => {
+    Animated.timing(fade, {
+      toValue: 1,
+      duration: 420,
+      useNativeDriver: true,
+    }).start();
+  }, [fade]);
+
+  const onPrimaryCta = useCallback(() => {
+    if (isPremium) {
+      void manageBilling();
+      return;
+    }
+    void upgrade(isIosIap ? { plan: selectedPlan.id } : { priceId: selectedPlan.priceId });
+  }, [isIosIap, isPremium, manageBilling, selectedPlan.id, selectedPlan.priceId, upgrade]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['left', 'right', 'top', 'bottom']}>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingHorizontal: hp, paddingTop: spacing.md }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[styles.title, { fontSize: titleSize, color: palette.text }]} accessibilityRole="header">
-          Premium
-        </Text>
-        <Text style={[styles.body, { fontSize: bodySize, color: palette.textMuted }]}>
-          Premium management now lives in Profile for a cleaner tab layout.
-        </Text>
-        <PremiumAccessCard />
-      </ScrollView>
+    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['left', 'right', 'top']}>
+      <Animated.View style={[styles.animated, { opacity: fade }]}>
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingHorizontal: hp, paddingBottom: bottomPadding }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <HeroSection
+            palette={palette}
+            isLight={isLight}
+            titleSize={titleSize}
+            bodySize={bodySize}
+            lineHeight={lineHeight}
+            busy={busy}
+            isPremium={isPremium}
+            onPress={onPrimaryCta}
+            purchasesUnavailable={purchasesUnavailable}
+          />
+
+          {purchasesUnavailable ? (
+            <View style={[styles.configNotice, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Text style={[styles.configNoticeText, { color: palette.text }]}>
+                Purchases are not configured yet. Premium will be available after Apple in-app purchase setup is
+                complete.
+              </Text>
+            </View>
+          ) : null}
+
+          <SectionTitle title={COPY.valueTitle} palette={palette} />
+          <View style={styles.featureGrid}>
+            {FEATURES.map((feature) => (
+              <FeatureCard key={feature.title} feature={feature} palette={palette} />
+            ))}
+          </View>
+
+          <LockedPreview palette={palette} />
+
+          <SectionTitle title={COPY.compareTitle} palette={palette} />
+          <ComparisonTable rows={COMPARISON} palette={palette} />
+
+          <SectionTitle title={COPY.proofTitle} palette={palette} />
+          <SocialProof palette={palette} isIosIap={isIosIap} />
+
+          <SectionTitle title={COPY.pricingTitle} palette={palette} />
+          <View style={styles.pricingList}>
+            {PLANS.map((plan) => (
+              <PricingCard
+                key={plan.id}
+                plan={plan}
+                selected={selectedPlan.id === plan.id}
+                palette={palette}
+                onSelect={setSelectedPlanId}
+              />
+            ))}
+          </View>
+          <Text style={[styles.trustLine, { color: palette.textMuted }]}>
+            {PREMIUM_EXPERIMENT.trialDays
+              ? `${PREMIUM_EXPERIMENT.trialDays}-day free trial included. ${isIosIap ? COPY.secondaryTrustIos : COPY.secondaryTrust}`
+              : isIosIap
+                ? COPY.secondaryTrustIos
+                : COPY.secondaryTrust}
+          </Text>
+
+          {isIosIap && !isPremium && purchasesConfigured ? (
+            <Pressable
+              onPress={() => void refreshStatus()}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Restore App Store purchases"
+              hitSlop={hitSlopComfortable}
+            >
+              <Text style={[styles.restoreLink, { color: palette.accent }]}>Restore purchases</Text>
+            </Pressable>
+          ) : null}
+
+          {message ? (
+            <Text style={[styles.feedback, { color: palette.text }]} accessibilityLiveRegion="polite">
+              {message}
+            </Text>
+          ) : null}
+        </ScrollView>
+      </Animated.View>
+
+      <StickyCta
+        palette={palette}
+        bottomInset={insets.bottom}
+        busy={busy}
+        isPremium={isPremium}
+        selectedPlan={selectedPlan}
+        onPress={onPrimaryCta}
+        purchasesUnavailable={purchasesUnavailable}
+      />
     </SafeAreaView>
+  );
+}
+
+function HeroSection({
+  palette,
+  isLight,
+  titleSize,
+  bodySize,
+  lineHeight,
+  busy,
+  isPremium,
+  onPress,
+  purchasesUnavailable,
+}: {
+  palette: AppearancePalette;
+  isLight: boolean;
+  titleSize: number;
+  bodySize: number;
+  lineHeight: number;
+  busy: boolean;
+  isPremium: boolean;
+  onPress: () => void;
+  purchasesUnavailable: boolean;
+}): React.JSX.Element {
+  return (
+    <View
+      style={[
+        styles.hero,
+        {
+          backgroundColor: isLight ? '#ffffff' : '#101125',
+          borderColor: palette.border,
+        },
+      ]}
+    >
+      <View style={styles.heroSky} pointerEvents="none">
+        <View style={[styles.orbit, styles.orbitLarge]} />
+        <View style={[styles.orbit, styles.orbitSmall]} />
+        <View style={styles.moon} />
+      </View>
+      <Text style={[styles.badge, { color: colors.gold }]}>{COPY.heroBadge}</Text>
+      <Text style={[styles.heroTitle, { color: palette.text, fontSize: titleSize }]} accessibilityRole="header">
+        {COPY.heroTitle}
+      </Text>
+      <Text style={[styles.heroSubtitle, { color: palette.textMuted, fontSize: bodySize, lineHeight }]}>
+        {COPY.heroSubtitle}
+      </Text>
+      <View style={styles.heroStats}>
+        <MiniStat value="5" label="premium layers" palette={palette} />
+        <MiniStat value="24/7" label="ritual access" palette={palette} />
+      </View>
+      <PrimaryButton
+        label={isPremium ? COPY.activeCta : COPY.heroCta}
+        busy={busy}
+        onPress={onPress}
+        disabled={purchasesUnavailable && !isPremium}
+        accessibilityLabel={isPremium ? 'Manage Premium subscription' : 'Unlock full Premium reading'}
+      />
+      <Text style={[styles.urgency, { color: palette.textMuted }]}>{PREMIUM_EXPERIMENT.urgencyCopy}</Text>
+    </View>
+  );
+}
+
+function MiniStat({ value, label, palette }: { value: string; label: string; palette: AppearancePalette }) {
+  return (
+    <View style={[styles.miniStat, { borderColor: palette.border }]}>
+      <Text style={[styles.miniStatValue, { color: palette.text }]}>{value}</Text>
+      <Text style={[styles.miniStatLabel, { color: palette.textMuted }]}>{label}</Text>
+    </View>
+  );
+}
+
+function SectionTitle({ title, palette }: { title: string; palette: AppearancePalette }) {
+  return <Text style={[styles.sectionTitle, { color: palette.text }]}>{title}</Text>;
+}
+
+function FeatureCard({ feature, palette }: { feature: PremiumFeature; palette: AppearancePalette }) {
+  return (
+    <View style={[styles.featureCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
+      <View style={[styles.featureAccent, { backgroundColor: feature.accent }]} />
+      <Text style={[styles.featureTitle, { color: palette.text }]}>{feature.title}</Text>
+      <Text style={[styles.featureValue, { color: palette.textMuted }]}>{feature.value}</Text>
+    </View>
+  );
+}
+
+function LockedPreview({ palette }: { palette: AppearancePalette }) {
+  return (
+    <View style={[styles.lockedPreview, { backgroundColor: palette.card, borderColor: palette.border }]}>
+      <Text style={[styles.lockedEyebrow, { color: colors.gold }]}>Members-only preview</Text>
+      <Text style={[styles.lockedTitle, { color: palette.text }]}>{COPY.lockedTitle}</Text>
+      <View style={styles.previewLines} accessibilityLabel="Locked premium reading preview">
+        <View style={[styles.previewLine, { width: '92%', backgroundColor: palette.textMuted }]} />
+        <View style={[styles.previewLine, { width: '78%', backgroundColor: palette.textMuted }]} />
+        <View style={[styles.previewLine, { width: '64%', backgroundColor: palette.textMuted }]} />
+      </View>
+      <View style={[styles.lockOverlay, { borderColor: palette.border }]}>
+        <Text style={[styles.lockOverlayText, { color: palette.text }]}>{COPY.lockedCta}</Text>
+      </View>
+    </View>
+  );
+}
+
+function ComparisonTable({ rows, palette }: { rows: ComparisonRow[]; palette: AppearancePalette }) {
+  return (
+    <View style={[styles.table, { borderColor: palette.border, backgroundColor: palette.card }]}>
+      <View style={[styles.tableRow, styles.tableHeader, { borderBottomColor: palette.border }]}>
+        <Text style={[styles.tableCellFeature, styles.tableHeaderText, { color: palette.text }]}>Access</Text>
+        <Text style={[styles.tableCell, styles.tableHeaderText, { color: palette.textMuted }]}>Free</Text>
+        <Text style={[styles.tableCell, styles.tableHeaderText, { color: colors.gold }]}>Premium</Text>
+      </View>
+      {rows.map((row, index) => (
+        <View
+          key={row.label}
+          style={[
+            styles.tableRow,
+            index < rows.length - 1 ? { borderBottomColor: palette.border, borderBottomWidth: 1 } : null,
+          ]}
+        >
+          <Text style={[styles.tableCellFeature, { color: palette.text }]}>{row.label}</Text>
+          <Text style={[styles.tableCell, { color: palette.textMuted }]}>{row.free}</Text>
+          <Text style={[styles.tableCell, styles.tablePremiumText, { color: palette.text }]}>{row.premium}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function SocialProof({ palette, isIosIap }: { palette: AppearancePalette; isIosIap: boolean }) {
+  return (
+    <View style={styles.proofWrap}>
+      <View style={styles.proofGrid}>
+        {PROOF.map((item) => (
+          <View key={item.metric} style={[styles.proofCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            <Text style={[styles.proofMetric, { color: palette.text }]}>{item.metric}</Text>
+            <Text style={[styles.proofLabel, { color: palette.textMuted }]}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+      {TESTIMONIALS.map((item) => (
+        <View key={item.name} style={[styles.testimonial, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+          <Text style={[styles.testimonialQuote, { color: palette.text }]}>"{item.quote}"</Text>
+          <Text style={[styles.testimonialName, { color: palette.textMuted }]}>- {item.name}, Premium member</Text>
+        </View>
+      ))}
+      <Text style={[styles.trustLine, { color: palette.textMuted }]}>
+        {isIosIap
+          ? 'Subscriptions are managed with your Apple ID. Restore purchases anytime.'
+          : 'Encrypted payments through Stripe. Restore access anytime.'}
+      </Text>
+    </View>
+  );
+}
+
+function PricingCard({
+  plan,
+  selected,
+  palette,
+  onSelect,
+}: {
+  plan: PricingPlan;
+  selected: boolean;
+  palette: AppearancePalette;
+  onSelect: (id: PricingPlan['id']) => void;
+}) {
+  return (
+    <Pressable
+      style={[
+        styles.planCard,
+        {
+          backgroundColor: selected ? 'rgba(139, 107, 255, 0.22)' : palette.card,
+          borderColor: selected ? colors.gold : palette.border,
+        },
+      ]}
+      onPress={() => onSelect(plan.id)}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={`${plan.title} Premium plan, ${plan.price} ${plan.cadence}`}
+      hitSlop={hitSlopComfortable}
+    >
+      <View style={styles.planTopRow}>
+        <View>
+          <Text style={[styles.planTitle, { color: palette.text }]}>{plan.title}</Text>
+          <Text style={[styles.planNote, { color: palette.textMuted }]}>{plan.note}</Text>
+        </View>
+        {plan.badge ? (
+          <View style={styles.planBadge}>
+            <Text style={styles.planBadgeText}>{plan.badge}</Text>
+          </View>
+        ) : null}
+      </View>
+      <Text style={[styles.planPrice, { color: palette.text }]}>{plan.price}</Text>
+      <Text style={[styles.planCadence, { color: palette.textMuted }]}>{plan.cadence}</Text>
+      {plan.bestValue ? <Text style={styles.savingsText}>Save about 40% compared with monthly</Text> : null}
+    </Pressable>
+  );
+}
+
+function StickyCta({
+  palette,
+  bottomInset,
+  busy,
+  isPremium,
+  selectedPlan,
+  onPress,
+  purchasesUnavailable,
+}: {
+  palette: AppearancePalette;
+  bottomInset: number;
+  busy: boolean;
+  isPremium: boolean;
+  selectedPlan: PricingPlan;
+  onPress: () => void;
+  purchasesUnavailable: boolean;
+}) {
+  return (
+    <View
+      style={[
+        styles.sticky,
+        {
+          paddingBottom: Math.max(bottomInset, spacing.sm),
+          backgroundColor: palette.background,
+          borderTopColor: palette.border,
+        },
+      ]}
+    >
+      <View style={styles.stickyCopy}>
+        <Text style={[styles.stickyTitle, { color: palette.text }]}>
+          {isPremium ? 'Premium is active' : selectedPlan.bestValue ? 'Yearly unlocks the most value' : 'Start Premium'}
+        </Text>
+        <Text style={[styles.stickySub, { color: palette.textMuted }]}>{COPY.stickySubtitle}</Text>
+      </View>
+      <PrimaryButton
+        label={isPremium ? COPY.activeCta : COPY.heroCta}
+        busy={busy}
+        onPress={onPress}
+        compact
+        disabled={purchasesUnavailable && !isPremium}
+        accessibilityLabel={isPremium ? 'Manage Premium subscription' : 'Unlock full reading with Premium'}
+      />
+    </View>
+  );
+}
+
+function PrimaryButton({
+  label,
+  busy,
+  onPress,
+  compact,
+  disabled,
+  accessibilityLabel,
+}: {
+  label: string;
+  busy: boolean;
+  onPress: () => void;
+  compact?: boolean;
+  disabled?: boolean;
+  accessibilityLabel: string;
+}) {
+  const isDisabled = busy || Boolean(disabled);
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.primaryButton,
+        compact && styles.primaryButtonCompact,
+        isDisabled && styles.disabled,
+        pressed && !isDisabled && styles.pressed,
+      ]}
+      onPress={onPress}
+      disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: isDisabled }}
+      hitSlop={hitSlopComfortable}
+    >
+      {busy ? <ActivityIndicator color="#160f30" /> : <Text style={styles.primaryButtonText}>{label}</Text>}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { flexGrow: 1, paddingBottom: spacing.xxxl },
-  title: { fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
-  body: { color: colors.textMuted, marginBottom: spacing.sm },
+  animated: { flex: 1 },
+  content: { gap: spacing.lg, paddingTop: spacing.md },
+  hero: {
+    borderWidth: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    padding: spacing.xl,
+  },
+  heroSky: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.62,
+  },
+  orbit: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.22)',
+    borderRadius: 999,
+  },
+  orbitLarge: { width: 240, height: 240, right: -92, top: -88 },
+  orbitSmall: { width: 130, height: 130, right: -12, top: 18 },
+  moon: {
+    position: 'absolute',
+    right: 36,
+    top: 28,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(212, 175, 55, 0.36)',
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: spacing.sm,
+  },
+  heroTitle: { fontWeight: '800', lineHeight: 36, marginBottom: spacing.sm },
+  heroSubtitle: { marginBottom: spacing.lg },
+  heroStats: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  miniStat: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  miniStatValue: { fontSize: 18, fontWeight: '800' },
+  miniStatLabel: { marginTop: 2, fontSize: 12, lineHeight: 16 },
+  urgency: { marginTop: spacing.sm, fontSize: 12, lineHeight: 17, textAlign: 'center' },
+  sectionTitle: { marginTop: spacing.xs, fontSize: 20, lineHeight: 26, fontWeight: '800' },
+  featureGrid: { gap: spacing.sm },
+  featureCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: spacing.md,
+    overflow: 'hidden',
+  },
+  featureAccent: { width: 38, height: 4, borderRadius: 999, marginBottom: spacing.sm },
+  featureTitle: { fontSize: 16, lineHeight: 21, fontWeight: '800' },
+  featureValue: { marginTop: 5, fontSize: 14, lineHeight: 20 },
+  lockedPreview: {
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: spacing.lg,
+    overflow: 'hidden',
+  },
+  lockedEyebrow: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  lockedTitle: { marginTop: spacing.xs, fontSize: 18, lineHeight: 24, fontWeight: '800' },
+  previewLines: { gap: spacing.sm, marginTop: spacing.md, opacity: 0.28 },
+  previewLine: { height: 13, borderRadius: 999 },
+  lockOverlay: {
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    backgroundColor: 'rgba(5, 5, 16, 0.62)',
+  },
+  lockOverlayText: { fontSize: 14, lineHeight: 19, fontWeight: '800' },
+  table: { borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
+  tableRow: { flexDirection: 'row', paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, gap: spacing.xs },
+  tableHeader: { borderBottomWidth: 1 },
+  tableHeaderText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+  tableCellFeature: { flex: 1.05, fontSize: 13, lineHeight: 18, fontWeight: '700' },
+  tableCell: { flex: 1, fontSize: 12, lineHeight: 17 },
+  tablePremiumText: { fontWeight: '700' },
+  proofWrap: { gap: spacing.sm },
+  proofGrid: { flexDirection: 'row', gap: spacing.sm },
+  proofCard: { flex: 1, borderWidth: 1, borderRadius: 16, padding: spacing.sm },
+  proofMetric: { fontSize: 17, lineHeight: 22, fontWeight: '900' },
+  proofLabel: { marginTop: 2, fontSize: 11, lineHeight: 15 },
+  testimonial: { borderWidth: 1, borderRadius: 16, padding: spacing.md },
+  testimonialQuote: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  testimonialName: { marginTop: spacing.xs, fontSize: 12, lineHeight: 17 },
+  pricingList: { gap: spacing.sm },
+  planCard: { borderWidth: 1.5, borderRadius: 20, padding: spacing.lg },
+  planTopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
+  planTitle: { fontSize: 18, lineHeight: 23, fontWeight: '900' },
+  planNote: { maxWidth: 210, marginTop: 3, fontSize: 12, lineHeight: 17 },
+  planBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    backgroundColor: colors.gold,
+  },
+  planBadgeText: { color: '#201600', fontSize: 11, lineHeight: 14, fontWeight: '900' },
+  planPrice: { marginTop: spacing.md, fontSize: 30, lineHeight: 36, fontWeight: '900' },
+  planCadence: { fontSize: 13, lineHeight: 18 },
+  savingsText: { marginTop: spacing.sm, color: colors.gold, fontSize: 13, lineHeight: 18, fontWeight: '800' },
+  trustLine: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
+  configNotice: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: spacing.md,
+  },
+  configNoticeText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  restoreLink: { fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center', marginTop: spacing.xs },
+  feedback: {
+    borderRadius: 14,
+    padding: spacing.md,
+    backgroundColor: 'rgba(123, 191, 106, 0.12)',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  sticky: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  stickyCopy: { flex: 1 },
+  stickyTitle: { fontSize: 14, lineHeight: 18, fontWeight: '900' },
+  stickySub: { marginTop: 1, fontSize: 11, lineHeight: 15 },
+  primaryButton: {
+    minHeight: MIN_TOUCH,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.gold,
+  },
+  primaryButtonCompact: { minWidth: 132, paddingHorizontal: spacing.md },
+  primaryButtonText: { color: '#160f30', fontSize: 15, lineHeight: 19, fontWeight: '900' },
+  disabled: { opacity: 0.55 },
+  pressed: { opacity: 0.88 },
 });

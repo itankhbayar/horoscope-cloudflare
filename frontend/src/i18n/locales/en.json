@@ -35,7 +35,7 @@
     "email": "Email",
     "emailPlaceholder": "you{'@'}cosmos.com",
     "password": "Password",
-    "passwordPlaceholder": "At least 6 characters",
+    "passwordPlaceholder": "At least 8 characters",
     "passwordPlaceholderShort": "••••••••",
     "birthDate": "Birth date",
     "birthDateRequired": "Birth date *",

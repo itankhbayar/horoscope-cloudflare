@@ -9,6 +9,9 @@ import PremiumPage from '../pages/PremiumPage.vue';
 import PremiumSuccessPage from '../pages/PremiumSuccessPage.vue';
 import PremiumCancelPage from '../pages/PremiumCancelPage.vue';
 import TarotPage from '../pages/TarotPage.vue';
+import PrivacyPage from '../pages/PrivacyPage.vue';
+import TermsPage from '../pages/TermsPage.vue';
+import DeleteAccountPage from '../pages/DeleteAccountPage.vue';
 import { authService } from '../lib';
 
 const router = createRouter({
@@ -34,6 +37,9 @@ const router = createRouter({
     },
     { path: '/login', name: 'login', component: LoginPage, meta: { guest: true } },
     { path: '/register', name: 'register', component: RegisterPage, meta: { guest: true } },
+    { path: '/privacy', name: 'privacy', component: PrivacyPage },
+    { path: '/terms', name: 'terms', component: TermsPage },
+    { path: '/delete-account', name: 'delete-account', component: DeleteAccountPage },
   ],
 });
 
