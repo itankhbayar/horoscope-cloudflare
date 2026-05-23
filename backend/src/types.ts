@@ -2,6 +2,11 @@ import type { User } from './db/schema';
 
 export type AppBindings = {
   horoscope_db: D1Database;
+  LOGIN_RATE_LIMITER?: RateLimit;
+  REGISTER_RATE_LIMITER?: RateLimit;
+  REFRESH_RATE_LIMITER?: RateLimit;
+  PUBLIC_RATE_LIMITER?: RateLimit;
+  RATE_LIMITER_DO?: DurableObjectNamespace;
   /** R2 bucket for profile avatars (configure in wrangler `r2_buckets`). */
   STORAGE?: R2Bucket;
   /** Public web app URL for Stripe checkout redirects (no trailing slash). */

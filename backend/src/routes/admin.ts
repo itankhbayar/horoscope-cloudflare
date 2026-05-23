@@ -10,6 +10,9 @@ import type { AppBindings, AppVariables } from '../types';
 import { secureSecretEqual } from '../utils/secureCompare';
 import { captureException } from '../utils/sentry';
 import { logFromContext } from '../utils/logger';
+import { adminPrewarmTarotQuerySchema } from '../schemas/admin';
+import { parseQuery, isResponse } from '../validators/request';
+import { fail } from '../utils/apiResponse';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -26,7 +29,7 @@ router.post('/prewarm', async (c) => {
       hasSecretConfigured: Boolean(c.env.ADMIN_SECRET),
       hasHeader: Boolean(c.req.header('x-admin-secret')),
     });
-    return c.json({ error: 'Unauthorized' }, 401);
+    return fail(c, 401, 'UNAUTHORIZED', 'Unauthorized');
   }
 
   const timezone = c.env.CRON_TIMEZONE ?? 'UTC';
@@ -71,19 +74,21 @@ router.post('/prewarm-tarot', async (c) => {
       hasSecretConfigured: Boolean(c.env.ADMIN_SECRET),
       hasHeader: Boolean(c.req.header('x-admin-secret')),
     });
-    return c.json({ error: 'Unauthorized' }, 401);
+    return fail(c, 401, 'UNAUTHORIZED', 'Unauthorized');
   }
 
-  const timezone = (c.req.query('timezone') ?? c.env.CRON_TIMEZONE ?? 'UTC').trim();
+  const query = parseQuery(c, adminPrewarmTarotQuerySchema);
+  if (isResponse(query)) return query;
+  const timezone = query.timezone ?? c.env.CRON_TIMEZONE ?? 'UTC';
   if (!isValidIanaTimeZone(timezone)) {
-    return c.json({ error: 'Invalid timezone' }, 400);
+    return fail(c, 400, 'BAD_REQUEST', 'Invalid timezone');
   }
 
-  let dateISO = (c.req.query('date') ?? '').trim();
+  let dateISO = query.date ?? '';
   if (!dateISO) {
     dateISO = resolveCronDateISO(Date.now(), timezone);
   } else if (!isValidCalendarDate(dateISO)) {
-    return c.json({ error: 'Invalid date (YYYY-MM-DD)' }, 400);
+    return fail(c, 400, 'BAD_REQUEST', 'Invalid date (YYYY-MM-DD)');
   }
 
   const db = getDb(c.env.horoscope_db);

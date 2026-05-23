@@ -4,15 +4,12 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
-import { useAuth } from '../composables/useAuth';
-import { billingService } from '../lib';
-import { track } from '../lib/analytics';
-import { captureFrontendException } from '../lib/errorTracking';
+import { usePremiumStore } from '../stores/premium';
 
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
-const { refreshUser } = useAuth();
+const premiumStore = usePremiumStore();
 const error = ref<string | null>(null);
 const syncing = ref(true);
 
@@ -21,14 +18,9 @@ onMounted(async () => {
     const sessionId = Array.isArray(route.query.session_id)
       ? route.query.session_id[0]
       : route.query.session_id;
-    if (sessionId) {
-      await billingService.syncPremiumCheckoutSession(sessionId);
-      track('premium_purchased', { source: 'checkout_sync' });
-    }
-    await refreshUser();
+    await premiumStore.syncCheckoutSession(sessionId);
   } catch (e) {
     error.value = (e as Error).message ?? t('premium.syncError');
-    captureFrontendException(e, { billing: { flow: 'premium_success_sync' } });
   } finally {
     syncing.value = false;
   }

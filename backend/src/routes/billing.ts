@@ -27,6 +27,14 @@ import {
 } from './billingRevenueCatErrors';
 import { captureException } from '../utils/sentry';
 import { logFromContext, metric } from '../utils/logger';
+import {
+  checkoutSyncSchema,
+  mobileCheckoutSchema,
+  mobilePortalSchema,
+  revenueCatWebhookSchema,
+} from '../schemas/billing';
+import { parseJsonBody, isResponse } from '../validators/request';
+import { fail, ok } from '../utils/apiResponse';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -64,7 +72,7 @@ function resolveDefaultMobilePriceId(env: AppBindings): string {
 
 router.post('/create-checkout-session', authMiddleware, async (c) => {
   if (!stripeClientEnvReady(c.env)) {
-    return c.json({ error: 'Billing is not configured' }, 503);
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', 'Billing is not configured');
   }
   const userId = requireUserId(c);
   const email = c.get('userEmail');
@@ -78,33 +86,25 @@ router.post('/create-checkout-session', authMiddleware, async (c) => {
       resolveAppPublicUrl(c.env),
     );
     if (!session.url) {
-      return c.json({ error: 'Checkout session missing redirect URL' }, 500);
+      return fail(c, 500, 'INTERNAL_ERROR', 'Checkout session missing redirect URL');
     }
     metric(c.env, 'checkout_started', { channel: 'web' });
-    return c.json({ url: session.url });
+    return ok(c, { url: session.url });
   } catch (err) {
     logFromContext(c, 'error', 'checkout_session_failed', { error: err });
     captureException(err, { billing: { flow: 'create_checkout_session' } });
-    return c.json({ error: 'Could not start checkout' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Could not start checkout');
   }
 });
 
 router.post('/checkout/sync', authMiddleware, async (c) => {
   if (!stripeClientEnvReady(c.env)) {
-    return c.json({ error: 'Billing is not configured' }, 503);
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', 'Billing is not configured');
   }
 
-  let body: { sessionId?: string } = {};
-  try {
-    body = await c.req.json();
-  } catch {
-    body = {};
-  }
-
-  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
-  if (!sessionId) {
-    return c.json({ error: 'sessionId is required' }, 400);
-  }
+  const body = await parseJsonBody(c, checkoutSyncSchema);
+  if (isResponse(body)) return body;
+  const sessionId = body.sessionId;
 
   const db = getDb(c.env.horoscope_db);
   const stripe = createStripeClient(c.env.STRIPE_SECRET_KEY);
@@ -113,34 +113,30 @@ router.post('/checkout/sync', authMiddleware, async (c) => {
   try {
     const result = await syncPremiumFromCheckoutSession(stripe, db, sessionId, userId);
     if (result.isPremium) metric(c.env, 'premium_purchased', { source: 'checkout_sync' });
-    return c.json(result);
+    return ok(c, result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Could not sync checkout session';
-    if (msg === 'User not found') return c.json({ error: msg }, 404);
+    if (msg === 'User not found') return fail(c, 404, 'NOT_FOUND', msg);
     if (
       msg === 'Checkout session does not belong to user' ||
       msg === 'Checkout session is not paid'
     ) {
-      return c.json({ error: msg }, 400);
+      return fail(c, 400, 'BAD_REQUEST', msg);
     }
     logFromContext(c, 'error', 'checkout_sync_failed', { error: err });
     captureException(err, { billing: { flow: 'checkout_sync' } });
-    return c.json({ error: 'Could not sync checkout session' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Could not sync checkout session');
   }
 });
 
 router.post('/mobile/checkout', authMiddleware, async (c) => {
   if (!stripeClientEnvReady(c.env)) {
-    return c.json({ error: 'Billing is not configured' }, 503);
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', 'Billing is not configured');
   }
   const userId = requireUserId(c);
   const email = c.get('userEmail');
-  let body: { priceId?: string; idempotencyKey?: string } = {};
-  try {
-    body = await c.req.json();
-  } catch {
-    body = {};
-  }
+  const body = await parseJsonBody(c, mobileCheckoutSchema);
+  if (isResponse(body)) return body;
 
   const rawPrice = typeof body.priceId === 'string' ? body.priceId.trim() : '';
   const priceId = rawPrice.length > 0 ? rawPrice : resolveDefaultMobilePriceId(c.env);
@@ -148,7 +144,7 @@ router.post('/mobile/checkout', authMiddleware, async (c) => {
   try {
     assertAllowedPremiumPriceId(priceId, c.env);
   } catch {
-    return c.json({ error: 'Invalid or disallowed price id' }, 400);
+    return fail(c, 400, 'BAD_REQUEST', 'Invalid or disallowed price id');
   }
 
   const idempotencyKey =
@@ -167,66 +163,56 @@ router.post('/mobile/checkout', authMiddleware, async (c) => {
       idempotencyKey,
     });
     metric(c.env, 'checkout_started', { channel: 'mobile', mode: sheet.mode });
-    return c.json(sheet);
+    return ok(c, sheet);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Could not start mobile checkout';
     logFromContext(c, 'error', 'mobile_checkout_failed', { error: err });
     captureException(err, { billing: { flow: 'mobile_checkout' } });
     if (msg.includes('Invalid or disallowed')) {
-      return c.json({ error: 'Invalid or disallowed price id' }, 400);
+      return fail(c, 400, 'BAD_REQUEST', 'Invalid or disallowed price id');
     }
     if (msg === 'User not found') {
-      return c.json({ error: 'User not found' }, 404);
+      return fail(c, 404, 'NOT_FOUND', 'User not found');
     }
-    return c.json({ error: 'Could not start mobile checkout' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Could not start mobile checkout');
   }
 });
 
 router.post('/mobile/portal', authMiddleware, async (c) => {
   if (!stripeClientEnvReady(c.env)) {
-    return c.json({ error: 'Billing is not configured' }, 503);
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', 'Billing is not configured');
   }
   const userId = requireUserId(c);
-  let body: { returnUrl?: string } = {};
-  try {
-    body = await c.req.json();
-  } catch {
-    body = {};
-  }
-  const returnUrl = typeof body.returnUrl === 'string' ? body.returnUrl.trim() : '';
+  const body = await parseJsonBody(c, mobilePortalSchema);
+  if (isResponse(body)) return body;
+  const returnUrl = body.returnUrl;
   if (!returnUrl || !isAllowedReturnUrl(returnUrl, c.env)) {
-    return c.json(
-      { error: 'Valid returnUrl is required (APP_PUBLIC_URL https, localhost http, or astralis://)' },
-      400,
-    );
+    return fail(c, 400, 'BAD_REQUEST', 'Valid returnUrl is required (APP_PUBLIC_URL https, localhost http, or astralis://)');
   }
 
   const db = getDb(c.env.horoscope_db);
   const stripe = createStripeClient(c.env.STRIPE_SECRET_KEY);
   const user = await getUserById(db, userId);
   if (!user?.stripeCustomerId) {
-    return c.json(
-      { error: 'No Stripe customer on file yet. Complete a purchase first to manage billing.' },
-      409,
-    );
+    return fail(c, 409, 'CONFLICT', 'No Stripe customer on file yet. Complete a purchase first to manage billing.');
   }
 
   try {
     const session = await createBillingPortalSession(stripe, user.stripeCustomerId, returnUrl);
     if (!session.url) {
-      return c.json({ error: 'Portal session missing URL' }, 500);
+      return fail(c, 500, 'INTERNAL_ERROR', 'Portal session missing URL');
     }
-    return c.json({ url: session.url });
+    return ok(c, { url: session.url });
   } catch (err) {
     logFromContext(c, 'error', 'mobile_portal_failed', { error: err });
     captureException(err, { billing: { flow: 'mobile_portal' } });
-    return c.json({ error: 'Could not open billing portal' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Could not open billing portal');
   }
 });
 
 router.post('/mobile/restore', authMiddleware, async (c) => {
   if (!stripeClientEnvReady(c.env)) {
-    return c.json({ error: 'Billing is not configured' }, 503);
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', 'Billing is not configured');
   }
   const userId = requireUserId(c);
   const db = getDb(c.env.horoscope_db);
@@ -234,13 +220,13 @@ router.post('/mobile/restore', authMiddleware, async (c) => {
   try {
     const result = await syncPremiumFromStripeForUser(stripe, db, userId);
     metric(c.env, 'subscription_restored', { source: result.source, isPremium: result.isPremium });
-    return c.json(result);
+    return ok(c, result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Could not restore premium';
-    if (msg === 'User not found') return c.json({ error: msg }, 404);
+    if (msg === 'User not found') return fail(c, 404, 'NOT_FOUND', msg);
     logFromContext(c, 'error', 'mobile_restore_failed', { error: err });
     captureException(err, { billing: { flow: 'mobile_restore' } });
-    return c.json({ error: 'Could not restore premium' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Could not restore premium');
   }
 });
 
@@ -258,20 +244,16 @@ function revenueCatApiEnvReady(env: AppBindings): env is AppBindings & {
 
 router.post('/revenuecat/webhook', async (c) => {
   if (!revenueCatEnvReady(c.env)) {
-    return c.json({ error: REVENUECAT_WEBHOOK_NOT_CONFIGURED }, 503);
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', REVENUECAT_WEBHOOK_NOT_CONFIGURED);
   }
 
   const authorization = c.req.header('Authorization');
   if (!verifyRevenueCatWebhookAuthorization(authorization, c.env.REVENUECAT_WEBHOOK_SECRET)) {
-    return c.json({ error: 'Unauthorized' }, 401);
+    return fail(c, 401, 'UNAUTHORIZED', 'Unauthorized');
   }
 
-  let payload: RevenueCatWebhookPayload;
-  try {
-    payload = (await c.req.json()) as RevenueCatWebhookPayload;
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400);
-  }
+  const payload = await parseJsonBody(c, revenueCatWebhookSchema);
+  if (isResponse(payload)) return payload;
 
   const db = getDb(c.env.horoscope_db);
   try {
@@ -283,17 +265,17 @@ router.post('/revenuecat/webhook', async (c) => {
       handled: result.handled,
       isPremium: result.isPremium,
     });
-    return c.json({ received: true, ...result });
+    return ok(c, { received: true, ...result });
   } catch (err) {
     logFromContext(c, 'error', 'revenuecat_webhook_failed', { error: err });
     captureException(err, { billing: { flow: 'revenuecat_webhook' } });
-    return c.json({ error: 'Webhook processing failed' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Webhook processing failed');
   }
 });
 
 router.post('/revenuecat/sync', authMiddleware, async (c) => {
   if (!revenueCatApiEnvReady(c.env)) {
-    return c.json({ error: REVENUECAT_SYNC_NOT_CONFIGURED }, 503);
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', REVENUECAT_SYNC_NOT_CONFIGURED);
   }
 
   const userId = requireUserId(c);
@@ -302,19 +284,19 @@ router.post('/revenuecat/sync', authMiddleware, async (c) => {
   try {
     const result = await syncPremiumFromRevenueCatApi(db, c.env.REVENUECAT_API_KEY, userId);
     metric(c.env, 'subscription_restored', { source: 'revenuecat_api', isPremium: result.isPremium });
-    return c.json(result);
+    return ok(c, result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Could not sync RevenueCat status';
-    if (msg === 'User not found') return c.json({ error: msg }, 404);
+    if (msg === 'User not found') return fail(c, 404, 'NOT_FOUND', msg);
     logFromContext(c, 'error', 'revenuecat_sync_failed', { error: err });
     captureException(err, { billing: { flow: 'revenuecat_sync' } });
-    return c.json({ error: 'Could not sync RevenueCat status' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Could not sync RevenueCat status');
   }
 });
 
 router.post('/webhook', async (c) => {
   if (!webhookEnvReady(c.env)) {
-    return c.json({ error: 'Billing is not configured' }, 503);
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', 'Billing is not configured');
   }
 
   const signature =
@@ -340,7 +322,7 @@ router.post('/webhook', async (c) => {
 
   if (!WEBHOOK_HANDLED.has(event.type)) {
     metric(c.env, 'stripe_webhook_ignored', { eventType: event.type });
-    return c.json({ received: true });
+    return ok(c, { received: true });
   }
 
   const db = getDb(c.env.horoscope_db);
@@ -367,7 +349,7 @@ router.post('/webhook', async (c) => {
     return c.text('Processing failed', 500);
   }
 
-  return c.json({ received: true });
+  return ok(c, { received: true });
 });
 
 export default router;

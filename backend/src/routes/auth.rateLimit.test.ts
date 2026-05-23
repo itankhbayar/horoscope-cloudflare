@@ -50,6 +50,14 @@ function registerBody(email = 'new@example.com'): Record<string, unknown> {
     password: 'secure passphrase',
     birthDate: '1990-01-01',
     birthCity: 'Ulaanbaatar',
+    birthDataConsent: true,
+  };
+}
+
+function loginBody(email = 'u@example.com'): Record<string, unknown> {
+  return {
+    email,
+    password: 'secret12',
   };
 }
 
@@ -79,7 +87,7 @@ describe('auth route rate limiting', () => {
     const app = createApp();
 
     for (let i = 0; i < 5; i += 1) {
-      const res = await app.request('/api/auth/login', jsonPost('203.0.113.10'), mockEnv);
+      const res = await app.request('/api/auth/login', jsonPost('203.0.113.10', loginBody()), mockEnv);
       expect(res.status).toBe(200);
     }
 
@@ -90,9 +98,9 @@ describe('auth route rate limiting', () => {
     const app = createApp();
 
     for (let i = 0; i < 5; i += 1) {
-      await app.request('/api/auth/login', jsonPost('203.0.113.11'), mockEnv);
+      await app.request('/api/auth/login', jsonPost('203.0.113.11', loginBody()), mockEnv);
     }
-    const limited = await app.request('/api/auth/login', jsonPost('203.0.113.11'), mockEnv);
+    const limited = await app.request('/api/auth/login', jsonPost('203.0.113.11', loginBody()), mockEnv);
 
     expect(limited.status).toBe(429);
     expect(limited.headers.get('Retry-After')).toBe('60');
@@ -145,9 +153,9 @@ describe('auth route rate limiting', () => {
     const app = createApp();
 
     for (let i = 0; i < 5; i += 1) {
-      await app.request('/api/auth/login', jsonPost('203.0.113.17'), mockEnv);
+      await app.request('/api/auth/login', jsonPost('203.0.113.17', loginBody()), mockEnv);
     }
-    const limited = await app.request('/api/auth/login', jsonPost('203.0.113.17'), mockEnv);
+    const limited = await app.request('/api/auth/login', jsonPost('203.0.113.17', loginBody()), mockEnv);
 
     expect(limited.status).toBe(429);
     expect(limited.headers.has('Retry-After')).toBe(true);
@@ -176,7 +184,7 @@ describe('auth route rate limiting', () => {
             'CF-Connecting-IP': '203.0.113.18',
             'X-Forwarded-For': `198.51.100.${i}, 198.51.100.200`,
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify(loginBody()),
         },
         mockEnv,
       );
@@ -192,7 +200,7 @@ describe('auth route rate limiting', () => {
           'CF-Connecting-IP': '203.0.113.18',
           'X-Forwarded-For': '198.51.100.250',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(loginBody()),
       },
       mockEnv,
     );
@@ -205,7 +213,7 @@ describe('auth route rate limiting', () => {
           'CF-Connecting-IP': '203.0.113.19',
           'X-Forwarded-For': '198.51.100.250',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(loginBody()),
       },
       mockEnv,
     );
@@ -218,11 +226,11 @@ describe('auth route rate limiting', () => {
     const app = createApp();
 
     for (let i = 0; i < 5; i += 1) {
-      await app.request('/api/auth/login', jsonPost('203.0.113.13'), mockEnv);
+      await app.request('/api/auth/login', jsonPost('203.0.113.13', loginBody()), mockEnv);
     }
 
-    const limited = await app.request('/api/auth/login', jsonPost('203.0.113.13'), mockEnv);
-    const otherIp = await app.request('/api/auth/login', jsonPost('203.0.113.14'), mockEnv);
+    const limited = await app.request('/api/auth/login', jsonPost('203.0.113.13', loginBody()), mockEnv);
+    const otherIp = await app.request('/api/auth/login', jsonPost('203.0.113.14', loginBody()), mockEnv);
 
     expect(limited.status).toBe(429);
     expect(otherIp.status).toBe(200);
@@ -247,6 +255,7 @@ describe('auth route rate limiting', () => {
         password: 'secret12',
         birthDate: '1990-01-01',
         birthCity: 'Ulaanbaatar',
+        birthDataConsent: true,
       }),
       mockEnv,
     );
@@ -257,11 +266,13 @@ describe('auth route rate limiting', () => {
       {},
       'test-secret',
       expect.objectContaining({ email: 'u@example.com' }),
+      { accessTokenTtlSeconds: undefined },
     );
     expect(mocks.registerUser).toHaveBeenCalledWith(
       {},
       'test-secret',
       expect.objectContaining({ email: 'new@example.com' }),
+      { accessTokenTtlSeconds: undefined },
     );
   });
 

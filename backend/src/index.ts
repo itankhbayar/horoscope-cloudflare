@@ -10,15 +10,20 @@ import tarotRoutes from './routes/tarot';
 import billingRoutes from './routes/billing';
 import notificationsRoutes from './routes/notifications';
 import accountRoutes from './routes/account';
+import openApiRoutes from './routes/openapi';
 import { getDb } from './db/client';
 import { isAllowedCorsOrigin } from './env';
 import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscopePrewarmService';
 import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
+import { cleanupOperationalData } from './services/cleanupService';
 import { CRON_DAILY } from './cron';
 import type { AppBindings, AppVariables } from './types';
 import { requestContextMiddleware } from './utils/requestContext';
 import { captureException, sentryOptions } from './utils/sentry';
 import { log, logFromContext, metric } from './utils/logger';
+import { requestHardeningMiddleware } from './middleware/requestHardening';
+import { fail, ok } from './utils/apiResponse';
+export { RateLimitBucket } from './rateLimitBucket';
 
 const DEFAULT_TIMEZONE = 'Asia/Ulaanbaatar';
 
@@ -47,7 +52,7 @@ app.get('/health', async (c) => {
   const started = Date.now();
   try {
     await c.env.horoscope_db.prepare('SELECT 1 AS ok').first?.();
-    return c.json({
+    return ok(c, {
       ok: true,
       dependencies: { d1: 'ok' },
       environment: c.env.APP_ENV ?? c.env.ENVIRONMENT ?? 'development',
@@ -56,16 +61,27 @@ app.get('/health', async (c) => {
   } catch (err) {
     logFromContext(c, 'error', 'health_check_failed', { error: err });
     captureException(err, { route: { path: '/health' } });
-    return c.json(
-      {
-        ok: false,
-        dependencies: { d1: 'error' },
-        durationMs: Date.now() - started,
-      },
-      503,
-    );
+    return fail(c, 503, 'SERVICE_UNAVAILABLE', 'Health check failed', {
+      dependencies: { d1: 'error' },
+      durationMs: Date.now() - started,
+    });
   }
 });
+
+app.use('/api/*', requestHardeningMiddleware);
+
+const v1 = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
+v1.route('/auth', authRoutes);
+v1.route('/profile', profileRoutes);
+v1.route('/horoscope', horoscopeRoutes);
+v1.route('/compatibility', compatibilityRoutes);
+v1.route('/tarot', tarotRoutes);
+v1.route('/billing', billingRoutes);
+v1.route('/notifications', notificationsRoutes);
+v1.route('/account', accountRoutes);
+v1.route('/', openApiRoutes);
+
+app.route('/api/v1', v1);
 
 app.route('/api/auth', authRoutes);
 app.route('/api/profile', profileRoutes);
@@ -75,14 +91,15 @@ app.route('/api/tarot', tarotRoutes);
 app.route('/api/billing', billingRoutes);
 app.route('/api/notifications', notificationsRoutes);
 app.route('/api/account', accountRoutes);
+app.route('/api', openApiRoutes);
 app.route('/admin', adminRoutes);
 
-app.notFound((c) => c.json({ error: 'Not found' }, 404));
+app.notFound((c) => fail(c, 404, 'NOT_FOUND', 'Not found'));
 
 app.onError((err, c) => {
   logFromContext(c, 'error', 'route_unhandled_exception', { error: err });
   captureException(err, { route: { path: c.req.path, method: c.req.method } });
-  return c.json({ error: 'Internal server error' }, 500);
+  return fail(c, 500, 'INTERNAL_ERROR', 'Internal server error');
 });
 
 const worker: ExportedHandler<AppBindings> = {
@@ -146,6 +163,24 @@ const worker: ExportedHandler<AppBindings> = {
           });
           metric(env, 'cron_tarot_prewarm_failure', { dateISO });
           captureException(err, { cron: { job: 'tarot_prewarm', dateISO, timezone } });
+        }
+
+        try {
+          const jobStarted = Date.now();
+          const cleanup = await cleanupOperationalData(db, env);
+          log(env, 'info', 'cron_operational_cleanup_completed', {
+            deleted: cleanup.deleted,
+            jobs: cleanup.jobs,
+            durationMs: Date.now() - jobStarted,
+          });
+        } catch (err) {
+          log(env, 'error', 'cron_operational_cleanup_failed', {
+            timezone,
+            dateISO,
+            error: String(err),
+          });
+          metric(env, 'cron_operational_cleanup_failure', { dateISO });
+          captureException(err, { cron: { job: 'operational_cleanup', dateISO, timezone } });
         }
 
         log(env, 'info', 'cron_completed', {

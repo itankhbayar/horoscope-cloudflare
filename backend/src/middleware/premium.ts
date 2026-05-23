@@ -3,6 +3,7 @@ import { getDb } from '../db/client';
 import { getUserById } from '../services/authService';
 import type { AppBindings, AppVariables } from '../types';
 import { metric } from '../utils/logger';
+import { fail, unauthorized } from '../utils/apiResponse';
 
 type EntitlementSnapshot = {
   isPremium?: unknown;
@@ -46,7 +47,7 @@ export const requirePremium = createMiddleware<{
   const userId = c.get('userId');
   if (!userId) {
     metric(c.env, 'premium_gate_rejected', { reason: 'missing_user' });
-    return c.json({ error: 'Unauthorized' }, 401);
+    return unauthorized(c);
   }
 
   const db = getDb(c.env.horoscope_db);
@@ -54,7 +55,7 @@ export const requirePremium = createMiddleware<{
 
   if (!freshUser || !hasActivePremiumEntitlement(freshUser)) {
     metric(c.env, 'premium_gate_rejected', { reason: freshUser ? 'not_premium' : 'unknown_user' });
-    return c.json({ error: 'Premium subscription required' }, 403);
+    return fail(c, 403, 'FORBIDDEN', 'Premium subscription required');
   }
 
   c.set('user', freshUser);

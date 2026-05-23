@@ -11,19 +11,11 @@ import {
 import type { AppBindings, AppVariables } from '../types';
 import { captureException } from '../utils/sentry';
 import { logFromContext } from '../utils/logger';
+import { updateProfileSchema, avatarFormSchema } from '../schemas/profile';
+import { parseJsonBody, parseFormData, isResponse } from '../validators/request';
+import { fail, ok } from '../utils/apiResponse';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
-
-function isUploadFile(v: unknown): v is File {
-  return Boolean(
-    v &&
-      typeof v === 'object' &&
-      'arrayBuffer' in v &&
-      'type' in v &&
-      'size' in v &&
-      'name' in v,
-  );
-}
 
 router.use('*', authMiddleware);
 
@@ -32,9 +24,9 @@ router.get('/', async (c) => {
   const userId = requireUserId(c);
   try {
     const profile = await getFullProfile(db, userId);
-    return c.json(profile);
+    return ok(c, profile);
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 404);
+    return fail(c, 404, 'NOT_FOUND', (err as Error).message);
   }
 });
 
@@ -44,9 +36,9 @@ router.post('/recompute', async (c) => {
   try {
     await recomputeNatalChart(db, userId);
     const profile = await getFullProfile(db, userId);
-    return c.json(profile);
+    return ok(c, profile);
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 400);
+    return fail(c, 400, 'BAD_REQUEST', (err as Error).message);
   }
 });
 
@@ -54,11 +46,15 @@ router.patch('/', async (c) => {
   const db = getDb(c.env.horoscope_db);
   const userId = requireUserId(c);
   try {
-    const body = await c.req.json();
-    const profile = await updateProfile(db, userId, body);
-    return c.json(profile);
+    const body = await parseJsonBody(c, updateProfileSchema);
+    if (isResponse(body)) return body;
+    const profile = await updateProfile(db, userId, {
+      ...body,
+      timezoneOffset: body.timezoneOffset ?? undefined,
+    });
+    return ok(c, profile);
   } catch (err) {
-    return c.json({ error: (err as Error).message }, 400);
+    return fail(c, 400, 'BAD_REQUEST', (err as Error).message);
   }
 });
 
@@ -66,41 +62,33 @@ router.post('/avatar', async (c) => {
   const db = getDb(c.env.horoscope_db);
   const userId = requireUserId(c);
   try {
-    const contentType = c.req.header('Content-Type') ?? '';
-    if (!contentType.toLowerCase().includes('multipart/form-data')) {
-      return c.json({ error: 'Content-Type must be multipart/form-data' }, 400);
-    }
-    const form = await c.req.formData();
-    const raw = form.get('avatar');
-    if (!isUploadFile(raw)) {
-      return c.json({ error: 'avatar file is required' }, 400);
-    }
+    const form = await parseFormData(c, avatarFormSchema);
+    if (isResponse(form)) return form;
     const publicBaseUrl =
       c.env.AVATAR_PUBLIC_BASE_URL ??
       'https://pub-efa1826642384026bb9d3f05830ec34a.r2.dev';
-    const result = await updateProfileAvatar(db, userId, c.env.STORAGE, publicBaseUrl, raw);
-    return c.json(result);
+    const result = await updateProfileAvatar(db, userId, c.env.STORAGE, publicBaseUrl, form.avatar);
+    return ok(c, result);
   } catch (err) {
     if (err instanceof ProfileAvatarError) {
       const status =
         err.status === 413 ? 413 : err.status === 503 ? 503 : 400;
-      return c.json({ error: err.message }, status);
+      return fail(c, status, status === 413 ? 'PAYLOAD_TOO_LARGE' : 'BAD_REQUEST', err.message);
     }
     const msg = err instanceof Error ? `${err.message}\n${(err as Error & { cause?: Error }).cause?.message ?? ''}` : String(err);
     if (msg.includes('no such column: avatar_url') || msg.includes('no such column: display_name')) {
       logFromContext(c, 'error', 'avatar_upload_schema_missing_columns', { error: err });
       captureException(err, { route: { path: '/api/profile/avatar' } });
-      return c.json(
-        {
-          error:
-            'Database is missing profile columns. From backend/, run: npx wrangler d1 migrations apply horoscope-db --local. If that fails on 0004 (duplicate stripe columns), see backend/README.md.',
-        },
+      return fail(
+        c,
         503,
+        'SERVICE_UNAVAILABLE',
+        'Database is missing profile columns. From backend/, run: npx wrangler d1 migrations apply horoscope-db --local. If that fails on 0004 (duplicate stripe columns), see backend/README.md.',
       );
     }
     logFromContext(c, 'error', 'avatar_upload_failed', { error: err });
     captureException(err, { route: { path: '/api/profile/avatar' } });
-    return c.json({ error: 'Failed to upload avatar' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Failed to upload avatar');
   }
 });
 

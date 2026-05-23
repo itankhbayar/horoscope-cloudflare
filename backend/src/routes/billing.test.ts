@@ -150,7 +150,8 @@ describe('billing routes', () => {
     );
 
     expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toEqual({ error: 'sessionId is required' });
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toContain('sessionId is required');
     expect(mocks.mockSyncPremiumFromCheckoutSession).not.toHaveBeenCalled();
   });
 

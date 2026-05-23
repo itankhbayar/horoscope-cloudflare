@@ -195,7 +195,7 @@ async function downloadMyData(): Promise<void> {
           <div class="hero-left">
             <div class="avatar-ring">
               <div v-if="resolvedAvatar" class="avatar-wrap">
-                <img :src="resolvedAvatar" alt="Profile avatar" class="avatar" />
+                <img :src="resolvedAvatar" alt="Profile avatar" class="avatar" loading="lazy" decoding="async" />
               </div>
               <div v-else class="avatar-fallback">{{ avatarInitial() }}</div>
             </div>

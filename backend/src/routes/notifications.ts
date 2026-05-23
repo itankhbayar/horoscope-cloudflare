@@ -8,6 +8,13 @@ import {
   updateNotificationPreferences,
 } from '../services/notificationService';
 import type { AppBindings, AppVariables } from '../types';
+import {
+  deletePushTokenSchema,
+  notificationPreferencesUpdateSchema,
+  pushTokenSchema,
+} from '../schemas/notifications';
+import { parseJsonBody, isResponse } from '../validators/request';
+import { fail, ok } from '../utils/apiResponse';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -17,62 +24,49 @@ router.get('/preferences', async (c) => {
   const db = getDb(c.env.horoscope_db);
   const userId = requireUserId(c);
   const preferences = await getNotificationPreferences(db, userId);
-  return c.json(preferences);
+  return ok(c, preferences);
 });
 
 router.patch('/preferences', async (c) => {
   const db = getDb(c.env.horoscope_db);
   const userId = requireUserId(c);
-  let body: Record<string, unknown>;
-  try {
-    body = (await c.req.json()) as Record<string, unknown>;
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400);
-  }
+  const body = await parseJsonBody(c, notificationPreferencesUpdateSchema);
+  if (isResponse(body)) return body;
   try {
     const updated = await updateNotificationPreferences(db, userId, body);
-    return c.json(updated);
+    return ok(c, updated);
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : 'Invalid payload' }, 400);
+    return fail(c, 400, 'BAD_REQUEST', err instanceof Error ? err.message : 'Invalid payload');
   }
 });
 
 router.post('/push-token', async (c) => {
   const db = getDb(c.env.horoscope_db);
   const userId = requireUserId(c);
-  let body: Record<string, unknown>;
-  try {
-    body = (await c.req.json()) as Record<string, unknown>;
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400);
-  }
+  const body = await parseJsonBody(c, pushTokenSchema);
+  if (isResponse(body)) return body;
   try {
     await registerPushToken(db, userId, {
-      expoPushToken: typeof body.expoPushToken === 'string' ? body.expoPushToken : '',
-      platform: body.platform as 'ios' | 'android' | 'web' | 'unknown',
-      deviceId: typeof body.deviceId === 'string' ? body.deviceId : null,
+      expoPushToken: body.expoPushToken,
+      platform: body.platform,
+      deviceId: body.deviceId ?? null,
     });
-    return c.json({ ok: true });
+    return ok(c, { ok: true });
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : 'Invalid payload' }, 400);
+    return fail(c, 400, 'BAD_REQUEST', err instanceof Error ? err.message : 'Invalid payload');
   }
 });
 
 router.delete('/push-token', async (c) => {
   const db = getDb(c.env.horoscope_db);
   const userId = requireUserId(c);
-  let body: Record<string, unknown>;
+  const body = await parseJsonBody(c, deletePushTokenSchema);
+  if (isResponse(body)) return body;
   try {
-    body = (await c.req.json()) as Record<string, unknown>;
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400);
-  }
-  try {
-    const expoPushToken = typeof body.expoPushToken === 'string' ? body.expoPushToken : '';
-    await disablePushToken(db, userId, expoPushToken);
-    return c.json({ ok: true });
+    await disablePushToken(db, userId, body.expoPushToken);
+    return ok(c, { ok: true });
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : 'Invalid payload' }, 400);
+    return fail(c, 400, 'BAD_REQUEST', err instanceof Error ? err.message : 'Invalid payload');
   }
 });
 

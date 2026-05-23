@@ -1,36 +1,24 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { storeToRefs } from 'pinia';
 import LockedFeatureCard from '../components/LockedFeatureCard.vue';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
-import { useAuth } from '../composables/useAuth';
-import { billingService } from '../lib';
-import { ApiClientError } from '../lib/apiClient';
+import { usePremiumStore } from '../stores/premium';
 import { track } from '../lib/analytics';
-import { captureFrontendException } from '../lib/errorTracking';
 
 const { t } = useI18n();
-const { user } = useAuth();
-const checkoutLoading = ref(false);
-const checkoutError = ref<string | null>(null);
+const premiumStore = usePremiumStore();
+const { checkoutLoading, error: checkoutError, isPremium } = storeToRefs(premiumStore);
 
-const isPremium = computed(() => Boolean(user.value?.isPremium));
+const checkoutLabel = computed(() =>
+  checkoutLoading.value ? t('premium.checkoutLoading') : t('premium.goPremium'),
+);
 
 async function goPremium() {
-  checkoutError.value = null;
-  checkoutLoading.value = true;
-  track('checkout_started', { channel: 'web' });
-  try {
-    const { url } = await billingService.createPremiumCheckoutSession();
-    window.location.href = url;
-  } catch (e) {
-    checkoutError.value =
-      e instanceof ApiClientError ? e.message : (e as Error).message ?? t('premium.checkoutFailed');
-    captureFrontendException(e, { billing: { flow: 'create_checkout_session' } });
-  } finally {
-    checkoutLoading.value = false;
-  }
+  const url = await premiumStore.startCheckout(t('premium.checkoutFailed'));
+  if (url) window.location.href = url;
 }
 
 const features = computed(() => [
@@ -88,7 +76,7 @@ track('paywall_viewed', { isPremium: isPremium.value });
           :disabled="checkoutLoading"
           @click="goPremium"
         >
-          {{ checkoutLoading ? t('premium.checkoutLoading') : t('premium.goPremium') }}
+          {{ checkoutLabel }}
         </button>
       </template>
     </section>

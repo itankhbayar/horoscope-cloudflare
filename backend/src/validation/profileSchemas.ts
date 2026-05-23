@@ -3,7 +3,7 @@ import { optionalNullableTimezoneOffsetSchema } from './geo';
 
 export const updateProfileBodySchema = z
   .object({
-    displayName: z.string().trim().min(2).max(60).optional(),
+    displayName: z.string().trim().min(2, 'Display name must be 2 to 60 characters').max(60, 'Display name must be 2 to 60 characters').optional(),
     fullName: z.string().trim().min(1).max(120).optional(),
     bio: z.union([z.null(), z.string().max(280)]).optional(),
     timezone: z.string().trim().min(1).max(64).optional(),

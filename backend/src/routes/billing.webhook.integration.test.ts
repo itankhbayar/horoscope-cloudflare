@@ -90,6 +90,7 @@ function createSchema(db: DatabaseSync) {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       is_premium INTEGER NOT NULL DEFAULT 0,
+      token_version INTEGER NOT NULL DEFAULT 0,
       stripe_customer_id TEXT,
       stripe_subscription_id TEXT
     );

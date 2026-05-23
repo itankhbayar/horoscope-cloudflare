@@ -8,9 +8,11 @@ import {
   type AppLocale,
 } from '../i18n';
 import { setApiLocale } from '../lib/apiClient';
+import { useAppSettingsStore } from '../stores';
 
 export function useLocale() {
   const { locale, t } = useI18n();
+  const appSettings = useAppSettingsStore();
 
   const current = computed<AppLocale>(() => locale.value as AppLocale);
 
@@ -18,6 +20,7 @@ export function useLocale() {
     locale.value = next;
     persistLocale(next);
     setApiLocale(next);
+    void appSettings.setLocale(next);
   }
 
   return {

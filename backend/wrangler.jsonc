@@ -20,6 +20,42 @@
 			"migrations_dir": "drizzle"
 		}
 	],
+	"ratelimits": [
+		{
+			"name": "LOGIN_RATE_LIMITER",
+			"namespace_id": "240101",
+			"simple": { "limit": 5, "period": 60 }
+		},
+		{
+			"name": "REGISTER_RATE_LIMITER",
+			"namespace_id": "240102",
+			"simple": { "limit": 3, "period": 60 }
+		},
+		{
+			"name": "REFRESH_RATE_LIMITER",
+			"namespace_id": "240103",
+			"simple": { "limit": 20, "period": 60 }
+		},
+		{
+			"name": "PUBLIC_RATE_LIMITER",
+			"namespace_id": "240104",
+			"simple": { "limit": 120, "period": 60 }
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "RATE_LIMITER_DO",
+				"class_name": "RateLimitBucket"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1_rate_limit_bucket",
+			"new_sqlite_classes": ["RateLimitBucket"]
+		}
+	],
 	"r2_buckets": [
 		{
 			"binding": "STORAGE",

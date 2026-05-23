@@ -5,6 +5,7 @@ import { deleteAccount, exportAccountData } from '../services/accountService';
 import type { AppBindings, AppVariables } from '../types';
 import { captureException } from '../utils/sentry';
 import { logFromContext } from '../utils/logger';
+import { fail, ok } from '../utils/apiResponse';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 
@@ -17,13 +18,13 @@ router.get('/export', async (c) => {
   try {
     const data = await exportAccountData(db, userId);
     c.header('Content-Disposition', 'attachment; filename="astralis-data-export.json"');
-    return c.json(data);
+    return ok(c, data);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to export account data';
-    if (message === 'User not found') return c.json({ error: message }, 404);
+    if (message === 'User not found') return fail(c, 404, 'NOT_FOUND', message);
     logFromContext(c, 'error', 'export_account_data_failed', { error: err });
     captureException(err, { route: { path: '/api/account/export', method: 'GET' } });
-    return c.json({ error: 'Failed to export account data' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Failed to export account data');
   }
 });
 
@@ -33,15 +34,15 @@ router.delete('/', async (c) => {
 
   try {
     await deleteAccount(db, userId, c.env.STORAGE);
-    return c.json({ ok: true, message: 'Account deleted' });
+    return ok(c, { ok: true, message: 'Account deleted' });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to delete account';
     if (message === 'User not found') {
-      return c.json({ error: message }, 404);
+      return fail(c, 404, 'NOT_FOUND', message);
     }
     logFromContext(c, 'error', 'delete_account_failed', { error: err });
     captureException(err, { route: { path: '/api/account', method: 'DELETE' } });
-    return c.json({ error: 'Failed to delete account' }, 500);
+    return fail(c, 500, 'INTERNAL_ERROR', 'Failed to delete account');
   }
 });
 

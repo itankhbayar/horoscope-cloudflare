@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   prewarmDailyHoroscopes: vi.fn(),
   prewarmTarotForTimezoneDate: vi.fn(),
   resolveCronDateISO: vi.fn(),
+  cleanupOperationalData: vi.fn(),
 }));
 
 vi.mock('./db/client', () => ({
@@ -18,6 +19,10 @@ vi.mock('./services/horoscopePrewarmService', () => ({
 
 vi.mock('./services/tarotPrewarmService', () => ({
   prewarmTarotForTimezoneDate: mocks.prewarmTarotForTimezoneDate,
+}));
+
+vi.mock('./services/cleanupService', () => ({
+  cleanupOperationalData: mocks.cleanupOperationalData,
 }));
 
 import { CRON_DAILY } from './cron';
@@ -50,6 +55,7 @@ describe('scheduled handler', () => {
     mocks.resolveCronDateISO.mockReturnValue('2026-05-20');
     mocks.prewarmDailyHoroscopes.mockResolvedValue({ date: '2026-05-20' });
     mocks.prewarmTarotForTimezoneDate.mockResolvedValue({ date: '2026-05-20' });
+    mocks.cleanupOperationalData.mockResolvedValue({ deleted: 0, jobs: [] });
   });
 
   it('runs prewarm when the configured cron matches CRON_DAILY', async () => {
@@ -65,6 +71,7 @@ describe('scheduled handler', () => {
       '2026-05-20',
       'Asia/Ulaanbaatar',
     );
+    expect(mocks.cleanupOperationalData).toHaveBeenCalledWith({}, env);
   });
 
   it('logs a clear error and skips prewarm when cron does not match CRON_DAILY', async () => {

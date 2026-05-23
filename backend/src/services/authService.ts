@@ -43,7 +43,8 @@ export interface AuthResult {
   };
 }
 
-const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
+export const ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
+const LEGACY_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 function newId(): string {
   return crypto.randomUUID();
@@ -53,6 +54,7 @@ export async function registerUser(
   db: DB,
   jwtSecret: string,
   input: RegisterInput,
+  options: { accessTokenTtlSeconds?: number } = {},
 ): Promise<AuthResult> {
   const email = input.email.trim().toLowerCase();
   if (!email || !input.password || !input.fullName || !input.birthDate || !input.birthCity) {
@@ -128,7 +130,7 @@ export async function registerUser(
     aspects: chart.aspects,
   });
 
-  const token = await issueToken(jwtSecret, userId, email, 0);
+  const token = await issueToken(jwtSecret, userId, email, 0, options.accessTokenTtlSeconds);
   return {
     token,
     user: { id: userId, email, fullName: input.fullName.trim(), isPremium: false },
@@ -139,13 +141,20 @@ export async function loginUser(
   db: DB,
   jwtSecret: string,
   input: LoginInput,
+  options: { accessTokenTtlSeconds?: number } = {},
 ): Promise<AuthResult> {
   const email = input.email.trim().toLowerCase();
   const user = await db.select().from(users).where(eq(users.email, email)).get();
   if (!user) throw new HttpError(401, 'Invalid email or password');
   const ok = await verifyPassword(input.password, user.passwordHash);
   if (!ok) throw new HttpError(401, 'Invalid email or password');
-  const token = await issueToken(jwtSecret, user.id, user.email, getUserTokenVersion(user));
+  const token = await issueToken(
+    jwtSecret,
+    user.id,
+    user.email,
+    getUserTokenVersion(user),
+    options.accessTokenTtlSeconds,
+  );
   return {
     token,
     user: {
@@ -180,14 +189,24 @@ export async function issueToken(
   userId: string,
   email: string,
   tokenVersion = 0,
+  ttlSeconds = LEGACY_TOKEN_TTL_SECONDS,
 ): Promise<string> {
   const payload: AuthTokenPayload = {
     userId,
     email,
     tokenVersion,
-    exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS,
+    exp: Math.floor(Date.now() / 1000) + ttlSeconds,
   };
   return signJwt(payload, secret);
+}
+
+export function issueAccessToken(
+  secret: string,
+  userId: string,
+  email: string,
+  tokenVersion = 0,
+): Promise<string> {
+  return issueToken(secret, userId, email, tokenVersion, ACCESS_TOKEN_TTL_SECONDS);
 }
 
 export async function verifyToken(secret: string, token: string): Promise<AuthTokenPayload> {

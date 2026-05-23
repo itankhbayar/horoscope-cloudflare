@@ -94,6 +94,7 @@ describe('POST /api/auth/register validation', () => {
         timezoneOffset: 8,
         birthDataConsent: true,
       }),
+      { accessTokenTtlSeconds: undefined },
     );
   });
 
@@ -200,6 +201,7 @@ describe('POST /api/auth/register validation', () => {
       {},
       'test-secret',
       expect.objectContaining({ password: passphrase }),
+      { accessTokenTtlSeconds: undefined },
     );
   });
 

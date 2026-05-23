@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue';
+import { defineAsyncComponent, onMounted, ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from './composables/useAuth';
-import LanguageSwitcher from './components/LanguageSwitcher.vue';
-import SiteFooter from './components/SiteFooter.vue';
-import PrivacyConsentBanner from './components/PrivacyConsentBanner.vue';
-import { authService } from './lib';
+
+const LanguageSwitcher = defineAsyncComponent(() => import('./components/LanguageSwitcher.vue'));
+const SiteFooter = defineAsyncComponent(() => import('./components/SiteFooter.vue'));
+const PrivacyConsentBanner = defineAsyncComponent(
+  () => import('./components/PrivacyConsentBanner.vue'),
+);
 
 const router = useRouter();
 const route = useRoute();
@@ -48,8 +50,7 @@ async function handleLogout(): Promise<void> {
 onMounted(async () => {
   generateStars();
   await bootstrap();
-  const hasToken = await authService.isAuthenticated();
-  if (!hasToken && route.meta.requiresAuth) {
+  if (!isAuthenticated.value && route.meta.requiresAuth) {
     await router.replace({ name: 'login' });
   }
 });
@@ -155,7 +156,16 @@ watch(
       <div v-if="!authInitialized" class="auth-boot">
         <p class="auth-boot-text">{{ t('app.loading') }}</p>
       </div>
-      <router-view v-else />
+      <router-view v-else v-slot="{ Component }">
+        <Suspense>
+          <component :is="Component" />
+          <template #fallback>
+            <div class="auth-boot">
+              <p class="auth-boot-text">{{ t('app.loading') }}</p>
+            </div>
+          </template>
+        </Suspense>
+      </router-view>
     </main>
     <SiteFooter v-if="authInitialized && !isGuestRoute" />
     <PrivacyConsentBanner />

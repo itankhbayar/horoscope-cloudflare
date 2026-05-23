@@ -1,27 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { readPrivacyConsent, savePrivacyConsent } from '../lib/privacyConsent';
-import { track } from '../lib/analytics';
+import { onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useConsentStore } from '../stores/consent';
 
-const current = ref(readPrivacyConsent());
-const expanded = ref(current.value === null);
+const consent = useConsentStore();
+const { expanded, hasChoice } = storeToRefs(consent);
 
-const hasChoice = computed(() => current.value !== null);
-
-function acceptAnalytics(): void {
-  current.value = savePrivacyConsent(true);
-  track('app_open', { consent: 'granted' });
-  expanded.value = false;
-}
-
-function declineAnalytics(): void {
-  current.value = savePrivacyConsent(false);
-  expanded.value = false;
-}
-
-function openPreferences(): void {
-  expanded.value = true;
-}
+onMounted(consent.hydrate);
 </script>
 
 <template>
@@ -42,8 +27,8 @@ function openPreferences(): void {
       </p>
     </div>
     <div class="privacy-actions">
-      <button type="button" class="secondary" @click="declineAnalytics">Decline analytics</button>
-      <button type="button" class="primary" @click="acceptAnalytics">Allow analytics</button>
+      <button type="button" class="secondary" @click="consent.declineAnalytics">Decline analytics</button>
+      <button type="button" class="primary" @click="consent.acceptAnalytics">Allow analytics</button>
     </div>
   </aside>
 
@@ -52,7 +37,7 @@ function openPreferences(): void {
     type="button"
     class="privacy-pill"
     aria-label="Update privacy preferences"
-    @click="openPreferences"
+    @click="consent.openPreferences"
   >
     Privacy
   </button>

@@ -1,6 +1,7 @@
 import './assets/main.css';
 
 import { createApp } from 'vue';
+import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import i18n, { loadInitialLocale, persistLocale } from './i18n';
@@ -8,6 +9,7 @@ import { configureApi, setApiLocale } from './lib/apiClient';
 import { initAnalytics, track } from './lib/analytics';
 import { initErrorTracking } from './lib/errorTracking';
 import { hasAnalyticsConsent } from './lib/privacyConsent';
+import { useAppSettingsStore } from './stores';
 
 const fromEnv = (
   import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL
@@ -30,7 +32,10 @@ setApiLocale(initialLocale);
 if (hasAnalyticsConsent()) initAnalytics();
 
 const app = createApp(App);
-app.use(router).use(i18n);
+const pinia = createPinia();
+
+app.use(pinia).use(router).use(i18n);
+void useAppSettingsStore().hydrate(initialLocale);
 initErrorTracking(app, router);
 app.mount('#app');
 

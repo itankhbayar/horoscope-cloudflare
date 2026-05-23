@@ -19,24 +19,62 @@ export const users = sqliteTable(
       .notNull()
       .default(sql`(CURRENT_TIMESTAMP)`),
     isPremium: integer('is_premium', { mode: 'boolean' }).notNull().default(false),
+    tokenVersion: integer('token_version').notNull().default(0),
     stripeCustomerId: text('stripe_customer_id'),
     stripeSubscriptionId: text('stripe_subscription_id'),
   },
   (t) => ({
     emailIdx: uniqueIndex('users_email_idx').on(t.email),
+    stripeCustomerIdx: index('users_stripe_customer_id_idx').on(t.stripeCustomerId),
+    stripeSubscriptionIdx: index('users_stripe_subscription_id_idx').on(t.stripeSubscriptionId),
+    premiumIdx: index('users_is_premium_idx').on(t.isPremium),
   }),
 );
 
-export const stripeWebhookEvents = sqliteTable('stripe_webhook_events', {
-  eventId: text('event_id').primaryKey(),
-  eventType: text('event_type').notNull(),
-  claimedAt: text('claimed_at')
-    .notNull()
-    .default(sql`(CURRENT_TIMESTAMP)`),
-  processedAt: text('processed_at'),
-  status: text('status').notNull().default('processing'),
-  error: text('error'),
-});
+export const refreshSessions = sqliteTable(
+  'refresh_sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    familyId: text('family_id').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+    revokedAt: text('revoked_at'),
+    replacedBy: text('replaced_by'),
+    lastUsedAt: text('last_used_at'),
+    userAgent: text('user_agent'),
+    ipAddress: text('ip_address'),
+  },
+  (t) => ({
+    tokenHashIdx: uniqueIndex('refresh_sessions_token_hash_idx').on(t.tokenHash),
+    userIdx: index('refresh_sessions_user_idx').on(t.userId),
+    familyIdx: index('refresh_sessions_family_idx').on(t.familyId),
+    expiresAtIdx: index('refresh_sessions_expires_at_idx').on(t.expiresAt),
+  }),
+);
+
+export const stripeWebhookEvents = sqliteTable(
+  'stripe_webhook_events',
+  {
+    eventId: text('event_id').primaryKey(),
+    eventType: text('event_type').notNull(),
+    claimedAt: text('claimed_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+    processedAt: text('processed_at'),
+    status: text('status').notNull().default('processing'),
+    error: text('error'),
+  },
+  (t) => ({
+    statusClaimedIdx: index('stripe_webhook_events_status_claimed_idx').on(t.status, t.claimedAt),
+    processedAtIdx: index('stripe_webhook_events_processed_at_idx').on(t.processedAt),
+  }),
+);
 
 export const birthProfiles = sqliteTable(
   'birth_profiles',
@@ -196,6 +234,8 @@ export const pushTokens = sqliteTable(
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type RefreshSession = typeof refreshSessions.$inferSelect;
+export type NewRefreshSession = typeof refreshSessions.$inferInsert;
 export type BirthProfile = typeof birthProfiles.$inferSelect;
 export type NewBirthProfile = typeof birthProfiles.$inferInsert;
 export type NatalChart = typeof natalCharts.$inferSelect;

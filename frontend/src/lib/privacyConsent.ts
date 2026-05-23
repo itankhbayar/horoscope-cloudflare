@@ -30,6 +30,7 @@ export function savePrivacyConsent(analytics: boolean): PrivacyConsent {
     updatedAt: new Date().toISOString(),
     version: 1,
   };
+  if (typeof window === 'undefined') return consent;
   window.localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
   if (analytics) initAnalytics();
   else shutdownAnalytics();
