@@ -92,7 +92,11 @@ function createSchema(db: DatabaseSync) {
       is_premium INTEGER NOT NULL DEFAULT 0,
       token_version INTEGER NOT NULL DEFAULT 0,
       stripe_customer_id TEXT,
-      stripe_subscription_id TEXT
+      stripe_subscription_id TEXT,
+      streak_count INTEGER NOT NULL DEFAULT 0,
+      streak_last_date TEXT,
+      longest_streak_count INTEGER NOT NULL DEFAULT 0,
+      streak_freezes INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE UNIQUE INDEX users_email_idx ON users (email);

@@ -15,17 +15,26 @@ export async function updateProfile(payload: {
   timezone: string;
 } | {
   fullName: string;
-  zodiacSign: string;
   birthDate: string;
+  birthTime?: string | null;
+  birthCity: string;
+  birthCountry?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   timezoneOffset: number;
 }): Promise<ProfilePayload> {
   const normalized =
     'displayName' in payload
       ? payload
       : {
-          displayName: payload.fullName,
-          bio: '',
-          timezone: timezoneFromOffset(payload.timezoneOffset),
+          fullName: payload.fullName,
+          birthDate: payload.birthDate,
+          birthTime: payload.birthTime ?? null,
+          birthCity: payload.birthCity,
+          birthCountry: payload.birthCountry ?? null,
+          latitude: payload.latitude ?? null,
+          longitude: payload.longitude ?? null,
+          timezoneOffset: payload.timezoneOffset,
         };
   return apiRequest<ProfilePayload>('/api/profile', {
     method: 'PATCH',
@@ -49,9 +58,4 @@ export async function uploadAvatar(fileOrFormData: File | FormData): Promise<{ a
     auth: true,
     body: form,
   });
-}
-
-function timezoneFromOffset(offset: number): string {
-  if (!Number.isFinite(offset)) return 'UTC';
-  return 'UTC';
 }

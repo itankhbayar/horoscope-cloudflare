@@ -9,9 +9,16 @@ type Props = {
   /** Optional entrance fade (caller triggers opacity via onLayout chain). */
   entranceOpacity?: Animated.Value;
   onLayout?: (e: LayoutChangeEvent) => void;
+  disableSurfaceEffects?: boolean;
 };
 
-export function ContentCard({ children, style, entranceOpacity, onLayout }: Props): ReactElement {
+export function ContentCard({
+  children,
+  style,
+  entranceOpacity,
+  onLayout,
+  disableSurfaceEffects = false,
+}: Props): ReactElement {
   const t = useSanctuaryTheme();
   return (
     <Animated.View
@@ -26,7 +33,7 @@ export function ContentCard({ children, style, entranceOpacity, onLayout }: Prop
         entranceOpacity != null ? { opacity: entranceOpacity } : null,
       ]}
     >
-      <View style={[styles.glowTop, { backgroundColor: t.glowLavender }]} pointerEvents="none" />
+      {!disableSurfaceEffects ? <View style={[styles.glowTop, { backgroundColor: t.glowLavender }]} pointerEvents="none" /> : null}
       {children}
     </Animated.View>
   );

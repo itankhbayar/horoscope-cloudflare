@@ -24,6 +24,12 @@ import { ScreenScroll } from '../components/ScreenScroll';
 import { useAuth } from '../hooks/useAuth';
 import { useHoroscope } from '../hooks/useHoroscope';
 import { useProfile } from '../hooks/useProfile';
+import { loadDailyStreak, localDateISO, type DailyStreak } from '../lib/streaks';
+import { consumeMilestoneCelebration } from '../lib/streakCelebration';
+import { normalizeStreakCount, normalizeStreakSegment, type StreakMilestone } from '../lib/streakDisplay';
+import { shareStreakMilestoneCard } from '../lib/streakShare';
+import { track, trackDailyActiveOnce } from '../lib/analytics';
+import { goToPremium } from '../navigation/navigationRef';
 import { spacing } from '../theme';
 
 const TAROT_GLYPH = '\u2728';
@@ -37,9 +43,11 @@ export function HomeScreen(): ReactElement {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { profile, load: loadProfile, loading: profileLoading, error: profileError } = useProfile();
-  const { horoscope, load, loading: horoLoading, error: horoError } = useHoroscope();
+  const { horoscope, load, loadMine, loading: horoLoading, error: horoError } = useHoroscope();
   const [horoscopePeriod, setHoroscopePeriod] = useState<HoroscopePeriod>('today');
   const [activeEnergy, setActiveEnergy] = useState<'love' | 'opportunity' | 'stress'>('opportunity');
+  const [dailyStreak, setDailyStreak] = useState<DailyStreak>({ count: 0, lastCheckInDate: null });
+  const [visibleMilestone, setVisibleMilestone] = useState<StreakMilestone | null>(null);
 
   const opacities = useMemo(() => Array.from({ length: 9 }, () => new Animated.Value(0)), []);
 
@@ -55,9 +63,70 @@ export function HomeScreen(): ReactElement {
   const dateISO = horoscopeDateForPeriod(effectiveHoroscopePeriod);
 
   useEffect(() => {
+    void loadDailyStreak().then(setDailyStreak);
+  }, []);
+
+  useEffect(() => {
+    void trackDailyActiveOnce({
+      date: localDateISO(),
+      hasBirthProfile: Boolean(profile?.birthProfile && profile.natalChart),
+      isPremium,
+    });
+  }, [isPremium, profile?.birthProfile, profile?.natalChart]);
+
+  useEffect(() => {
     if (!sun) return;
+    if (effectiveHoroscopePeriod === 'today') {
+      void loadMine();
+      return;
+    }
     void load(sun, dateISO);
-  }, [sun, dateISO, load]);
+  }, [sun, dateISO, effectiveHoroscopePeriod, load, loadMine]);
+
+  useEffect(() => {
+    if (!horoscope || horoLoading) return;
+    void track('horoscope_viewed', { source: 'home', period: effectiveHoroscopePeriod, isPremium });
+  }, [effectiveHoroscopePeriod, horoLoading, horoscope, isPremium]);
+
+  useEffect(() => {
+    if (!horoscope?.isNewStreakDay) return;
+    if (horoscope.streakPreservedByFreeze) {
+      void track('streak_freeze_used', {
+        streakCount: horoscope.streakCount ?? 0,
+        freezesRemaining: horoscope.streakFreezes ?? 0,
+      });
+      return;
+    }
+    if (horoscope.milestoneReached) {
+      void track('streak_milestone', {
+        streakCount: horoscope.streakCount ?? horoscope.milestoneReached,
+        milestone: horoscope.milestoneReached,
+      });
+      return;
+    }
+    if (horoscope.streakCount === 1) {
+      void track('streak_started', { streakCount: 1 });
+    }
+  }, [
+    horoscope?.isNewStreakDay,
+    horoscope?.milestoneReached,
+    horoscope?.streakCount,
+    horoscope?.streakFreezes,
+    horoscope?.streakPreservedByFreeze,
+  ]);
+
+  useEffect(() => {
+    let mounted = true;
+    void consumeMilestoneCelebration(
+      horoscope?.milestoneReached as StreakMilestone | null | undefined,
+      horoscope?.streakLastDate,
+    ).then((milestone) => {
+      if (mounted) setVisibleMilestone(milestone);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [horoscope?.milestoneReached, horoscope?.streakLastDate]);
 
   useEffect(() => {
     if (profileLoading) return;
@@ -93,6 +162,27 @@ export function HomeScreen(): ReactElement {
   const transit = horoscope ? transitFromHoroscope(horoscope) : null;
   const moon = horoscope ? moonFromHoroscope(horoscope, moonSign) : null;
   const affirmation = horoscope ? affirmationFromHoroscope(horoscope) : null;
+  const streakCount = normalizeStreakCount(horoscope?.streakCount, dailyStreak.count);
+  const streakSegment = normalizeStreakSegment(horoscope?.streakSegment, streakCount);
+  const shareMilestone = (horoscope?.milestoneReached ?? visibleMilestone) as StreakMilestone | null;
+
+  const onShareMilestone = (): void => {
+    if (!shareMilestone) return;
+    void shareStreakMilestoneCard({
+      milestone: shareMilestone,
+      zodiacSign: sun,
+      displayName,
+    });
+  };
+
+  const onHoroscopePeriodChange = (next: HoroscopePeriod): void => {
+    setHoroscopePeriod(next);
+    if (!isPremium && next !== 'today') {
+      void track('locked_content_tapped', { surface: 'horoscope_period', period: next });
+      void track('paywall_viewed', { source: 'locked_preview' });
+      goToPremium('locked_preview');
+    }
+  };
 
   return (
     <ScreenScroll
@@ -119,6 +209,14 @@ export function HomeScreen(): ReactElement {
           sunSign={sun}
           moonSign={moonSign}
           risingSign={risingSign}
+          streakCount={streakCount}
+          streakFreezes={horoscope?.streakFreezes ?? 0}
+          streakFreezeAwarded={Boolean(horoscope?.streakFreezeAwarded)}
+          streakPreservedByFreeze={Boolean(horoscope?.streakPreservedByFreeze)}
+          streakSegment={streakSegment}
+          milestoneReached={visibleMilestone}
+          shareMilestone={shareMilestone}
+          onShareMilestone={shareMilestone ? onShareMilestone : undefined}
         />
       </Animated.View>
 
@@ -178,10 +276,14 @@ export function HomeScreen(): ReactElement {
           <HoroscopePremiumCard
             horoscope={horoscope}
             period={horoscopePeriod}
-            onPeriodChange={setHoroscopePeriod}
+            onPeriodChange={onHoroscopePeriodChange}
             isPremium={isPremium}
             loading={Boolean(horoLoading)}
             error={horoError}
+            onLearnMore={() => {
+              void track('paywall_viewed', { source: 'post_reading' });
+              goToPremium('post_reading');
+            }}
           />
         </Animated.View>
       ) : null}

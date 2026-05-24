@@ -35,6 +35,10 @@ export interface AuthUser {
   timezone?: string | null;
   createdAt?: string;
   isPremium?: boolean;
+  streakCount?: number;
+  longestStreakCount?: number;
+  streakFreezes?: number;
+  streakFreezeCap?: number;
 }
 
 export interface City {
@@ -112,8 +116,14 @@ export interface NatalChart {
 
 export interface ProfilePayload {
   user: AuthUser;
+  ritualHistory?: RitualHistoryDay[];
   birthProfile: BirthProfile | null;
   natalChart: NatalChart | null;
+}
+
+export interface RitualHistoryDay {
+  date: string;
+  completed: boolean;
 }
 
 /** Daily horoscope API payload (`GET /api/horoscope/daily/:sign`). */
@@ -130,6 +140,18 @@ export interface DailyHoroscope {
   sunSign?: ZodiacSign;
   moonSign?: ZodiacSign;
   risingSign?: ZodiacSign | null;
+  streakCount?: number;
+  longestStreakCount?: number;
+  streakLastDate?: string | null;
+  streakFreezes?: number;
+  streakFreezeAwarded?: boolean;
+  streakFreezeCap?: number;
+  streakFreezeAwardReason?: null | '7_day' | '30_day' | '100_day';
+  isNewStreakDay?: boolean;
+  streakPreservedByFreeze?: boolean;
+  milestoneReached?: null | 3 | 7 | 14 | 30 | 50 | 100;
+  nextMilestone?: null | 3 | 7 | 14 | 30 | 50 | 100;
+  streakSegment?: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
 }
 
 /** Canonical alias for daily horoscope reading content. */

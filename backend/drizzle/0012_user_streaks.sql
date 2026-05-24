@@ -1,0 +1,3 @@
+ALTER TABLE users ADD COLUMN streak_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN streak_last_date TEXT;
+ALTER TABLE users ADD COLUMN longest_streak_count INTEGER NOT NULL DEFAULT 0;

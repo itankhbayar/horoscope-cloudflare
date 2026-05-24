@@ -5,6 +5,8 @@ import { bodyFontSize, bodyLineHeight, colors, hitSlopComfortable, MIN_TOUCH, sp
 import { useAppearance } from '../hooks/useAppearance';
 import { usePremiumCheckout } from '../hooks/usePremiumCheckout';
 import { usesRevenueCatBilling } from '../lib/billing/platform';
+import { goToPremium } from '../navigation/navigationRef';
+import { track } from '../lib/analytics';
 
 export function PremiumAccessCard(): React.JSX.Element {
   const { width } = useWindowDimensions();
@@ -16,7 +18,10 @@ export function PremiumAccessCard(): React.JSX.Element {
 
   const bodySize = useMemo(() => bodyFontSize(width), [width]);
   const lineHeight = useMemo(() => bodyLineHeight(width), [width]);
-  const onUpgrade = useCallback(() => void upgrade(), [upgrade]);
+  const onUpgrade = useCallback(() => {
+    void track('paywall_viewed', { source: 'profile_card' });
+    goToPremium('profile_card');
+  }, []);
   const onManageBilling = useCallback(() => void manageBilling(), [manageBilling]);
   const onRefreshStatus = useCallback(() => void refreshStatus(), [refreshStatus]);
 

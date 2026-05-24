@@ -22,6 +22,7 @@ export type {
   ProfilePayload,
   PushTokenRegistrationPayload,
   RegisterPayload,
+  RitualHistoryDay,
   TarotApiResponse,
   TarotCard,
   TarotPublicCard,

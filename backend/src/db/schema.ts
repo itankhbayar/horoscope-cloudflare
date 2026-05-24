@@ -22,6 +22,10 @@ export const users = sqliteTable(
     tokenVersion: integer('token_version').notNull().default(0),
     stripeCustomerId: text('stripe_customer_id'),
     stripeSubscriptionId: text('stripe_subscription_id'),
+    streakCount: integer('streak_count').notNull().default(0),
+    streakLastDate: text('streak_last_date'),
+    longestStreakCount: integer('longest_streak_count').notNull().default(0),
+    streakFreezes: integer('streak_freezes').notNull().default(0),
   },
   (t) => ({
     emailIdx: uniqueIndex('users_email_idx').on(t.email),
@@ -144,6 +148,27 @@ export const dailyHoroscopes = sqliteTable(
   }),
 );
 
+export const dailyRitualHistory = sqliteTable(
+  'daily_ritual_history',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    ritualDate: text('ritual_date').notNull(),
+    completedAt: text('completed_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    userDateIdx: uniqueIndex('daily_ritual_history_user_date_idx').on(t.userId, t.ritualDate),
+    userDateLookupIdx: index('daily_ritual_history_user_date_lookup_idx').on(t.userId, t.ritualDate),
+  }),
+);
+
 export const compatibilityResults = sqliteTable(
   'compatibility_results',
   {
@@ -196,6 +221,13 @@ export const notificationPreferences = sqliteTable('notification_preferences', {
   saleAlertsEnabled: integer('sale_alerts_enabled', { mode: 'boolean' }).notNull().default(false),
   horoscopesEnabled: integer('horoscopes_enabled', { mode: 'boolean' }).notNull().default(false),
   transitsEnabled: integer('transits_enabled', { mode: 'boolean' }).notNull().default(false),
+  dailyReminderEnabled: integer('daily_reminder_enabled', { mode: 'boolean' }).notNull().default(true),
+  streakReminderEnabled: integer('streak_reminder_enabled', { mode: 'boolean' }).notNull().default(true),
+  reEngagementEnabled: integer('re_engagement_enabled', { mode: 'boolean' }).notNull().default(true),
+  quietHoursEnabled: integer('quiet_hours_enabled', { mode: 'boolean' }).notNull().default(true),
+  quietHoursStart: text('quiet_hours_start').notNull().default('21:00'),
+  quietHoursEnd: text('quiet_hours_end').notNull().default('08:00'),
+  reminderHourLocal: integer('reminder_hour_local').notNull().default(9),
   createdAt: text('created_at')
     .notNull()
     .default(sql`(CURRENT_TIMESTAMP)`),
@@ -242,6 +274,8 @@ export type NatalChart = typeof natalCharts.$inferSelect;
 export type NewNatalChart = typeof natalCharts.$inferInsert;
 export type DailyHoroscope = typeof dailyHoroscopes.$inferSelect;
 export type NewDailyHoroscope = typeof dailyHoroscopes.$inferInsert;
+export type DailyRitualHistory = typeof dailyRitualHistory.$inferSelect;
+export type NewDailyRitualHistory = typeof dailyRitualHistory.$inferInsert;
 export type CompatibilityResult = typeof compatibilityResults.$inferSelect;
 export type NewCompatibilityResult = typeof compatibilityResults.$inferInsert;
 export type TarotDaily = typeof tarotDaily.$inferSelect;

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -10,25 +10,29 @@ import type {
   NotificationPreferencesUpdate,
   PushTokenRegistrationPayload,
 } from '@astralis/lib/types';
+import { getNotificationReadiness, type NotificationReadiness } from '../lib/notifications/readiness';
+import { track } from '../lib/analytics';
 
 const EXPO_PUSH_TOKEN_CACHE_KEY = 'notifications:expo-push-token';
 const ANDROID_CHANNEL_ID = 'default';
 
-type NotificationKey = 'saleAlertsEnabled' | 'horoscopesEnabled' | 'transitsEnabled';
+type NotificationKey =
+  | 'saleAlertsEnabled'
+  | 'horoscopesEnabled'
+  | 'transitsEnabled'
+  | 'dailyReminderEnabled'
+  | 'streakReminderEnabled'
+  | 'reEngagementEnabled'
+  | 'quietHoursEnabled';
 
-function getExpoProjectId(): string {
+function resolveExpoProjectId(): string | null {
   const fromExtra = (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId;
   const fromEas = Constants.easConfig?.projectId;
   const fromRootExtra = (Constants.expoConfig?.extra as { projectId?: string } | undefined)?.projectId;
   const g = globalThis as unknown as { process?: { env?: Record<string, string | undefined> } };
   const fromEnv = g.process?.env?.EXPO_PUBLIC_EAS_PROJECT_ID?.trim();
   const projectId = fromExtra ?? fromEas ?? fromRootExtra ?? (fromEnv && fromEnv.length > 0 ? fromEnv : undefined);
-  if (!projectId) {
-    throw new Error(
-      'Expo projectId is missing. Set EXPO_PUBLIC_EAS_PROJECT_ID or expo.extra.eas.projectId before enabling notifications.',
-    );
-  }
-  return projectId;
+  return projectId ?? null;
 }
 
 function resolvePushPlatform(): PushTokenRegistrationPayload['platform'] {
@@ -39,9 +43,11 @@ function resolvePushPlatform(): PushTokenRegistrationPayload['platform'] {
 }
 
 async function ensurePermissionAndToken(): Promise<string> {
-  if (!Device.isDevice) {
-    throw new Error('Push notifications require a physical device. Simulator/emulator is not supported.');
-  }
+  const readiness = getNotificationReadiness({
+    isDevice: Device.isDevice,
+    projectId: resolveExpoProjectId(),
+  });
+  if (!readiness.canRequestPush) throw new Error(readiness.reason ?? 'Push notifications are not available.');
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
       name: 'Default',
@@ -57,7 +63,8 @@ async function ensurePermissionAndToken(): Promise<string> {
   if (status !== 'granted') {
     throw new Error('Notification permission was not granted.');
   }
-  const projectId = getExpoProjectId();
+  const projectId = resolveExpoProjectId();
+  if (!projectId) throw new Error('Expo projectId is missing.');
   const token = await Notifications.getExpoPushTokenAsync({ projectId });
   return token.data;
 }
@@ -67,6 +74,7 @@ export function useNotifications(): {
   loading: boolean;
   saving: boolean;
   error: string | null;
+  readiness: NotificationReadiness;
   load: () => Promise<void>;
   setAllEnabled: (enabled: boolean) => Promise<void>;
   setChildEnabled: (key: NotificationKey, enabled: boolean) => Promise<void>;
@@ -76,6 +84,14 @@ export function useNotifications(): {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const readiness = useMemo(
+    () =>
+      getNotificationReadiness({
+        isDevice: Device.isDevice,
+        projectId: resolveExpoProjectId(),
+      }),
+    [],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,6 +120,11 @@ export function useNotifications(): {
       setError(null);
       try {
         if (enabled) {
+          void track('notification_opt_in_started', { source: 'settings' });
+          if (!readiness.canRequestPush) {
+            void track('notification_opt_in_failed', { reason: 'unavailable' });
+            throw new Error(readiness.reason ?? 'Push notifications are not available on this device.');
+          }
           let expoPushToken = '';
           try {
             expoPushToken = await ensurePermissionAndToken();
@@ -137,7 +158,12 @@ export function useNotifications(): {
             saleAlertsEnabled: true,
             horoscopesEnabled: true,
             transitsEnabled: true,
+            dailyReminderEnabled: true,
+            streakReminderEnabled: true,
+            reEngagementEnabled: true,
+            quietHoursEnabled: true,
           });
+          void track('notification_opt_in_completed', { source: 'settings' });
           return;
         }
 
@@ -146,8 +172,16 @@ export function useNotifications(): {
         if (cachedToken) {
           await notificationService.disablePushToken(cachedToken);
         }
+        void track('notification_opt_out', { source: 'settings' });
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Failed to update notifications';
+        void track('notification_opt_in_failed', {
+          reason: msg.toLowerCase().includes('not granted')
+            ? 'permission_denied'
+            : msg.toLowerCase().includes('network')
+              ? 'network'
+              : 'unknown',
+        });
         if (msg !== 'Notification permission was not granted.') {
           setError(msg);
         }
@@ -156,7 +190,7 @@ export function useNotifications(): {
         setSaving(false);
       }
     },
-    [applyUpdate],
+    [applyUpdate, readiness.canRequestPush, readiness.reason],
   );
 
   const setChildEnabled = useCallback(
@@ -180,6 +214,7 @@ export function useNotifications(): {
     loading,
     saving,
     error,
+    readiness,
     load,
     setAllEnabled,
     setChildEnabled,

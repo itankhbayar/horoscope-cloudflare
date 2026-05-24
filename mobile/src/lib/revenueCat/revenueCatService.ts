@@ -12,6 +12,7 @@ import {
 } from './config';
 import { findPackageByIdentifier } from './entitlements';
 import { PURCHASES_NOT_CONFIGURED_MESSAGE } from './messages';
+import { buildPremiumPlanDisplays, fallbackPremiumPlanDisplays, type PremiumPlanDisplay } from './packages';
 
 let configured = false;
 
@@ -91,6 +92,24 @@ export async function resolvePackageForPlan(plan: RevenueCatPlanId): Promise<Pur
     );
   }
   return pkg;
+}
+
+export async function getPremiumPlanDisplays(): Promise<PremiumPlanDisplay[]> {
+  if (!isRevenueCatConfigured()) {
+    return fallbackPremiumPlanDisplays('RevenueCat is not configured for this build.');
+  }
+
+  const offerings = await getCurrentOfferings();
+  const offeringId = readOfferingIdentifier();
+  const offering = offeringId
+    ? offerings.all[offeringId] ?? offerings.current
+    : offerings.current;
+
+  if (!offering) {
+    return fallbackPremiumPlanDisplays('No RevenueCat offering is configured for this build.');
+  }
+
+  return buildPremiumPlanDisplays(offering.availablePackages ?? []);
 }
 
 export async function purchasePlan(plan: RevenueCatPlanId): Promise<CustomerInfo> {

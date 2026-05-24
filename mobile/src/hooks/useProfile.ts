@@ -11,8 +11,12 @@ export function useProfile(): {
   recompute: () => Promise<void>;
   save: (input: {
     fullName: string;
-    zodiacSign: string;
     birthDate: string;
+    birthTime?: string | null;
+    birthCity: string;
+    birthCountry?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     timezoneOffset: number;
   }) => Promise<void>;
   uploadAvatar: (formData: FormData) => Promise<string>;
@@ -51,8 +55,12 @@ export function useProfile(): {
   const save = useCallback(
     async (input: {
       fullName: string;
-      zodiacSign: string;
       birthDate: string;
+      birthTime?: string | null;
+      birthCity: string;
+      birthCountry?: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
       timezoneOffset: number;
     }) => {
       setLoading(true);

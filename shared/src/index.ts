@@ -13,6 +13,7 @@ export type {
   PlanetName,
   PlanetPosition,
   ProfilePayload,
+  RitualHistoryDay,
   TarotApiResponse,
   TarotCard,
   TarotPublicCard,

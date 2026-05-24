@@ -4,6 +4,7 @@ import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
 import { createRateLimitMiddleware } from '../middleware/rateLimit';
 import { getOrCreateDailyHoroscope } from '../services/horoscopeService';
+import { currentStreakDateISO, recordDailyHoroscopeStreak } from '../services/streakService';
 import { isZodiacSign, ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
 import { natalCharts, users } from '../db/schema';
 import { searchCities } from '../utils/cities';
@@ -19,6 +20,7 @@ import { fail, ok } from '../utils/apiResponse';
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 const DAILY_HOROSCOPE_CACHE_TTL_SECONDS = 60 * 60 * 6;
 const DAILY_HOROSCOPE_CACHE_CONTROL = `public, max-age=300, s-maxage=${DAILY_HOROSCOPE_CACHE_TTL_SECONDS}`;
+const AUTHENTICATED_DAILY_HOROSCOPE_CACHE_CONTROL = 'private, no-store, max-age=0';
 const DAILY_HOROSCOPE_CACHE_ORIGIN = 'https://horoscope-cache.local';
 const publicRateLimit = createRateLimitMiddleware({
   keyPrefix: 'public:horoscope',
@@ -76,6 +78,7 @@ router.get('/daily/:sign', publicRateLimit, async (c) => {
 });
 
 router.get('/daily', authMiddleware, async (c) => {
+  c.header('Cache-Control', AUTHENTICATED_DAILY_HOROSCOPE_CACHE_CONTROL);
   const userId = requireUserId(c);
   const query = parseQuery(c, dailyHoroscopeQuerySchema);
   if (isResponse(query)) return query;
@@ -90,13 +93,23 @@ router.get('/daily', authMiddleware, async (c) => {
     .get();
   const dateISO = safeDateISO(user?.timezone ?? 'UTC');
   const horoscope = await getOrCreateDailyHoroscope(db, chart.sunSign as ZodiacSign, lang, dateISO);
+  const streak = await recordDailyHoroscopeStreak(db, userId, currentStreakDateISO());
+  for (const event of streak.analyticsEvents) {
+    metric(c.env, event, {
+      streakCount: streak.data.streakCount,
+      milestone: streak.data.milestoneReached ?? undefined,
+      freezes: streak.data.streakFreezes,
+    });
+  }
   metric(c.env, 'horoscope_viewed', { sign: chart.sunSign, lang, variant: 'authenticated' });
-  return ok(c, {
+  const response = ok(c, {
     ...horoscope,
     sunSign: chart.sunSign,
     moonSign: chart.moonSign,
     risingSign: chart.risingSign,
+    ...streak.data,
   });
+  return response;
 });
 
 export default router;

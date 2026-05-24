@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { CityPicker } from '../components/CityPicker';
 import { useProfile } from '../hooks/useProfile';
 import { useAuth } from '../hooks/useAuth';
 import { CosmicCard } from '../components/CosmicCard';
@@ -13,10 +14,12 @@ import {
   MIN_TOUCH,
   spacing,
 } from '../theme';
-import { ZODIAC_SIGNS } from '@astralis/lib/zodiac';
 import { goToAccountSettings, goToAppAppearance, goToManageNotifications, resetToLogin } from '../navigation/navigationRef';
 import { toProfileDraft, validateProfileDraft, type ProfileDraft, type ProfileValidation } from './profileForm';
 import { useAppearance } from '../hooks/useAppearance';
+import { profileStreakLines, normalizeRitualHistory, ritualHistoryCompletedCount, type RitualHistoryDay } from '../lib/streakProfile';
+import { shareableMilestoneFor } from '../lib/streakDisplay';
+import { shareStreakMilestoneCard } from '../lib/streakShare';
 
 export function ProfileScreen(): React.JSX.Element {
   const { mode, palette } = useAppearance();
@@ -51,6 +54,10 @@ export function ProfileScreen(): React.JSX.Element {
     setIsEditing(true);
   }, [profile]);
 
+  const onCityQueryChange = useCallback((birthCity: string): void => {
+    setDraft((prev) => (prev ? { ...prev, birthCity, selectedCity: null } : prev));
+  }, []);
+
   const onCancelEdit = useCallback((): void => {
     if (profile) setDraft(toProfileDraft(profile));
     setValidation({});
@@ -63,12 +70,17 @@ export function ProfileScreen(): React.JSX.Element {
     const errors = validateProfileDraft(draft);
     setValidation(errors);
     if (Object.keys(errors).length > 0) return;
+    if (!draft.selectedCity) return;
 
     await save({
       fullName: draft.fullName.trim(),
-      zodiacSign: draft.zodiacSign,
       birthDate: draft.birthDate,
-      timezoneOffset: Number(draft.timezone),
+      birthTime: draft.birthTime.trim() || null,
+      birthCity: draft.selectedCity.name,
+      birthCountry: draft.selectedCity.country,
+      latitude: draft.selectedCity.latitude,
+      longitude: draft.selectedCity.longitude,
+      timezoneOffset: draft.selectedCity.timezoneOffset,
     });
     setIsEditing(false);
   }, [draft, save]);
@@ -79,6 +91,17 @@ export function ProfileScreen(): React.JSX.Element {
   const zodiacLabel = profile?.natalChart?.sunInfo?.name ?? profile?.natalChart?.sunSign ?? 'Unknown';
   const birthDateLabel = profile?.birthProfile?.birthDate ?? 'Unknown birth date';
   const timezoneLabel = profile?.birthProfile ? `UTC${formatTimezone(profile.birthProfile.timezoneOffset)}` : null;
+  const streakLines = profile
+    ? profileStreakLines({
+        streakCount: profile.user.streakCount,
+        longestStreakCount: profile.user.longestStreakCount,
+        streakFreezes: profile.user.streakFreezes,
+        streakFreezeCap: profile.user.streakFreezeCap,
+      })
+    : [];
+  const ritualHistory = normalizeRitualHistory(profile?.ritualHistory);
+  const ritualCompletedCount = ritualHistoryCompletedCount(ritualHistory);
+  const shareMilestone = shareableMilestoneFor(profile?.user.streakCount ?? 0);
 
   const isLight = mode === 'light';
 
@@ -186,6 +209,36 @@ export function ProfileScreen(): React.JSX.Element {
               <InfoPill icon="☽" label={birthDateLabel} />
               {timezoneLabel ? <InfoPill icon="⌛" label={timezoneLabel} /> : null}
             </View>
+            <View style={styles.streakSummary}>
+              {streakLines.map((line) => (
+                <Text key={line} style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
+                  {line}
+                </Text>
+              ))}
+              <RitualHistoryConstellation history={ritualHistory} isLight={isLight} />
+              {ritualHistory.length > 0 ? (
+                <Text style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
+                  {ritualCompletedCount > 0 ? 'Your ritual history is glowing.' : 'Your ritual history is ready to glow.'}
+                </Text>
+              ) : null}
+              {shareMilestone ? (
+                <Pressable
+                  style={({ pressed }) => [styles.streakShareBtn, pressed && styles.pressed]}
+                  onPress={() =>
+                    void shareStreakMilestoneCard({
+                      milestone: shareMilestone,
+                      zodiacSign: profile.natalChart?.sunSign ?? null,
+                      displayName: profile.user.displayName ?? profile.user.fullName,
+                    })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="Share ritual streak"
+                  hitSlop={hitSlopComfortable}
+                >
+                  <Text style={styles.streakShareText}>Share ritual</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
           {avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}
           {!isEditing ? (
@@ -216,28 +269,41 @@ export function ProfileScreen(): React.JSX.Element {
                 error={validation.fullName}
               />
               <Field label="Email" value={draft.email} editable={false} />
-              <Text style={styles.fieldLabel}>Zodiac sign</Text>
-              <View style={styles.signGrid}>
-                {ZODIAC_SIGNS.map((z) => {
-                  const active = draft.zodiacSign === z.key;
-                  return (
-                    <Pressable
-                      key={z.key}
-                      style={({ pressed }) => [styles.signChip, active && styles.signChipActive, pressed && styles.pressed]}
-                      onPress={() => setDraft((prev) => (prev ? { ...prev, zodiacSign: z.key } : prev))}
-                    >
-                      <Text style={styles.signChipText}>{z.symbol}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {validation.zodiacSign ? <Text style={styles.error}>{validation.zodiacSign}</Text> : null}
+              <Text style={styles.microcopy}>
+                Sun, moon, and rising signs are recalculated from your saved birth details.
+              </Text>
               <Field
                 label="Birth date (YYYY-MM-DD)"
                 value={draft.birthDate}
                 onChangeText={(v) => setDraft((prev) => (prev ? { ...prev, birthDate: v } : prev))}
                 error={validation.birthDate}
                 autoCapitalize="none"
+              />
+              <Field
+                label="Birth time (HH:MM, optional)"
+                value={draft.birthTime}
+                onChangeText={(v) => setDraft((prev) => (prev ? { ...prev, birthTime: v } : prev))}
+                error={validation.birthTime}
+                autoCapitalize="none"
+              />
+              <CityPicker
+                label="Birth city"
+                query={draft.birthCity}
+                selectedCity={draft.selectedCity}
+                onQueryChange={onCityQueryChange}
+                onSelectCity={(selectedCity) =>
+                  setDraft((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          selectedCity,
+                          birthCity: selectedCity.displayLabel,
+                          timezone: String(selectedCity.timezoneOffset),
+                        }
+                      : prev,
+                  )
+                }
+                error={validation.birthCity}
               />
               <Field
                 label="Timezone (e.g. +8, -5)"
@@ -293,6 +359,30 @@ function resolveAvatarMimeType(uri: string, rawMimeType?: string | null): 'image
   if (ext === 'png') return 'image/png';
   if (ext === 'webp') return 'image/webp';
   return null;
+}
+
+function RitualHistoryConstellation({
+  history,
+  isLight,
+}: {
+  history: RitualHistoryDay[];
+  isLight: boolean;
+}): React.JSX.Element | null {
+  if (history.length === 0) return null;
+  return (
+    <View style={styles.ritualHistory} accessibilityLabel="Last 30 days ritual history">
+      {history.map((day) => (
+        <View
+          key={day.date}
+          style={[
+            styles.ritualDot,
+            day.completed ? styles.ritualDotComplete : styles.ritualDotEmpty,
+            isLight && (day.completed ? styles.ritualDotCompleteLight : styles.ritualDotEmptyLight),
+          ]}
+        />
+      ))}
+    </View>
+  );
 }
 
 function InfoPill({ icon, label }: { icon: string; label: string }): React.JSX.Element {
@@ -453,6 +543,70 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
   },
+  streakSummary: {
+    marginTop: spacing.sm,
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: spacing.md,
+  },
+  streakLine: {
+    color: '#dfe1f6',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  ritualHistory: {
+    width: '100%',
+    maxWidth: 250,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.xs,
+    marginBottom: 2,
+  },
+  ritualDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  ritualDotComplete: {
+    backgroundColor: '#cfc5ff',
+    borderColor: 'rgba(247, 230, 166, 0.75)',
+    shadowColor: '#b8a8ff',
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  ritualDotEmpty: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(207,197,255,0.22)',
+  },
+  ritualDotCompleteLight: {
+    backgroundColor: '#7266d8',
+    borderColor: '#b6a8ff',
+  },
+  ritualDotEmptyLight: {
+    backgroundColor: '#eef1ff',
+    borderColor: '#d1d9ff',
+  },
+  streakShareBtn: {
+    marginTop: spacing.xs,
+    minHeight: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(207,197,255,0.35)',
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  streakShareText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -522,6 +676,7 @@ const styles = StyleSheet.create({
   editorCard: { marginTop: spacing.sm },
   fieldWrap: { marginBottom: spacing.sm },
   fieldLabel: { color: colors.textMuted, marginBottom: spacing.xs, fontSize: 13 },
+  microcopy: { color: colors.textMuted, marginBottom: spacing.sm, fontSize: 13, lineHeight: 18 },
   input: {
     minHeight: MIN_TOUCH,
     borderRadius: 10,
@@ -534,19 +689,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputDisabled: { opacity: 0.7 },
-  signGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.xs },
-  signChip: {
-    minWidth: MIN_TOUCH,
-    minHeight: MIN_TOUCH,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-  },
-  signChipActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  signChipText: { color: colors.text, fontSize: 18 },
   row: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   secondaryHalf: {
     flex: 1,

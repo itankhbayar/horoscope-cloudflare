@@ -4,18 +4,20 @@ import { useStripe } from '@stripe/stripe-react-native';
 import * as billingMobileService from '@astralis/lib/billingMobileService';
 import { ApiClientError } from '@astralis/lib/apiClient';
 import { useAuth } from './useAuth';
+import { track } from '../lib/analytics';
 
 const RETURN_PATH = 'stripe-return';
 
-type UpgradeOptions = {
+export type StripeUpgradeOptions = {
   priceId?: string;
+  plan?: 'monthly' | 'yearly';
 };
 
 export type PremiumCheckoutActions = {
   busy: boolean;
   message: string | null;
   clearMessage: () => void;
-  upgrade: (options?: UpgradeOptions) => Promise<void>;
+  upgrade: (options?: StripeUpgradeOptions) => Promise<void>;
   manageBilling: () => Promise<void>;
   refreshStatus: () => Promise<void>;
 };
@@ -40,11 +42,15 @@ export function useStripePremiumCheckout(): PremiumCheckoutActions {
 
   const refreshStatus = useCallback(async (): Promise<void> => {
     setMessage(null);
-    setBusy(true);
-    try {
-      await billingMobileService.restoreMobilePremiumStatus();
-      await refreshUser();
-      setMessage('Subscription status refreshed from the server.');
+      setBusy(true);
+      try {
+        const restored = await billingMobileService.restoreMobilePremiumStatus();
+        await refreshUser();
+        void track('subscription_restored', { provider: 'stripe', active: restored.isPremium });
+        if (restored.isPremium) {
+          void track('premium_purchased', { provider: 'stripe', source: 'restore_sync' });
+        }
+        setMessage('Subscription status refreshed from the server.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Could not refresh status');
     } finally {
@@ -53,7 +59,7 @@ export function useStripePremiumCheckout(): PremiumCheckoutActions {
   }, [refreshUser]);
 
   const upgrade = useCallback(
-    async (options: UpgradeOptions = {}): Promise<void> => {
+    async (options: StripeUpgradeOptions = {}): Promise<void> => {
       setMessage(null);
       if (!hasPublishableKey()) {
         Alert.alert(
@@ -70,6 +76,7 @@ export function useStripePremiumCheckout(): PremiumCheckoutActions {
           : `mobile-${Date.now()}`;
 
       try {
+        void track('checkout_started', { provider: 'stripe', plan: options.plan });
         const sheet = await billingMobileService.createMobilePremiumCheckout({
           idempotencyKey,
           priceId: options.priceId,
@@ -106,7 +113,8 @@ export function useStripePremiumCheckout(): PremiumCheckoutActions {
 
         setMessage('Payment submitted. Syncing your account with the server...');
         await refreshUser();
-        setMessage('Premium unlocked. If status is delayed, wait a moment and tap "Restore purchases".');
+        void track('premium_purchased', { provider: 'stripe', source: 'purchase_sync' });
+        setMessage('Checkout completed. If Premium is not active yet, wait a moment and tap "Refresh premium status".');
       } catch (e) {
         const msg = e instanceof ApiClientError ? e.message : e instanceof Error ? e.message : 'Checkout failed';
         setMessage(msg);

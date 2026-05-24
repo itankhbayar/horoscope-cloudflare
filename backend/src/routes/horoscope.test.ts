@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 const mocks = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockGetOrCreateDailyHoroscope: vi.fn(),
+  mockRecordDailyHoroscopeStreak: vi.fn(),
 }));
 
 vi.mock('../db/client', () => ({
@@ -24,6 +25,11 @@ vi.mock('../middleware/auth', () => ({
 
 vi.mock('../services/horoscopeService', () => ({
   getOrCreateDailyHoroscope: mocks.mockGetOrCreateDailyHoroscope,
+}));
+
+vi.mock('../services/streakService', () => ({
+  currentStreakDateISO: () => '2026-05-19',
+  recordDailyHoroscopeStreak: mocks.mockRecordDailyHoroscopeStreak,
 }));
 
 import horoscopeRoutes, { dailyHoroscopeCacheKey } from './horoscope';
@@ -84,6 +90,23 @@ describe('horoscope routes', () => {
       luckyNumber: 7,
       luckyColor: 'blue',
     });
+    mocks.mockRecordDailyHoroscopeStreak.mockResolvedValue({
+      data: {
+        streakCount: 1,
+        longestStreakCount: 1,
+        streakLastDate: '2026-05-20',
+        streakFreezes: 0,
+        streakFreezeAwarded: false,
+        streakFreezeCap: 1,
+        streakFreezeAwardReason: null,
+        isNewStreakDay: true,
+        streakPreservedByFreeze: false,
+        milestoneReached: null,
+        nextMilestone: 3,
+        streakSegment: 'new',
+      },
+      analyticsEvents: ['streak_started'],
+    });
   });
 
   afterEach(() => {
@@ -112,6 +135,7 @@ describe('horoscope routes', () => {
       'en',
       '2026-05-20',
     );
+    expect(mocks.mockRecordDailyHoroscopeStreak).not.toHaveBeenCalled();
     expect(mockCache.put).toHaveBeenCalledTimes(1);
     const cached = cacheStore.get(
       dailyHoroscopeCacheKey('aries', '2026-05-20', 'en').url,
@@ -193,11 +217,62 @@ describe('horoscope routes', () => {
     );
 
     expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store, max-age=0');
     expect(mocks.mockGetOrCreateDailyHoroscope).toHaveBeenCalledWith(
       db,
       'aries',
       'en',
       '2026-05-20',
     );
+    expect(mocks.mockRecordDailyHoroscopeStreak).toHaveBeenCalledWith(db, 'user-1', '2026-05-19');
+    expect(mockCache.match).not.toHaveBeenCalled();
+    expect(mockCache.put).not.toHaveBeenCalled();
+    await expect(res.json()).resolves.toMatchObject({
+      streakCount: 1,
+      longestStreakCount: 1,
+      streakLastDate: '2026-05-20',
+      streakFreezes: 0,
+      streakFreezeAwarded: false,
+      streakFreezeCap: 1,
+      streakFreezeAwardReason: null,
+      isNewStreakDay: true,
+      streakPreservedByFreeze: false,
+      milestoneReached: null,
+      nextMilestone: 3,
+      streakSegment: 'new',
+    });
+  });
+
+  it('does not run streak updates for anonymous daily horoscope reads', async () => {
+    const db = {};
+    mocks.mockGetDb.mockReturnValue(db);
+
+    const app = createApp();
+    const res = await app.request('/api/horoscope/daily/aries?date=2026-05-20', {}, mockEnv, executionCtx as any);
+
+    expect(res.status).toBe(200);
+    expect(mocks.mockRecordDailyHoroscopeStreak).not.toHaveBeenCalled();
+  });
+
+  it('uses server UTC streak date so profile timezone changes cannot farm streak days', async () => {
+    const db = {
+      select: vi
+        .fn()
+        .mockReturnValueOnce(selectResult({ sunSign: 'aries', moonSign: 'leo', risingSign: 'libra' }))
+        .mockReturnValueOnce(selectResult({ timezone: 'Pacific/Kiritimati' })),
+    };
+    mocks.mockGetDb.mockReturnValue(db);
+
+    const app = createApp();
+    const res = await app.request('/api/horoscope/daily', { headers: { Authorization: 'Bearer token' } }, mockEnv);
+
+    expect(res.status).toBe(200);
+    expect(mocks.mockGetOrCreateDailyHoroscope).toHaveBeenCalledWith(
+      db,
+      'aries',
+      'en',
+      '2026-05-20',
+    );
+    expect(mocks.mockRecordDailyHoroscopeStreak).toHaveBeenCalledWith(db, 'user-1', '2026-05-19');
   });
 });

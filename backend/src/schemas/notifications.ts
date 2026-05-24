@@ -6,6 +6,13 @@ export const notificationPreferencesUpdateSchema = z
     saleAlertsEnabled: z.boolean().optional(),
     horoscopesEnabled: z.boolean().optional(),
     transitsEnabled: z.boolean().optional(),
+    dailyReminderEnabled: z.boolean().optional(),
+    streakReminderEnabled: z.boolean().optional(),
+    reEngagementEnabled: z.boolean().optional(),
+    quietHoursEnabled: z.boolean().optional(),
+    quietHoursStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    quietHoursEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    reminderHourLocal: z.number().int().min(0).max(23).optional(),
   })
   .strict()
   .refine((value) => Object.values(value).some((field) => field !== undefined), {

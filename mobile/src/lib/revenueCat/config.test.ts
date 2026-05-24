@@ -20,4 +20,25 @@ describe('isRevenueCatConfigured', () => {
     const { isRevenueCatConfigured } = await import('./config');
     expect(isRevenueCatConfigured()).toBe(true);
   });
+
+  it('exposes safe diagnostics without leaking the API key', async () => {
+    vi.doMock('react-native', () => ({ Platform: { OS: 'ios' } }));
+    vi.stubGlobal('process', {
+      env: {
+        EXPO_PUBLIC_REVENUECAT_API_KEY_IOS: 'appl_secret',
+        EXPO_PUBLIC_REVENUECAT_OFFERING_ID: 'default',
+        EXPO_PUBLIC_REVENUECAT_PACKAGE_MONTHLY: '$rc_monthly',
+        EXPO_PUBLIC_REVENUECAT_PACKAGE_ANNUAL: '$rc_annual',
+      },
+    });
+    const { readRevenueCatConfigurationStatus } = await import('./config');
+    expect(readRevenueCatConfigurationStatus()).toEqual({
+      platform: 'ios',
+      configured: true,
+      offeringIdentifier: 'default',
+      monthlyPackageIdentifier: '$rc_monthly',
+      annualPackageIdentifier: '$rc_annual',
+    });
+    expect(JSON.stringify(readRevenueCatConfigurationStatus())).not.toContain('appl_secret');
+  });
 });

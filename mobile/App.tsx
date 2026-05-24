@@ -6,6 +6,7 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import { AuthProvider } from './src/hooks/useAuth';
 import { AppearanceProvider, useAppearance } from './src/hooks/useAppearance';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { initAnalytics, track } from './src/lib/analytics';
 
 type AbortSignalCtor = typeof AbortSignal & { timeout?: (ms: number) => AbortSignal };
 
@@ -30,6 +31,7 @@ function readStripePublishableKey(): string {
 export default function App(): React.JSX.Element {
   useEffect(() => {
     ensureAbortSignalTimeoutPolyfill();
+    void initAnalytics().then(() => track('app_open', { source: 'cold_start' }));
   }, []);
 
   const stripePk = readStripePublishableKey();

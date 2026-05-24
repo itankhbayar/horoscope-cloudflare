@@ -13,6 +13,10 @@ export function toAuthUser(user: User): AuthUser {
     timezone: user.timezone,
     createdAt: user.createdAt,
     isPremium: Boolean(user.isPremium),
+    streakCount: user.streakCount,
+    longestStreakCount: user.longestStreakCount,
+    streakFreezes: user.streakFreezes,
+    streakFreezeCap: user.isPremium ? 3 : 1,
   };
 }
 

@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRoute, type RouteProp } from '@react-navigation/native';
 import type { AppearancePalette } from '../hooks/useAppearance';
 import { useAppearance } from '../hooks/useAppearance';
 import {
@@ -25,6 +26,10 @@ import {
 } from '../theme';
 import { usePremiumCheckout } from '../hooks/usePremiumCheckout';
 import { usesRevenueCatBilling } from '../lib/billing/platform';
+import { readRevenueCatConfigurationStatus } from '../lib/revenueCat/config';
+import type { PremiumPlanDisplay } from '../lib/revenueCat/packages';
+import { track } from '../lib/analytics';
+import type { RootStackParamList } from '../navigation/types';
 
 type PremiumFeature = {
   title: string;
@@ -46,17 +51,6 @@ type ProofItem = {
 type Testimonial = {
   quote: string;
   name: string;
-};
-
-type PricingPlan = {
-  id: 'monthly' | 'yearly';
-  title: string;
-  price: string;
-  cadence: string;
-  note: string;
-  badge?: string;
-  bestValue?: boolean;
-  priceId?: string;
 };
 
 const PREMIUM_EXPERIMENT = {
@@ -130,34 +124,27 @@ const TESTIMONIALS: Testimonial[] = [
   { quote: 'The compatibility notes helped me name a pattern I kept missing.', name: 'Erdene' },
 ];
 
-const PLANS: PricingPlan[] = [
-  {
-    id: 'monthly',
-    title: 'Monthly',
-    price: '$6.99',
-    cadence: 'per month',
-    note: 'Flexible access for your current season.',
-  },
-  {
-    id: 'yearly',
-    title: 'Yearly',
-    price: '$49.99',
-    cadence: 'per year',
-    note: 'Best for a full year of daily guidance.',
-    badge: 'Best value',
-    bestValue: true,
-  },
-];
-
 export function PremiumScreen(): React.JSX.Element {
+  const route = useRoute<RouteProp<RootStackParamList, 'Premium'>>();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { palette, mode } = useAppearance();
-  const { busy, isPremium, message, upgrade, manageBilling, refreshStatus, purchasesConfigured } =
-    usePremiumCheckout();
+  const {
+    busy,
+    isPremium,
+    message,
+    upgrade,
+    manageBilling,
+    refreshStatus,
+    purchasesConfigured,
+    premiumPlans,
+    premiumPlansLoading,
+    premiumPlansError,
+  } = usePremiumCheckout();
   const isIosIap = usesRevenueCatBilling();
   const purchasesUnavailable = isIosIap && !purchasesConfigured;
-  const [selectedPlanId, setSelectedPlanId] = useState<PricingPlan['id']>('yearly');
+  const revenueCatStatus = useMemo(() => (isIosIap ? readRevenueCatConfigurationStatus() : null), [isIosIap]);
+  const [selectedPlanId, setSelectedPlanId] = useState<PremiumPlanDisplay['id']>('yearly');
   const fade = useRef(new Animated.Value(0)).current;
 
   const hp = horizontalScreenPadding(width);
@@ -165,9 +152,10 @@ export function PremiumScreen(): React.JSX.Element {
   const bodySize = bodyFontSize(width);
   const lineHeight = bodyLineHeight(width);
   const selectedPlan = useMemo(
-    (): PricingPlan => PLANS.find((plan) => plan.id === selectedPlanId) ?? PLANS[1]!,
-    [selectedPlanId],
+    (): PremiumPlanDisplay => premiumPlans.find((plan) => plan.id === selectedPlanId) ?? premiumPlans[1] ?? premiumPlans[0]!,
+    [premiumPlans, selectedPlanId],
   );
+  const selectedPlanUnavailable = !selectedPlan.available || premiumPlansLoading;
   const stickyReserve = spacing.xxxl + 76;
   const bottomPadding = tabScrollBottomPadding(insets, stickyReserve);
   const isLight = mode === 'light';
@@ -180,13 +168,18 @@ export function PremiumScreen(): React.JSX.Element {
     }).start();
   }, [fade]);
 
+  useEffect(() => {
+    void track('paywall_viewed', { source: route.params?.source ?? 'premium_screen' });
+  }, [route.params?.source]);
+
   const onPrimaryCta = useCallback(() => {
     if (isPremium) {
       void manageBilling();
       return;
     }
-    void upgrade(isIosIap ? { plan: selectedPlan.id } : { priceId: selectedPlan.priceId });
-  }, [isIosIap, isPremium, manageBilling, selectedPlan.id, selectedPlan.priceId, upgrade]);
+    if (selectedPlanUnavailable) return;
+    void upgrade(isIosIap ? { plan: selectedPlan.id } : undefined);
+  }, [isIosIap, isPremium, manageBilling, selectedPlan.id, selectedPlanUnavailable, upgrade]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['left', 'right', 'top']}>
@@ -205,15 +198,44 @@ export function PremiumScreen(): React.JSX.Element {
             busy={busy}
             isPremium={isPremium}
             onPress={onPrimaryCta}
-            purchasesUnavailable={purchasesUnavailable}
+            purchasesUnavailable={purchasesUnavailable || selectedPlanUnavailable}
           />
 
           {purchasesUnavailable ? (
             <View style={[styles.configNotice, { backgroundColor: palette.card, borderColor: palette.border }]}>
               <Text style={[styles.configNoticeText, { color: palette.text }]}>
-                Purchases are not configured yet. Premium will be available after Apple in-app purchase setup is
-                complete.
+                Purchases are not configured yet. Premium will be available after RevenueCat and Apple in-app purchase
+                setup are complete.
               </Text>
+              {revenueCatStatus ? (
+                <Text style={[styles.configNoticeMeta, { color: palette.textMuted }]}>
+                  Expected packages: monthly "{revenueCatStatus.monthlyPackageIdentifier}", yearly "
+                  {revenueCatStatus.annualPackageIdentifier}".
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          {isIosIap && purchasesConfigured ? (
+            <View style={[styles.configNotice, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Text style={[styles.configNoticeText, { color: palette.text }]}>
+                RevenueCat is configured. Purchases still need real-device validation before launch.
+              </Text>
+              {revenueCatStatus ? (
+                <Text style={[styles.configNoticeMeta, { color: palette.textMuted }]}>
+                  Offering: {revenueCatStatus.offeringIdentifier ?? 'current'} · packages: monthly "
+                  {revenueCatStatus.monthlyPackageIdentifier}", yearly "{revenueCatStatus.annualPackageIdentifier}".
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          {premiumPlansError && purchasesConfigured ? (
+            <View style={[styles.configNotice, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Text style={[styles.configNoticeText, { color: palette.text }]}>
+                Premium pricing could not load from RevenueCat.
+              </Text>
+              <Text style={[styles.configNoticeMeta, { color: palette.textMuted }]}>{premiumPlansError}</Text>
             </View>
           ) : null}
 
@@ -234,13 +256,14 @@ export function PremiumScreen(): React.JSX.Element {
 
           <SectionTitle title={COPY.pricingTitle} palette={palette} />
           <View style={styles.pricingList}>
-            {PLANS.map((plan) => (
+            {premiumPlans.map((plan) => (
               <PricingCard
                 key={plan.id}
                 plan={plan}
                 selected={selectedPlan.id === plan.id}
                 palette={palette}
                 onSelect={setSelectedPlanId}
+                loading={premiumPlansLoading}
               />
             ))}
           </View>
@@ -252,17 +275,15 @@ export function PremiumScreen(): React.JSX.Element {
                 : COPY.secondaryTrust}
           </Text>
 
-          {isIosIap && !isPremium && purchasesConfigured ? (
-            <Pressable
-              onPress={() => void refreshStatus()}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel="Restore App Store purchases"
-              hitSlop={hitSlopComfortable}
-            >
-              <Text style={[styles.restoreLink, { color: palette.accent }]}>Restore purchases</Text>
-            </Pressable>
-          ) : null}
+          <BillingActions
+            palette={palette}
+            busy={busy}
+            isPremium={isPremium}
+            isIosIap={isIosIap}
+            purchasesConfigured={purchasesConfigured}
+            onRestore={() => void refreshStatus()}
+            onManage={() => void manageBilling()}
+          />
 
           {message ? (
             <Text style={[styles.feedback, { color: palette.text }]} accessibilityLiveRegion="polite">
@@ -279,7 +300,7 @@ export function PremiumScreen(): React.JSX.Element {
         isPremium={isPremium}
         selectedPlan={selectedPlan}
         onPress={onPrimaryCta}
-        purchasesUnavailable={purchasesUnavailable}
+        purchasesUnavailable={purchasesUnavailable || selectedPlanUnavailable}
       />
     </SafeAreaView>
   );
@@ -440,12 +461,15 @@ function PricingCard({
   selected,
   palette,
   onSelect,
+  loading,
 }: {
-  plan: PricingPlan;
+  plan: PremiumPlanDisplay;
   selected: boolean;
   palette: AppearancePalette;
-  onSelect: (id: PricingPlan['id']) => void;
+  onSelect: (id: PremiumPlanDisplay['id']) => void;
+  loading: boolean;
 }) {
+  const disabled = loading || !plan.available;
   return (
     <Pressable
       style={[
@@ -454,10 +478,14 @@ function PricingCard({
           backgroundColor: selected ? 'rgba(139, 107, 255, 0.22)' : palette.card,
           borderColor: selected ? colors.gold : palette.border,
         },
+        disabled && styles.disabled,
       ]}
-      onPress={() => onSelect(plan.id)}
+      onPress={() => {
+        if (!disabled) onSelect(plan.id);
+      }}
+      disabled={disabled}
       accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
+      accessibilityState={{ checked: selected, disabled }}
       accessibilityLabel={`${plan.title} Premium plan, ${plan.price} ${plan.cadence}`}
       hitSlop={hitSlopComfortable}
     >
@@ -472,10 +500,68 @@ function PricingCard({
           </View>
         ) : null}
       </View>
-      <Text style={[styles.planPrice, { color: palette.text }]}>{plan.price}</Text>
+      <Text style={[styles.planPrice, { color: palette.text }]}>
+        {loading ? 'Loading price...' : plan.price}
+      </Text>
       <Text style={[styles.planCadence, { color: palette.textMuted }]}>{plan.cadence}</Text>
-      {plan.bestValue ? <Text style={styles.savingsText}>Save about 40% compared with monthly</Text> : null}
+      {!plan.available && plan.unavailableReason ? (
+        <Text style={[styles.planUnavailable, { color: palette.textMuted }]}>{plan.unavailableReason}</Text>
+      ) : null}
     </Pressable>
+  );
+}
+
+function BillingActions({
+  palette,
+  busy,
+  isPremium,
+  isIosIap,
+  purchasesConfigured,
+  onRestore,
+  onManage,
+}: {
+  palette: AppearancePalette;
+  busy: boolean;
+  isPremium: boolean;
+  isIosIap: boolean;
+  purchasesConfigured: boolean;
+  onRestore: () => void;
+  onManage: () => void;
+}) {
+  return (
+    <View style={styles.billingActions}>
+      <Pressable
+        onPress={onRestore}
+        disabled={busy || (isIosIap && !purchasesConfigured)}
+        accessibilityRole="button"
+        accessibilityLabel={isIosIap ? 'Restore App Store purchases' : 'Refresh premium status'}
+        accessibilityState={{ disabled: busy || (isIosIap && !purchasesConfigured) }}
+        hitSlop={hitSlopComfortable}
+      >
+        <Text
+          style={[
+            styles.restoreLink,
+            { color: busy || (isIosIap && !purchasesConfigured) ? palette.textMuted : palette.accent },
+          ]}
+        >
+          {isIosIap ? 'Restore purchases' : 'Refresh premium status'}
+        </Text>
+      </Pressable>
+      {isPremium ? (
+        <Pressable
+          onPress={onManage}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Manage subscription"
+          accessibilityState={{ disabled: busy }}
+          hitSlop={hitSlopComfortable}
+        >
+          <Text style={[styles.restoreLink, { color: busy ? palette.textMuted : palette.accent }]}>
+            Manage subscription
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -492,7 +578,7 @@ function StickyCta({
   bottomInset: number;
   busy: boolean;
   isPremium: boolean;
-  selectedPlan: PricingPlan;
+  selectedPlan: PremiumPlanDisplay;
   onPress: () => void;
   purchasesUnavailable: boolean;
 }) {
@@ -674,7 +760,7 @@ const styles = StyleSheet.create({
   planBadgeText: { color: '#201600', fontSize: 11, lineHeight: 14, fontWeight: '900' },
   planPrice: { marginTop: spacing.md, fontSize: 30, lineHeight: 36, fontWeight: '900' },
   planCadence: { fontSize: 13, lineHeight: 18 },
-  savingsText: { marginTop: spacing.sm, color: colors.gold, fontSize: 13, lineHeight: 18, fontWeight: '800' },
+  planUnavailable: { marginTop: spacing.sm, fontSize: 12, lineHeight: 17 },
   trustLine: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
   configNotice: {
     borderWidth: 1,
@@ -682,6 +768,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   configNoticeText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  configNoticeMeta: { marginTop: spacing.xs, fontSize: 12, lineHeight: 17 },
+  billingActions: { gap: spacing.xs },
   restoreLink: { fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center', marginTop: spacing.xs },
   feedback: {
     borderRadius: 14,

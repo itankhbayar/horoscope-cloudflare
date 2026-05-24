@@ -41,3 +41,21 @@ export function packageIdentifierForPlan(plan: RevenueCatPlanId): string {
   const monthly = readEnv('EXPO_PUBLIC_REVENUECAT_PACKAGE_MONTHLY');
   return monthly.length > 0 ? monthly : 'monthly';
 }
+
+export type RevenueCatConfigurationStatus = {
+  platform: typeof Platform.OS;
+  configured: boolean;
+  offeringIdentifier: string | null;
+  monthlyPackageIdentifier: string;
+  annualPackageIdentifier: string;
+};
+
+export function readRevenueCatConfigurationStatus(): RevenueCatConfigurationStatus {
+  return {
+    platform: Platform.OS,
+    configured: isRevenueCatConfigured(),
+    offeringIdentifier: readOfferingIdentifier() ?? null,
+    monthlyPackageIdentifier: packageIdentifierForPlan('monthly'),
+    annualPackageIdentifier: packageIdentifierForPlan('yearly'),
+  };
+}

@@ -15,18 +15,23 @@ import { spacing } from '../theme';
 import { useNotifications } from '../hooks/useNotifications';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppearance } from '../hooks/useAppearance';
+import { track } from '../lib/analytics';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
 export function ManageNotificationsScreen(): React.JSX.Element {
   const navigation = useNavigation<RootNav>();
   const { mode, palette } = useAppearance();
-  const { preferences, loading, saving, error, load, setAllEnabled, setChildEnabled } = useNotifications();
+  const { preferences, loading, saving, error, readiness, load, setAllEnabled, setChildEnabled } = useNotifications();
   const isLight = mode === 'light';
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void track('notification_settings_viewed', { canRequestPush: readiness.canRequestPush });
+  }, [readiness.canRequestPush]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
@@ -44,6 +49,30 @@ export function ManageNotificationsScreen(): React.JSX.Element {
         label: 'All Notifications',
         description: 'Enable push notifications for this app.',
         value: preferences?.allEnabled ?? false,
+      },
+      {
+        key: 'dailyReminderEnabled' as const,
+        label: 'Daily Horoscope',
+        description: 'A daily reminder near your preferred local morning hour.',
+        value: preferences?.dailyReminderEnabled ?? true,
+      },
+      {
+        key: 'streakReminderEnabled' as const,
+        label: 'Check-in Streaks',
+        description: 'A gentle nudge if your daily ritual is waiting.',
+        value: preferences?.streakReminderEnabled ?? true,
+      },
+      {
+        key: 'reEngagementEnabled' as const,
+        label: 'Come-back Nudges',
+        description: 'Occasional reminders after a few inactive days.',
+        value: preferences?.reEngagementEnabled ?? true,
+      },
+      {
+        key: 'quietHoursEnabled' as const,
+        label: 'Quiet Hours',
+        description: `Hold notifications from ${preferences?.quietHoursStart ?? '21:00'} to ${preferences?.quietHoursEnd ?? '08:00'}.`,
+        value: preferences?.quietHoursEnabled ?? true,
       },
       {
         key: 'saleAlertsEnabled' as const,
@@ -100,10 +129,16 @@ export function ManageNotificationsScreen(): React.JSX.Element {
             {error}
           </Text>
         ) : null}
+        {!readiness.canRequestPush ? (
+          <View style={[styles.notice, { borderColor: palette.border, backgroundColor: palette.card }]}>
+            <Text style={[styles.noticeText, { color: palette.textMuted }]}>{readiness.reason}</Text>
+          </View>
+        ) : null}
         {!loading ? (
           <View style={styles.list}>
             {rows.map((row, index) => {
               const isChild = row.key !== 'allEnabled';
+              const rowDisabled = saving || (row.key === 'allEnabled' && !readiness.canRequestPush);
               return (
                 <View
                   key={row.key}
@@ -119,7 +154,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                   </View>
                   <Switch
                     value={row.value}
-                    disabled={saving}
+                    disabled={rowDisabled}
                     onValueChange={(next) => {
                       if (row.key === 'allEnabled') {
                         void setAllEnabled(next);
@@ -132,7 +167,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                     ios_backgroundColor={isLight ? '#d2d6e7' : 'rgba(154, 160, 194, 0.45)'}
                     accessibilityRole="switch"
                     accessibilityLabel={row.label}
-                    accessibilityState={{ checked: row.value, disabled: saving }}
+                    accessibilityState={{ checked: row.value, disabled: rowDisabled }}
                   />
                 </View>
               );
@@ -187,6 +222,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   list: { marginTop: spacing.sm },
+  notice: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  noticeText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

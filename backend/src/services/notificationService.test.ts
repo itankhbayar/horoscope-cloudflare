@@ -64,6 +64,13 @@ describe('notificationService', () => {
       saleAlertsEnabled: false,
       horoscopesEnabled: false,
       transitsEnabled: false,
+      dailyReminderEnabled: true,
+      streakReminderEnabled: true,
+      reEngagementEnabled: true,
+      quietHoursEnabled: true,
+      quietHoursStart: '21:00',
+      quietHoursEnd: '08:00',
+      reminderHourLocal: 9,
     });
     expect(m.insert).toHaveBeenCalled();
     expect(m.onConflictDoNothing).toHaveBeenCalled();
@@ -77,10 +84,19 @@ describe('notificationService', () => {
       saleAlertsEnabled: true,
       horoscopesEnabled: false,
       transitsEnabled: true,
+      dailyReminderEnabled: true,
+      streakReminderEnabled: true,
+      reEngagementEnabled: true,
+      quietHoursEnabled: true,
+      quietHoursStart: '21:00',
+      quietHoursEnd: '08:00',
+      reminderHourLocal: 9,
     });
 
     const updated = await updateNotificationPreferences(m.db, 'user-1', {
       allEnabled: false,
+      quietHoursEnabled: false,
+      reminderHourLocal: 10,
     });
 
     expect(updated).toEqual({
@@ -88,6 +104,13 @@ describe('notificationService', () => {
       saleAlertsEnabled: true,
       horoscopesEnabled: false,
       transitsEnabled: true,
+      dailyReminderEnabled: true,
+      streakReminderEnabled: true,
+      reEngagementEnabled: true,
+      quietHoursEnabled: false,
+      quietHoursStart: '21:00',
+      quietHoursEnd: '08:00',
+      reminderHourLocal: 10,
     });
     expect(m.onConflictDoUpdate).toHaveBeenCalled();
   });

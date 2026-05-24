@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { DB } from '../db/client';
 import {
   birthProfiles,
+  dailyRitualHistory,
   natalCharts,
   users,
   type BirthProfile,
@@ -9,7 +10,9 @@ import {
   type User,
 } from '../db/schema';
 import { computeNatalChart, type NatalChartData } from './astrologyService';
+import { currentStreakDateISO } from './streakService';
 import { getZodiacInfo, type ZodiacSign } from '../utils/zodiac';
+import { lookupCity } from '../utils/cities';
 
 export interface ProfilePayload {
   user: {
@@ -21,7 +24,12 @@ export interface ProfilePayload {
     avatarUrl: string | null;
     timezone: string | null;
     createdAt: string;
+    streakCount: number;
+    longestStreakCount: number;
+    streakFreezes: number;
+    streakFreezeCap: number;
   };
+  ritualHistory: RitualHistoryDay[];
   birthProfile: BirthProfile | null;
   natalChart: (Omit<NatalChart, 'planets' | 'houses' | 'aspects'> & {
     planets: NatalChartData['planets'];
@@ -39,6 +47,17 @@ export interface UpdateProfileInput {
   bio?: string | null;
   timezone?: string;
   timezoneOffset?: number;
+  birthDate?: string;
+  birthTime?: string | null;
+  birthCity?: string;
+  birthCountry?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface RitualHistoryDay {
+  date: string;
+  completed: boolean;
 }
 
 export class ProfileAvatarError extends Error {
@@ -52,10 +71,11 @@ export class ProfileAvatarError extends Error {
 }
 
 export async function getFullProfile(db: DB, userId: string): Promise<ProfilePayload> {
-  const [user, profile, chart] = await Promise.all([
+  const [user, profile, chart, ritualHistory] = await Promise.all([
     db.select().from(users).where(eq(users.id, userId)).get(),
     db.select().from(birthProfiles).where(eq(birthProfiles.userId, userId)).get(),
     db.select().from(natalCharts).where(eq(natalCharts.userId, userId)).get(),
+    getRitualHistory(db, userId),
   ]);
   if (!user) throw new Error('User not found');
 
@@ -82,10 +102,35 @@ export async function getFullProfile(db: DB, userId: string): Promise<ProfilePay
       avatarUrl: user.avatarUrl,
       timezone: user.timezone ?? null,
       createdAt: user.createdAt,
+      streakCount: user.streakCount,
+      longestStreakCount: user.longestStreakCount,
+      streakFreezes: user.streakFreezes,
+      streakFreezeCap: user.isPremium ? 3 : 1,
     },
+    ritualHistory,
     birthProfile: profile ?? null,
     natalChart,
   };
+}
+
+export async function getRitualHistory(db: DB, userId: string, todayISO = currentStreakDateISO()): Promise<RitualHistoryDay[]> {
+  const dates = lastNDates(todayISO, 30);
+  const startDate = dates[0] ?? todayISO;
+  const rows = await db
+    .select({ ritualDate: dailyRitualHistory.ritualDate })
+    .from(dailyRitualHistory)
+    .where(sql`${dailyRitualHistory.userId} = ${userId} AND ${dailyRitualHistory.ritualDate} >= ${startDate}`)
+    .orderBy(sql`${dailyRitualHistory.ritualDate} ASC`);
+  const completed = new Set(rows.map((row) => row.ritualDate));
+  return dates.map((date) => ({ date, completed: completed.has(date) }));
+}
+
+function lastNDates(todayISO: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(`${todayISO}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() - (count - 1 - index));
+    return date.toISOString().slice(0, 10);
+  });
 }
 
 export async function recomputeNatalChart(db: DB, userId: string): Promise<void> {
@@ -151,35 +196,86 @@ export async function updateProfile(
   userId: string,
   input: UpdateProfileInput,
 ): Promise<ProfilePayload> {
-  const displayName = sanitizeText(input.displayName ?? input.fullName ?? '');
-  const bio = sanitizeText(input.bio ?? '');
-  const timezone =
-    input.timezone !== undefined
-      ? sanitizeText(input.timezone)
-      : input.timezoneOffset !== undefined
-        ? 'UTC'
-        : '';
-  if (displayName.length < 2 || displayName.length > 60) {
-    throw new Error('Display name must be 2 to 60 characters');
+  const userPatch: Record<string, unknown> = {};
+  if (input.displayName !== undefined || input.fullName !== undefined) {
+    const displayName = sanitizeText(input.displayName ?? input.fullName ?? '');
+    if (displayName.length < 2 || displayName.length > 60) {
+      throw new Error('Display name must be 2 to 60 characters');
+    }
+    userPatch.displayName = displayName;
   }
-  if (bio.length > 280) {
-    throw new Error('Bio must be 280 characters or less');
+  if (input.bio !== undefined) {
+    const bio = sanitizeText(input.bio ?? '');
+    if (bio.length > 280) {
+      throw new Error('Bio must be 280 characters or less');
+    }
+    userPatch.bio = bio.length > 0 ? bio : null;
   }
-  if (!timezone || !isValidTimezone(timezone)) {
-    throw new Error('Timezone must be a valid IANA timezone');
+  if (input.timezone !== undefined) {
+    const timezone = sanitizeText(input.timezone);
+    if (!timezone || !isValidTimezone(timezone)) {
+      throw new Error('Timezone must be a valid IANA timezone');
+    }
+    userPatch.timezone = timezone;
+  }
+  if (Object.keys(userPatch).length > 0) {
+    userPatch.updatedAt = sql`(CURRENT_TIMESTAMP)`;
+    await db.update(users).set(userPatch).where(eq(users.id, userId));
+  }
+
+  if (
+    input.birthDate !== undefined ||
+    input.birthTime !== undefined ||
+    input.birthCity !== undefined ||
+    input.birthCountry !== undefined ||
+    input.latitude !== undefined ||
+    input.longitude !== undefined ||
+    input.timezoneOffset !== undefined
+  ) {
+    await updateBirthProfile(db, userId, input);
+    await recomputeNatalChart(db, userId);
+  }
+
+  return getFullProfile(db, userId);
+}
+
+async function updateBirthProfile(db: DB, userId: string, input: UpdateProfileInput): Promise<void> {
+  const existing = await db
+    .select()
+    .from(birthProfiles)
+    .where(eq(birthProfiles.userId, userId))
+    .get();
+  if (!existing) throw new Error('Birth profile not found');
+
+  let latitude = input.latitude ?? existing.latitude;
+  let longitude = input.longitude ?? existing.longitude;
+  let timezoneOffset = input.timezoneOffset ?? existing.timezoneOffset;
+  let birthCountry = input.birthCountry !== undefined ? input.birthCountry : existing.birthCountry;
+  const birthCity = sanitizeText(input.birthCity ?? existing.birthCity);
+
+  if (input.birthCity !== undefined && (input.latitude === undefined || input.longitude === undefined)) {
+    const city = lookupCity(birthCity);
+    if (!city) {
+      throw new Error('Birth city not recognized. Please choose from suggestions or provide coordinates.');
+    }
+    latitude = city.latitude;
+    longitude = city.longitude;
+    timezoneOffset = input.timezoneOffset ?? city.timezoneOffset;
+    birthCountry = input.birthCountry !== undefined ? input.birthCountry : city.country;
   }
 
   await db
-    .update(users)
+    .update(birthProfiles)
     .set({
-      displayName,
-      bio: bio.length > 0 ? bio : null,
-      timezone,
-      updatedAt: sql`(CURRENT_TIMESTAMP)`,
+      birthDate: input.birthDate ?? existing.birthDate,
+      birthTime: input.birthTime !== undefined ? input.birthTime : existing.birthTime,
+      birthCity,
+      birthCountry,
+      latitude,
+      longitude,
+      timezoneOffset,
     })
-    .where(eq(users.id, userId));
-
-  return getFullProfile(db, userId);
+    .where(eq(birthProfiles.userId, userId));
 }
 
 export async function updateProfileAvatar(

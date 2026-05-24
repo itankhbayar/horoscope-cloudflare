@@ -5,7 +5,9 @@ import { useAppearance, type AppearanceMode } from '../../hooks/useAppearance';
 export type SanctuaryPalette = {
   bgDeep: string;
   bgMid: string;
+  bgAccent: string;
   card: string;
+  surfaceTint: string;
   cardBorder: string;
   lavender: string;
   mint: string;
@@ -31,7 +33,9 @@ export type SanctuaryPalette = {
 export const SANCTUARY_DARK: SanctuaryPalette = {
   bgDeep: '#2A255F',
   bgMid: '#3C348C',
+  bgAccent: '#4B3DB0',
   card: '#25245A',
+  surfaceTint: 'rgba(255,255,255,0.06)',
   cardBorder: 'rgba(184, 168, 255, 0.18)',
   lavender: '#B8A8FF',
   mint: '#9FE3C2',
@@ -54,7 +58,9 @@ export const SANCTUARY_DARK: SanctuaryPalette = {
 export const SANCTUARY_LIGHT: SanctuaryPalette = {
   bgDeep: '#ECE9FF',
   bgMid: '#D8D2FF',
+  bgAccent: '#C8C0FF',
   card: '#FFFFFF',
+  surfaceTint: 'rgba(107,85,229,0.08)',
   cardBorder: 'rgba(97, 109, 196, 0.22)',
   lavender: '#6B55E5',
   mint: '#2FA87A',

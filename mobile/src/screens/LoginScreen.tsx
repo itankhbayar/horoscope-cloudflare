@@ -15,6 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../hooks/useAuth';
 import type { RootStackParamList } from '../navigation/types';
 import { CosmicCard } from '../components/CosmicCard';
+import { LegalLinks } from '../components/LegalLinks';
 import {
   brandTitleSize,
   colors,
@@ -23,7 +24,6 @@ import {
   MIN_TOUCH,
   spacing,
 } from '../theme';
-import { resetToMain } from '../navigation/navigationRef';
 import { getApiBaseUrl } from '@astralis/lib/apiClient';
 import { useAppearance } from '../hooks/useAppearance';
 
@@ -40,7 +40,6 @@ export function LoginScreen(): React.JSX.Element {
     setErrorMsg('');
     try {
       await login({ email: email.trim(), password });
-      resetToMain();
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Sign in failed');
     }
@@ -175,6 +174,7 @@ export function LoginScreen(): React.JSX.Element {
             >
               <Text style={[styles.linkText, { color: palette.accent }]}>New here? Create an account</Text>
             </Pressable>
+            <LegalLinks compact />
           </CosmicCard>
         </ScrollView>
       </KeyboardAvoidingView>

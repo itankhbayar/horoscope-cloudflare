@@ -18,6 +18,9 @@ export function usePremiumCheckout(): UsePremiumCheckoutResult {
       refreshStatus: revenueCat.refreshStatus,
       billingProvider: 'revenuecat',
       purchasesConfigured: revenueCat.purchasesConfigured,
+      premiumPlans: revenueCat.premiumPlans,
+      premiumPlansLoading: revenueCat.premiumPlansLoading,
+      premiumPlansError: revenueCat.premiumPlansError,
     }),
     [revenueCat],
   );

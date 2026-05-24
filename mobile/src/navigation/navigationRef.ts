@@ -15,6 +15,12 @@ export function resetToLogin(): void {
   }
 }
 
+export function resetToOnboarding(): void {
+  if (navigationRef.isReady()) {
+    navigationRef.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Onboarding' }] }));
+  }
+}
+
 export function goToAppAppearance(): void {
   if (navigationRef.isReady()) {
     navigationRef.navigate('AppAppearance');
@@ -36,5 +42,11 @@ export function goToManageNotifications(): void {
 export function goToDeleteAccount(): void {
   if (navigationRef.isReady()) {
     navigationRef.navigate('DeleteAccount');
+  }
+}
+
+export function goToPremium(source?: 'locked_preview' | 'profile_card' | 'post_reading' | 'onboarding_teaser'): void {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('Premium', source ? { source } : undefined);
   }
 }

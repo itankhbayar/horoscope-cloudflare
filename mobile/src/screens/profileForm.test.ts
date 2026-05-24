@@ -15,7 +15,7 @@ const sampleProfile: ProfilePayload = {
     birthDate: '1995-06-12',
     birthTime: null,
     birthCity: 'Ulaanbaatar',
-    birthCountry: null,
+    birthCountry: 'Mongolia',
     latitude: 47.9,
     longitude: 106.9,
     timezoneOffset: 8,
@@ -62,6 +62,9 @@ describe('profileForm', () => {
     expect(draft.email).toBe('user@example.com');
     expect(draft.zodiacSign).toBe('gemini');
     expect(draft.birthDate).toBe('1995-06-12');
+    expect(draft.birthTime).toBe('');
+    expect(draft.birthCity).toBe('Ulaanbaatar, Mongolia');
+    expect(draft.selectedCity).toMatchObject({ name: 'Ulaanbaatar', country: 'Mongolia' });
     expect(draft.timezone).toBe('8');
   });
 
@@ -71,6 +74,16 @@ describe('profileForm', () => {
       email: 'user@example.com',
       zodiacSign: 'gemini',
       birthDate: '1995-06-12',
+      birthTime: '',
+      birthCity: 'Ulaanbaatar, Mongolia',
+      selectedCity: {
+        name: 'Ulaanbaatar',
+        country: 'Mongolia',
+        latitude: 47.9,
+        longitude: 106.9,
+        timezoneOffset: 8,
+        displayLabel: 'Ulaanbaatar, Mongolia',
+      },
       timezone: '+8',
     });
     expect(errors).toEqual({});
@@ -82,11 +95,15 @@ describe('profileForm', () => {
       email: 'user@example.com',
       zodiacSign: '',
       birthDate: '1995/06/12',
+      birthTime: '28:10',
+      birthCity: '',
+      selectedCity: null,
       timezone: '',
     });
     expect(errors.fullName).toBeTruthy();
-    expect(errors.zodiacSign).toBeTruthy();
     expect(errors.birthDate).toBeTruthy();
+    expect(errors.birthTime).toBeTruthy();
+    expect(errors.birthCity).toBeTruthy();
     expect(errors.timezone).toBeTruthy();
   });
 

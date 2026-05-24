@@ -1,5 +1,6 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import Constants from 'expo-constants';
+import { Linking, Pressable, StyleSheet, Switch, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,6 +8,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { spacing } from '../theme';
 import { goToDeleteAccount } from '../navigation/navigationRef';
 import { useAppearance } from '../hooks/useAppearance';
+import { getAnalyticsConsent, setAnalyticsConsent } from '../lib/analytics';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -22,6 +24,18 @@ export function AccountSettingsScreen(): React.JSX.Element {
   const dangerText = isLight ? '#8f2d45' : '#f4a8ba';
   const dangerDescription = isLight ? '#a05d71' : '#daa6b4';
   const dangerChevron = isLight ? '#be5c7a' : '#f1a4b8';
+  const privacyUrl = legalUrl('privacyPolicyUrl');
+  const termsUrl = legalUrl('termsOfServiceUrl');
+  const [analyticsAllowed, setAnalyticsAllowed] = useState(false);
+
+  useEffect(() => {
+    void getAnalyticsConsent().then(setAnalyticsAllowed);
+  }, []);
+
+  const toggleAnalytics = async (next: boolean): Promise<void> => {
+    setAnalyticsAllowed(next);
+    await setAnalyticsConsent(next);
+  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: isLight ? '#f3f3f6' : palette.background }]} edges={['left', 'right', 'top']}>
@@ -29,7 +43,7 @@ export function AccountSettingsScreen(): React.JSX.Element {
       <View style={styles.container}>
         <Pressable
           onPress={() => navigation.goBack()}
-          style={({ pressed }) => [
+          style={({ pressed }: { pressed: boolean }) => [
             styles.backButton,
             {
               backgroundColor: isLight ? '#ece9ff' : 'rgba(139, 107, 255, 0.22)',
@@ -61,6 +75,37 @@ export function AccountSettingsScreen(): React.JSX.Element {
           ]}
         >
           <SettingRow
+            title="Product Analytics"
+            description="Share privacy-safe usage events to improve retention and Premium flows."
+            onPress={() => undefined}
+            titleColor={palette.text}
+            descriptionColor={palette.textMuted}
+            chevronColor={palette.textMuted}
+            rightAccessory={
+              <Switch
+                value={analyticsAllowed}
+                onValueChange={(next) => void toggleAnalytics(next)}
+                accessibilityLabel="Product analytics consent"
+              />
+            }
+          />
+          <SettingRow
+            title="Privacy Policy"
+            description="Review how account, birth, billing, and notification data are handled."
+            onPress={() => void Linking.openURL(privacyUrl)}
+            titleColor={palette.text}
+            descriptionColor={palette.textMuted}
+            chevronColor={palette.textMuted}
+          />
+          <SettingRow
+            title="Terms of Service"
+            description="Read the current usage and subscription terms."
+            onPress={() => void Linking.openURL(termsUrl)}
+            titleColor={palette.text}
+            descriptionColor={palette.textMuted}
+            chevronColor={palette.textMuted}
+          />
+          <SettingRow
             title="Delete Account"
             description="Permanently remove your account and personal data."
             onPress={goToDeleteAccount}
@@ -68,11 +113,21 @@ export function AccountSettingsScreen(): React.JSX.Element {
             descriptionColor={dangerDescription}
             chevronColor={dangerChevron}
             rowStyle={{ backgroundColor: subtleDanger, borderColor: subtleDangerBorder }}
+            showDangerDot
           />
         </View>
       </View>
     </SafeAreaView>
   );
+}
+
+function legalUrl(key: 'privacyPolicyUrl' | 'termsOfServiceUrl'): string {
+  const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
+  const value = extra?.[key];
+  if (typeof value === 'string' && value.length > 0) return value;
+  return key === 'privacyPolicyUrl'
+    ? 'https://horoscope-frontend.pages.dev/privacy'
+    : 'https://horoscope-frontend.pages.dev/terms';
 }
 
 function SettingRow({
@@ -83,6 +138,8 @@ function SettingRow({
   descriptionColor,
   chevronColor,
   rowStyle,
+  showDangerDot = false,
+  rightAccessory,
 }: {
   title: string;
   description?: string;
@@ -91,20 +148,23 @@ function SettingRow({
   descriptionColor: string;
   chevronColor: string;
   rowStyle?: StyleProp<ViewStyle>;
+  showDangerDot?: boolean;
+  rightAccessory?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.row, rowStyle, pressed && styles.pressed]}
+      style={({ pressed }: { pressed: boolean }) => [styles.row, rowStyle, pressed && styles.pressed]}
       accessibilityRole="button"
       accessibilityLabel={title}
     >
       <View style={styles.rowTextWrap}>
         <Text style={[styles.rowLabel, { color: titleColor }]}>{title}</Text>
         {description ? <Text style={[styles.rowDescription, { color: descriptionColor }]}>{description}</Text> : null}
+        {rightAccessory}
       </View>
       <Text style={[styles.rowChevron, { color: chevronColor }]}>›</Text>
-      <View style={styles.rowDangerDot} />
+      {showDangerDot ? <View style={styles.rowDangerDot} /> : null}
     </Pressable>
   );
 }

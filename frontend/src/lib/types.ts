@@ -33,6 +33,10 @@ export interface AuthUser {
   timezone?: string | null;
   createdAt?: string;
   isPremium?: boolean;
+  streakCount?: number;
+  longestStreakCount?: number;
+  streakFreezes?: number;
+  streakFreezeCap?: number;
 }
 
 export interface AuthResult {
@@ -126,8 +130,14 @@ export interface NatalChart {
 
 export interface ProfilePayload {
   user: AuthUser;
+  ritualHistory?: RitualHistoryDay[];
   birthProfile: BirthProfile | null;
   natalChart: NatalChart | null;
+}
+
+export interface RitualHistoryDay {
+  date: string;
+  completed: boolean;
 }
 
 export interface DailyHoroscope {
@@ -142,6 +152,18 @@ export interface DailyHoroscope {
   sunSign?: ZodiacSign;
   moonSign?: ZodiacSign;
   risingSign?: ZodiacSign | null;
+  streakCount?: number;
+  longestStreakCount?: number;
+  streakLastDate?: string | null;
+  streakFreezes?: number;
+  streakFreezeAwarded?: boolean;
+  streakFreezeCap?: number;
+  streakFreezeAwardReason?: null | '7_day' | '30_day' | '100_day';
+  isNewStreakDay?: boolean;
+  streakPreservedByFreeze?: boolean;
+  milestoneReached?: null | 3 | 7 | 14 | 30 | 50 | 100;
+  nextMilestone?: null | 3 | 7 | 14 | 30 | 50 | 100;
+  streakSegment?: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
 }
 
 export interface CompatibilityResult {
@@ -167,6 +189,13 @@ export interface NotificationPreferences {
   saleAlertsEnabled: boolean;
   horoscopesEnabled: boolean;
   transitsEnabled: boolean;
+  dailyReminderEnabled: boolean;
+  streakReminderEnabled: boolean;
+  reEngagementEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  reminderHourLocal: number;
 }
 
 export interface NotificationPreferencesUpdate {
@@ -174,6 +203,13 @@ export interface NotificationPreferencesUpdate {
   saleAlertsEnabled?: boolean;
   horoscopesEnabled?: boolean;
   transitsEnabled?: boolean;
+  dailyReminderEnabled?: boolean;
+  streakReminderEnabled?: boolean;
+  reEngagementEnabled?: boolean;
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  reminderHourLocal?: number;
 }
 
 export interface PushTokenRegistrationPayload {

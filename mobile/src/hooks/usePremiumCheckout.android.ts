@@ -2,12 +2,20 @@ import { useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { useStripePremiumCheckout } from './useStripePremiumCheckout';
 import type { UsePremiumCheckoutResult } from './usePremiumCheckout.shared';
+import { checkoutDeferredPremiumPlanDisplays } from '../lib/revenueCat/packages';
 
 export type { PremiumCheckoutActions, UpgradeOptions, UsePremiumCheckoutResult } from './usePremiumCheckout.shared';
 
 export function usePremiumCheckout(): UsePremiumCheckoutResult {
   const { user } = useAuth();
   const stripe = useStripePremiumCheckout();
+  const premiumPlans = useMemo(
+    () =>
+      checkoutDeferredPremiumPlanDisplays(
+        'Android currently uses Stripe checkout; pricing is resolved by the backend checkout session.',
+      ),
+    [],
+  );
 
   return useMemo(
     () => ({
@@ -20,8 +28,11 @@ export function usePremiumCheckout(): UsePremiumCheckoutResult {
       refreshStatus: stripe.refreshStatus,
       billingProvider: 'stripe',
       purchasesConfigured: true,
+      premiumPlans,
+      premiumPlansLoading: false,
+      premiumPlansError: null,
     }),
-    [stripe, user?.isPremium],
+    [premiumPlans, stripe, user?.isPremium],
   );
 }
 
