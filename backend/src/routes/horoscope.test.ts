@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 const mocks = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockGetOrCreateDailyHoroscope: vi.fn(),
+  mockPersonalizeDailyHoroscope: vi.fn((horoscope: unknown) => horoscope),
   mockRecordDailyHoroscopeStreak: vi.fn(),
 }));
 
@@ -25,6 +26,7 @@ vi.mock('../middleware/auth', () => ({
 
 vi.mock('../services/horoscopeService', () => ({
   getOrCreateDailyHoroscope: mocks.mockGetOrCreateDailyHoroscope,
+  personalizeDailyHoroscope: mocks.mockPersonalizeDailyHoroscope,
 }));
 
 vi.mock('../services/streakService', () => ({
@@ -65,6 +67,7 @@ describe('horoscope routes', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-19T16:30:00.000Z'));
     vi.clearAllMocks();
+    mocks.mockPersonalizeDailyHoroscope.mockImplementation((horoscope: unknown) => horoscope);
     cacheStore = new Map();
     waitUntilPromises = [];
     executionCtx = {
@@ -223,6 +226,14 @@ describe('horoscope routes', () => {
       'aries',
       'en',
       '2026-05-20',
+    );
+    expect(mocks.mockPersonalizeDailyHoroscope).toHaveBeenCalledWith(
+      expect.objectContaining({ sign: 'aries' }),
+      expect.objectContaining({
+        sunSign: 'aries',
+        moonSign: 'leo',
+        risingSign: 'libra',
+      }),
     );
     expect(mocks.mockRecordDailyHoroscopeStreak).toHaveBeenCalledWith(db, 'user-1', '2026-05-19');
     expect(mockCache.match).not.toHaveBeenCalled();

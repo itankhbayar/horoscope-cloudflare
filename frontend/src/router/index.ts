@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
 const pages = {
+  LandingPage: () => import('../pages/LandingPage.vue'),
   HomePage: () => import('../pages/HomePage.vue'),
   LoginPage: () => import('../pages/LoginPage.vue'),
   RegisterPage: () => import('../pages/RegisterPage.vue'),
@@ -32,7 +33,8 @@ function runWhenIdle(task: () => void): void {
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', name: 'home', component: pages.HomePage, meta: { requiresAuth: true } },
+    { path: '/', name: 'landing', component: pages.LandingPage, meta: { seoCritical: true } },
+    { path: '/today', name: 'home', component: pages.HomePage, meta: { requiresAuth: true } },
     { path: '/chart', name: 'chart', component: pages.ChartPage, meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: pages.ProfilePage, meta: { requiresAuth: true } },
     { path: '/compatibility', name: 'compatibility', component: pages.CompatibilityPage, meta: { requiresAuth: true } },
@@ -74,7 +76,7 @@ router.beforeEach(async (to) => {
 
 router.afterEach((to) => {
   runWhenIdle(() => {
-    if (to.meta.guest) void pages.HomePage();
+    if (to.meta.guest || to.name === 'landing') void pages.HomePage();
     if (to.name === 'home') {
       void pages.CompatibilityPage();
       void pages.TarotPage();

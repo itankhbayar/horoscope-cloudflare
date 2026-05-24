@@ -26,10 +26,10 @@ export function PremiumAccessCard(): React.JSX.Element {
   const onRefreshStatus = useCallback(() => void refreshStatus(), [refreshStatus]);
 
   const bodyCopy = purchasesUnavailable
-    ? 'Purchases are not configured yet. Premium will unlock after Apple in-app purchase setup is complete.'
+    ? 'Purchases are not configured yet. Premium sky layers will unlock after Apple in-app purchase setup is complete.'
     : isIosIap
-      ? 'Subscribe with your Apple ID, manage in App Store Subscriptions, or restore purchases on a new device.'
-      : 'Upgrade with Stripe, manage billing, or restore your entitlement from the server.';
+      ? 'Open deeper chart intelligence with your Apple ID, manage in App Store Subscriptions, or restore purchases on a new device.'
+      : 'Open deeper chart intelligence with secure checkout, manage billing, or restore your entitlement from the server.';
 
   const upgradeLabel = purchasesUnavailable
     ? 'Purchases not configured'
@@ -42,7 +42,7 @@ export function PremiumAccessCard(): React.JSX.Element {
         : 'Upgrade with Stripe';
 
   return (
-    <CosmicCard title="Premium">
+    <CosmicCard title="Astralis Sky Intelligence">
       <View
         style={[
           styles.planStatus,
@@ -51,7 +51,7 @@ export function PremiumAccessCard(): React.JSX.Element {
         ]}
       >
         <Text style={[styles.statusLabel, { color: palette.textMuted }]}>Current plan</Text>
-        <Text style={[styles.statusValue, { color: palette.text }]}>{isPremium ? 'Premium active' : 'Free plan'}</Text>
+        <Text style={[styles.statusValue, { color: palette.text }]}>{isPremium ? 'Deeper sky layers active' : 'Core sky ritual'}</Text>
       </View>
       <Text style={[styles.body, { fontSize: bodySize, lineHeight, color: palette.textMuted }]}>{bodyCopy}</Text>
 

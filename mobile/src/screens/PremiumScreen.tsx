@@ -29,6 +29,7 @@ import { usesRevenueCatBilling } from '../lib/billing/platform';
 import { readRevenueCatConfigurationStatus } from '../lib/revenueCat/config';
 import type { PremiumPlanDisplay } from '../lib/revenueCat/packages';
 import { track } from '../lib/analytics';
+import { PREMIUM_POSITIONING_COPY } from '../lib/brandCopy';
 import type { RootStackParamList } from '../navigation/types';
 
 type PremiumFeature = {
@@ -43,85 +44,48 @@ type ComparisonRow = {
   premium: string;
 };
 
-type ProofItem = {
-  metric: string;
-  label: string;
-};
-
-type Testimonial = {
-  quote: string;
-  name: string;
-};
-
 const PREMIUM_EXPERIMENT = {
-  variant: 'conversion-v1',
+  variant: 'sky-intelligence-v1',
   trialDays: null as number | null,
-  urgencyCopy: 'Tonight is a strong window to go deeper.',
+  urgencyCopy: 'A quieter way to read the sky, when you are ready.',
 };
 
-const COPY = {
-  heroBadge: 'Astralis Premium',
-  heroTitle: 'Unlock the guidance your chart has been holding back.',
-  heroSubtitle:
-    'Get deeper readings, clearer relationship insight, and a daily ritual that feels personal instead of generic.',
-  heroCta: 'Unlock full reading',
-  activeCta: 'Manage Premium',
-  secondaryTrust: 'Secure checkout. Cancel anytime.',
-  secondaryTrustIos: 'Billed through your Apple ID. Cancel anytime in Subscriptions.',
-  valueTitle: 'What Premium changes',
-  compareTitle: 'Free vs Premium',
-  proofTitle: 'Trusted by astrology seekers',
-  pricingTitle: 'Choose your access',
-  lockedTitle: 'Your next insight is waiting',
-  lockedCta: 'Unlock the full reading',
-  stickySubtitle: 'Premium members get every layer.',
-};
+const COPY = PREMIUM_POSITIONING_COPY;
 
 const FEATURES: PremiumFeature[] = [
   {
-    title: 'Unlimited Tarot',
-    value: 'Pull as often as you need and revisit the spread when your day shifts.',
+    title: 'Deeper chart intelligence',
+    value: 'Move beyond sun-sign summaries into houses, angles, and chart patterns calculated from your birth data.',
     accent: '#c9a34a',
   },
   {
-    title: 'Advanced Compatibility',
-    value: 'See where a connection flows, where it strains, and what to do with both.',
+    title: 'Live sky interpretation',
+    value: 'Read daily timing through the moving sky, with context for why a theme may be active now.',
     accent: '#e0789b',
   },
   {
-    title: 'Personalized Daily Guidance',
-    value: 'Turn transits into practical timing for love, focus, energy, and decisions.',
+    title: 'Compatibility through overlays',
+    value: 'Compare two charts through relationship dynamics instead of reducing people to sign matches.',
     accent: '#7bd3d0',
   },
   {
-    title: 'Full Birth Chart Access',
-    value: 'Unlock the deeper map behind your sun, moon, rising, houses, and aspects.',
+    title: 'Astronomy-accurate calculations',
+    value: 'Interpretations begin from real planetary positions and your local birth sky.',
     accent: '#a88cff',
   },
   {
-    title: 'Ad-free Experience',
-    value: 'Keep your ritual quiet, focused, and uninterrupted.',
+    title: 'A calm premium ritual',
+    value: 'A quieter interface for deeper reflection, inspired by the open steppe sky.',
     accent: '#7bbf6a',
   },
 ];
 
 const COMPARISON: ComparisonRow[] = [
-  { label: 'Daily guidance', free: 'Today only', premium: 'Today, future, and deeper context' },
-  { label: 'Tarot readings', free: 'Limited previews', premium: 'Unlimited full readings' },
-  { label: 'Compatibility', free: 'Basic sign match', premium: 'Advanced relationship dynamics' },
-  { label: 'Birth chart', free: 'Core placements', premium: 'Full chart access' },
-  { label: 'Experience', free: 'Standard', premium: 'Ad-free and priority features' },
-];
-
-const PROOF: ProofItem[] = [
-  { metric: '4.8/5', label: 'average member rating' },
-  { metric: '38k+', label: 'readings unlocked' },
-  { metric: '92%', label: 'say guidance feels more personal' },
-];
-
-const TESTIMONIALS: Testimonial[] = [
-  { quote: 'Premium made the daily reading feel like it was written for my actual week.', name: 'Maya' },
-  { quote: 'The compatibility notes helped me name a pattern I kept missing.', name: 'Erdene' },
+  { label: 'Daily sky', free: 'Today anchored to your chart', premium: 'Today plus deeper timing context' },
+  { label: 'Birth chart', free: 'Core placements', premium: 'Expanded chart layers and patterns' },
+  { label: 'Transits', free: 'Light daily context', premium: 'Live sky interpretation and timing' },
+  { label: 'Compatibility', free: 'Basic sign comparison', premium: 'Chart overlay dynamics' },
+  { label: 'Experience', free: 'Calm core ritual', premium: 'Quieter, deeper premium ritual' },
 ];
 
 export function PremiumScreen(): React.JSX.Element {
@@ -252,7 +216,7 @@ export function PremiumScreen(): React.JSX.Element {
           <ComparisonTable rows={COMPARISON} palette={palette} />
 
           <SectionTitle title={COPY.proofTitle} palette={palette} />
-          <SocialProof palette={palette} isIosIap={isIosIap} />
+          <FoundationProof palette={palette} isIosIap={isIosIap} />
 
           <SectionTitle title={COPY.pricingTitle} palette={palette} />
           <View style={styles.pricingList}>
@@ -350,15 +314,15 @@ function HeroSection({
         {COPY.heroSubtitle}
       </Text>
       <View style={styles.heroStats}>
-        <MiniStat value="5" label="premium layers" palette={palette} />
-        <MiniStat value="24/7" label="ritual access" palette={palette} />
+        <MiniStat value="Real" label="planetary positions" palette={palette} />
+        <MiniStat value="Local" label="birthplace sky" palette={palette} />
       </View>
       <PrimaryButton
         label={isPremium ? COPY.activeCta : COPY.heroCta}
         busy={busy}
         onPress={onPress}
         disabled={purchasesUnavailable && !isPremium}
-        accessibilityLabel={isPremium ? 'Manage Premium subscription' : 'Unlock full Premium reading'}
+        accessibilityLabel={isPremium ? 'Manage premium access' : 'Open deeper sky layers'}
       />
       <Text style={[styles.urgency, { color: palette.textMuted }]}>{PREMIUM_EXPERIMENT.urgencyCopy}</Text>
     </View>
@@ -430,23 +394,30 @@ function ComparisonTable({ rows, palette }: { rows: ComparisonRow[]; palette: Ap
   );
 }
 
-function SocialProof({ palette, isIosIap }: { palette: AppearancePalette; isIosIap: boolean }) {
+function FoundationProof({ palette, isIosIap }: { palette: AppearancePalette; isIosIap: boolean }) {
+  const items = [
+    { metric: 'Sky', label: 'Mapped from astronomical calculations' },
+    { metric: 'Place', label: 'Birth location shapes the chart' },
+    { metric: 'Tone', label: 'Premium, calm, non-cringe ritual design' },
+  ];
   return (
     <View style={styles.proofWrap}>
       <View style={styles.proofGrid}>
-        {PROOF.map((item) => (
+        {items.map((item) => (
           <View key={item.metric} style={[styles.proofCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
             <Text style={[styles.proofMetric, { color: palette.text }]}>{item.metric}</Text>
             <Text style={[styles.proofLabel, { color: palette.textMuted }]}>{item.label}</Text>
           </View>
         ))}
       </View>
-      {TESTIMONIALS.map((item) => (
-        <View key={item.name} style={[styles.testimonial, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-          <Text style={[styles.testimonialQuote, { color: palette.text }]}>"{item.quote}"</Text>
-          <Text style={[styles.testimonialName, { color: palette.textMuted }]}>- {item.name}, Premium member</Text>
-        </View>
-      ))}
+      <View style={[styles.foundationNote, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+        <Text style={[styles.foundationNoteText, { color: palette.text }]}>
+          {COPY.calmLine}
+        </Text>
+        <Text style={[styles.foundationNoteMeta, { color: palette.textMuted }]}>
+          Astralis keeps astronomical calculation and astrological interpretation clearly distinct.
+        </Text>
+      </View>
       <Text style={[styles.trustLine, { color: palette.textMuted }]}>
         {isIosIap
           ? 'Subscriptions are managed with your Apple ID. Restore purchases anytime.'
@@ -605,7 +576,7 @@ function StickyCta({
         onPress={onPress}
         compact
         disabled={purchasesUnavailable && !isPremium}
-        accessibilityLabel={isPremium ? 'Manage Premium subscription' : 'Unlock full reading with Premium'}
+        accessibilityLabel={isPremium ? 'Manage premium access' : 'Open deeper sky layers'}
       />
     </View>
   );
@@ -742,9 +713,9 @@ const styles = StyleSheet.create({
   proofCard: { flex: 1, borderWidth: 1, borderRadius: 16, padding: spacing.sm },
   proofMetric: { fontSize: 17, lineHeight: 22, fontWeight: '900' },
   proofLabel: { marginTop: 2, fontSize: 11, lineHeight: 15 },
-  testimonial: { borderWidth: 1, borderRadius: 16, padding: spacing.md },
-  testimonialQuote: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  testimonialName: { marginTop: spacing.xs, fontSize: 12, lineHeight: 17 },
+  foundationNote: { borderWidth: 1, borderRadius: 16, padding: spacing.md },
+  foundationNoteText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  foundationNoteMeta: { marginTop: spacing.xs, fontSize: 12, lineHeight: 17 },
   pricingList: { gap: spacing.sm },
   planCard: { borderWidth: 1.5, borderRadius: 20, padding: spacing.lg },
   planTopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },

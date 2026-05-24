@@ -74,6 +74,26 @@ export interface NatalChartData {
   aspects: Aspect[];
 }
 
+export interface MoonPhase {
+  name: 'New Moon' | 'Waxing Crescent' | 'First Quarter' | 'Waxing Gibbous' | 'Full Moon' | 'Waning Gibbous' | 'Last Quarter' | 'Waning Crescent';
+  illumination: number;
+  angle: number;
+}
+
+export interface DailySkySnapshot {
+  date: string;
+  planets: PlanetPosition[];
+  moonPhase: MoonPhase;
+}
+
+export interface TransitToNatalAspect extends Aspect {
+  transitBody: PlanetName;
+  natalBody: PlanetName;
+  natalHouse?: number;
+  natalSign: ZodiacSign;
+  transitSign: ZodiacSign;
+}
+
 export interface BirthInput {
   birthDate: string;
   birthTime: string | null;
@@ -255,4 +275,83 @@ export function computeNatalChart(input: BirthInput): NatalChartData {
     houses,
     aspects,
   };
+}
+
+function moonPhaseName(angle: number): MoonPhase['name'] {
+  if (angle < 22.5 || angle >= 337.5) return 'New Moon';
+  if (angle < 67.5) return 'Waxing Crescent';
+  if (angle < 112.5) return 'First Quarter';
+  if (angle < 157.5) return 'Waxing Gibbous';
+  if (angle < 202.5) return 'Full Moon';
+  if (angle < 247.5) return 'Waning Gibbous';
+  if (angle < 292.5) return 'Last Quarter';
+  return 'Waning Crescent';
+}
+
+function computeMoonPhase(sunLongitude: number, moonLongitude: number): MoonPhase {
+  const angle = normalizeAngle(moonLongitude - sunLongitude);
+  const illumination = (1 - Math.cos(toRadians(angle))) / 2;
+  return {
+    name: moonPhaseName(angle),
+    illumination: Math.round(illumination * 100) / 100,
+    angle: Math.round(angle * 100) / 100,
+  };
+}
+
+function dateFromISOAtNoonUTC(dateISO: string): Date {
+  return new Date(`${dateISO}T12:00:00.000Z`);
+}
+
+export function computeDailySkySnapshot(dateISO: string): DailySkySnapshot {
+  const date = dateFromISOAtNoonUTC(dateISO);
+  const planets: PlanetPosition[] = (Object.keys(PLANET_BODIES) as PlanetName[]).map((name) => {
+    const longitude = computeGeocentricLongitude(PLANET_BODIES[name], date);
+    return {
+      name,
+      longitude,
+      sign: signFromEclipticLongitude(longitude),
+      degreeInSign: Math.round(degreeWithinSign(longitude) * 100) / 100,
+      retrograde: isRetrograde(PLANET_BODIES[name], date),
+    };
+  });
+  const sun = planets.find((p) => p.name === 'Sun')!;
+  const moon = planets.find((p) => p.name === 'Moon')!;
+
+  return {
+    date: dateISO,
+    planets,
+    moonPhase: computeMoonPhase(sun.longitude, moon.longitude),
+  };
+}
+
+export function computeTransitToNatalAspects(
+  transits: PlanetPosition[],
+  natalPlanets: PlanetPosition[],
+): TransitToNatalAspect[] {
+  const aspects: TransitToNatalAspect[] = [];
+  for (const transit of transits) {
+    for (const natal of natalPlanets) {
+      let diff = Math.abs(transit.longitude - natal.longitude);
+      if (diff > 180) diff = 360 - diff;
+      for (const def of ASPECT_DEFINITIONS) {
+        const orb = Math.abs(diff - def.angle);
+        if (orb <= def.orb) {
+          aspects.push({
+            body1: transit.name,
+            body2: natal.name,
+            transitBody: transit.name,
+            natalBody: natal.name,
+            type: def.type,
+            orb: Math.round(orb * 100) / 100,
+            exactDegrees: def.angle,
+            natalHouse: natal.house,
+            natalSign: natal.sign,
+            transitSign: transit.sign,
+          });
+          break;
+        }
+      }
+    }
+  }
+  return aspects.sort((a, b) => a.orb - b.orb);
 }

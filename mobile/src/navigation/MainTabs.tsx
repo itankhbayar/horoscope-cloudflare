@@ -107,7 +107,7 @@ export function MainTabs(): ReactElement {
           title: 'Home',
           tabBarLabel: 'Home',
           tabBarIcon: iconHome,
-          tabBarAccessibilityLabel: 'Home, daily horoscope',
+          tabBarAccessibilityLabel: "Home, today's sky reading",
         }}
       />
       <Tab.Screen

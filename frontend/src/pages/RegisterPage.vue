@@ -144,8 +144,8 @@ async function handleRegister(): Promise<void> {
         <label class="consent-box">
           <input v-model="birthDataConsent" type="checkbox" required />
           <span>
-            I understand Astralis collects my birth date, optional birth time, and birth location to
-            calculate astrology placements and generate horoscope, chart, and compatibility insights.
+            I understand Astralis uses my birth date, optional birth time, and birth location to
+            calculate sky-based placements, chart insights, and compatibility context.
             I can delete my account and birth data later. See the
             <router-link to="/privacy">Privacy Policy</router-link>.
           </span>

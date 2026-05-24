@@ -46,26 +46,26 @@ export function ManageNotificationsScreen(): React.JSX.Element {
     () => [
       {
         key: 'allEnabled' as const,
-        label: 'All Notifications',
-        description: 'Enable push notifications for this app.',
+        label: 'All notifications',
+        description: 'Allow Astralis to send calm reminders about your sky rituals.',
         value: preferences?.allEnabled ?? false,
       },
       {
         key: 'dailyReminderEnabled' as const,
-        label: 'Daily Horoscope',
-        description: 'A daily reminder near your preferred local morning hour.',
+        label: "Today's sky",
+        description: 'A daily note when your sky reading is ready.',
         value: preferences?.dailyReminderEnabled ?? true,
       },
       {
         key: 'streakReminderEnabled' as const,
-        label: 'Check-in Streaks',
-        description: 'A gentle nudge if your daily ritual is waiting.',
+        label: 'Ritual rhythm',
+        description: 'A gentle reminder when your daily ritual is waiting.',
         value: preferences?.streakReminderEnabled ?? true,
       },
       {
         key: 'reEngagementEnabled' as const,
-        label: 'Come-back Nudges',
-        description: 'Occasional reminders after a few inactive days.',
+        label: 'Quiet returns',
+        description: 'Occasional soft notes after time away.',
         value: preferences?.reEngagementEnabled ?? true,
       },
       {
@@ -76,20 +76,20 @@ export function ManageNotificationsScreen(): React.JSX.Element {
       },
       {
         key: 'saleAlertsEnabled' as const,
-        label: 'Sale Alerts',
-        description: 'Promotions and limited offers.',
+        label: 'Access notes',
+        description: 'Rare updates about premium access or offers.',
         value: preferences?.saleAlertsEnabled ?? false,
       },
       {
         key: 'horoscopesEnabled' as const,
-        label: 'Horoscopes',
-        description: 'Daily horoscope updates.',
+        label: 'Sky readings',
+        description: 'Updates about daily sky readings.',
         value: preferences?.horoscopesEnabled ?? false,
       },
       {
         key: 'transitsEnabled' as const,
-        label: 'Transits',
-        description: 'Important transit and cosmic event alerts.',
+        label: 'Transit context',
+        description: 'Notable sky movement and timing context.',
         value: preferences?.transitsEnabled ?? false,
       },
     ],
@@ -115,8 +115,8 @@ export function ManageNotificationsScreen(): React.JSX.Element {
           <Text style={[styles.backChevron, { color: isLight ? '#2f3566' : '#d8d2ff' }]}>‹</Text>
         </Pressable>
 
-        <Text style={[styles.title, { color: palette.text }]}>Manage Notifications</Text>
-        <Text style={[styles.subtitle, { color: palette.textMuted }]}>Configure your app notifications</Text>
+        <Text style={[styles.title, { color: palette.text }]}>Notification Rituals</Text>
+        <Text style={[styles.subtitle, { color: palette.textMuted }]}>Choose which sky notes feel useful.</Text>
 
         {loading ? (
           <View style={styles.centered}>

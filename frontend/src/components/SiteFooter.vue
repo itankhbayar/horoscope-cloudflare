@@ -9,13 +9,14 @@ const { isAuthenticated } = useAuth();
 const navLinks = computed(() =>
   isAuthenticated.value
     ? [
-        { to: '/', label: t('nav.home') },
+        { to: '/today', label: t('nav.home') },
         { to: '/profile', label: t('nav.profile') },
         { to: '/compatibility', label: t('nav.compatibility') },
         { to: '/tarot', label: t('nav.tarot') },
         { to: '/premium', label: t('nav.premium') },
       ]
     : [
+        { to: '/', label: t('landing.navLanding') },
         { to: '/login', label: t('auth.signIn') },
         { to: '/register', label: t('auth.createAccount') },
       ],

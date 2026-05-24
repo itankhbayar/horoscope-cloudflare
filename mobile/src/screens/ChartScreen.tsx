@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useProfile } from '../hooks/useProfile';
+import { useHoroscope } from '../hooks/useHoroscope';
 import { LoadingBlock } from '../components/LoadingBlock';
 import { ScreenScroll } from '../components/ScreenScroll';
 import {
@@ -13,9 +14,10 @@ import {
   spacing,
 } from '../theme';
 import { planetSymbol } from '@astralis/lib/zodiac';
-import type { NatalChart, PlanetPosition, ZodiacSign } from '@astralis/lib/types';
+import type { DailyHoroscope, NatalChart, PlanetPosition, ZodiacSign } from '@astralis/lib/types';
 import { useAppearance } from '../hooks/useAppearance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { currentSkySummary, strongestTransitCopy, whyThisReadingCopy } from '../components/home/homeContentUtils';
 
 type ChartTab = 'chart' | 'houses' | 'planets';
 
@@ -74,11 +76,17 @@ export function ChartScreen(): React.JSX.Element {
   const isLight = mode === 'light';
   const insets = useSafeAreaInsets();
   const { profile, load, recompute, loading, error } = useProfile();
+  const { horoscope, loadMine } = useHoroscope();
   const [activeTab, setActiveTab] = useState<ChartTab>('chart');
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!profile?.natalChart) return;
+    void loadMine();
+  }, [loadMine, profile?.natalChart]);
 
   const onRecompute = useCallback((): void => {
     void recompute();
@@ -90,7 +98,7 @@ export function ChartScreen(): React.JSX.Element {
   const listFont = useMemo(() => bodyFontSize(width), [width]);
   const listLineHeight = useMemo(() => bodyLineHeight(width), [width]);
   const subtitle = useMemo(() => {
-    if (!birthProfile) return 'Add birth details to unlock your cosmic blueprint.';
+    if (!birthProfile) return 'Add birth details to calculate the sky above your birthplace.';
     const cityLine = [birthProfile.birthCity, birthProfile.birthCountry].filter(Boolean).join(', ');
     const timeLine = birthProfile.birthTime ? `${birthProfile.birthDate} at ${birthProfile.birthTime}` : birthProfile.birthDate;
     return `${timeLine}${cityLine ? ` · ${cityLine}` : ''}`;
@@ -111,7 +119,7 @@ export function ChartScreen(): React.JSX.Element {
 
       <SegmentedTabControl activeTab={activeTab} onChange={setActiveTab} palette={palette} />
 
-      {loading ? <LoadingBlock message="Casting chart…" /> : null}
+      {loading ? <LoadingBlock message="Calculating planetary positions..." /> : null}
       {error ? (
         <Text style={[styles.error, { color: '#d14f4f' }]} accessibilityRole="alert">
           {error}
@@ -123,7 +131,7 @@ export function ChartScreen(): React.JSX.Element {
           <View style={[styles.headerCard, glassCardStyle]}>
             <View style={styles.headerTextWrap}>
               <Text style={[styles.title, { fontSize: titleSize, color: palette.text }]} accessibilityRole="header">
-                Birth Chart
+                Real-Sky Birth Chart
               </Text>
               <Text style={[styles.subtitle, { fontSize: listFont, lineHeight: listLineHeight, color: palette.textMuted }]}>
                 {subtitle}
@@ -139,6 +147,10 @@ export function ChartScreen(): React.JSX.Element {
           </View>
 
           {chart ? <ChartSummaryCard chart={chart} glassCardStyle={glassCardStyle} palette={palette} /> : null}
+
+          {chart && horoscope?.skyContext ? (
+            <TodaySkyChartPanel horoscope={horoscope} glassCardStyle={glassCardStyle} palette={palette} />
+          ) : null}
 
           {chart ? (
             <View style={[styles.wheelPanel, glassCardStyle]}>
@@ -160,7 +172,7 @@ export function ChartScreen(): React.JSX.Element {
             accessibilityRole="button"
             accessibilityLabel="Explore your chart"
           >
-            <Text style={styles.ctaText}>Explore Your Chart</Text>
+            <Text style={styles.ctaText}>Explore Your Sky Map</Text>
           </Pressable>
 
           <Pressable
@@ -168,11 +180,11 @@ export function ChartScreen(): React.JSX.Element {
             onPress={onRecompute}
             disabled={loading}
             accessibilityRole="button"
-            accessibilityLabel="Recompute natal chart"
+            accessibilityLabel="Recompute sky chart"
             accessibilityState={{ disabled: loading }}
             hitSlop={hitSlopComfortable}
           >
-            <Text style={[styles.secondaryText, { color: palette.accent }]}>Recompute chart</Text>
+            <Text style={[styles.secondaryText, { color: palette.accent }]}>Recompute sky chart</Text>
           </Pressable>
         </View>
       ) : null}
@@ -193,6 +205,37 @@ export function ChartScreen(): React.JSX.Element {
         </View>
       ) : null}
     </ScreenScroll>
+  );
+}
+
+function TodaySkyChartPanel({
+  horoscope,
+  glassCardStyle,
+  palette,
+}: {
+  horoscope: DailyHoroscope;
+  glassCardStyle: { backgroundColor: string; borderColor: string; borderWidth: number };
+  palette: { text: string; textMuted: string; accent: string };
+}): React.JSX.Element {
+  const skyItems = currentSkySummary(horoscope);
+  return (
+    <View style={[styles.todaySkyPanel, glassCardStyle]}>
+      <Text style={[styles.todaySkyKicker, { color: palette.accent }]}>Today against your chart</Text>
+      <View style={styles.todaySkyPanelGrid}>
+        {skyItems.map((item) => (
+          <View key={item.label} style={styles.todaySkyPanelItem}>
+            <Text style={[styles.todaySkyPanelLabel, { color: palette.textMuted }]}>{item.label}</Text>
+            <Text style={[styles.todaySkyPanelValue, { color: palette.text }]}>{item.value}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={[styles.todaySkyPanelBody, { color: palette.text }]}>
+        {strongestTransitCopy(horoscope)}
+      </Text>
+      <Text style={[styles.todaySkyPanelNote, { color: palette.textMuted }]}>
+        {whyThisReadingCopy(horoscope)}
+      </Text>
+    </View>
   );
 }
 
@@ -524,6 +567,34 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryLabel: { color: '#B7BDE8', fontWeight: '600', fontSize: 14 },
   summaryValue: { color: '#F1F3FF', fontWeight: '700', fontSize: 16 },
+  todaySkyPanel: { borderRadius: 18, padding: spacing.md, gap: spacing.sm },
+  todaySkyKicker: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  todaySkyPanelGrid: { flexDirection: 'row', gap: spacing.xs },
+  todaySkyPanelItem: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(176, 185, 236, 0.24)',
+    backgroundColor: 'rgba(255,255,255,0.055)',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  todaySkyPanelLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  todaySkyPanelValue: { marginTop: 3, fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  todaySkyPanelBody: { fontSize: 14, lineHeight: 20, fontWeight: '700' },
+  todaySkyPanelNote: { fontSize: 13, lineHeight: 19, fontWeight: '600' },
   wheelPanel: { borderRadius: 26, paddingVertical: spacing.lg, paddingHorizontal: spacing.md, overflow: 'hidden' },
   wheelGlow: {
     position: 'absolute',
@@ -714,4 +785,3 @@ const styles = StyleSheet.create({
   secondaryText: { color: colors.accent, fontWeight: '600', fontSize: 16 },
   pressed: { opacity: 0.85 },
 });
-

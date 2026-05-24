@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeNatalChart, type BirthInput } from './astrologyService';
+import { computeDailySkySnapshot, computeNatalChart, computeTransitToNatalAspects, type BirthInput } from './astrologyService';
 
 /**
  * Fixed birth input for regression snapshots (astronomy-engine).
@@ -61,5 +61,32 @@ describe('computeNatalChart', () => {
     expect(chart.houses).toHaveLength(0);
     expect(chart.sunSign).toBe('gemini');
     expect(chart.moonSign).toBe('pisces');
+  });
+});
+
+describe('computeDailySkySnapshot', () => {
+  it('returns deterministic planet positions and moon phase for a UTC date', () => {
+    const sky = computeDailySkySnapshot('2026-05-20');
+    const again = computeDailySkySnapshot('2026-05-20');
+
+    expect(sky).toEqual(again);
+    expect(sky.date).toBe('2026-05-20');
+    expect(sky.planets).toHaveLength(10);
+    expect(sky.planets.find((p) => p.name === 'Sun')?.sign).toBeTruthy();
+    expect(sky.moonPhase.name).toMatch(/Moon|Quarter|Crescent|Gibbous/);
+  });
+
+  it('finds tight transit-to-natal aspects without requiring new storage', () => {
+    const chart = computeNatalChart(SNAPSHOT_BIRTH_INPUT);
+    const sky = computeDailySkySnapshot('2026-05-20');
+    const aspects = computeTransitToNatalAspects(sky.planets, chart.planets);
+
+    expect(aspects.length).toBeGreaterThan(0);
+    expect(aspects[0]).toMatchObject({
+      transitBody: expect.any(String),
+      natalBody: expect.any(String),
+      transitSign: expect.any(String),
+      natalSign: expect.any(String),
+    });
   });
 });

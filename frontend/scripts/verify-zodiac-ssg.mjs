@@ -40,12 +40,13 @@ function assertSeoHtml(file, label) {
 for (const slug of signs) {
   const signName = slug[0].toUpperCase() + slug.slice(1);
   const html = assertSeoHtml(join(distDir, 'horoscope', slug, 'index.html'), slug);
-  assert(html.includes(`${signName} Horoscope Today`), `${slug}: missing horoscope content`);
-  assert(html.includes('Daily horoscope preview'), `${slug}: missing textual horoscope preview`);
+  assert(html.includes(`${signName} Real Sky Reading Today`), `${slug}: missing horoscope content`);
+  assert(html.includes('Astronomy-accurate preview'), `${slug}: missing textual horoscope preview`);
+  assert(html.includes('Birthplace-aware charting'), `${slug}: missing birthplace-aware positioning`);
   assert(html.includes(`/og/horoscope-${slug}.svg`), `${slug}: missing dynamic OG image`);
 
   const todayHtml = assertSeoHtml(join(distDir, 'horoscope', slug, 'today', 'index.html'), `${slug}/today`);
-  assert(todayHtml.includes(`${signName} Horoscope Today`), `${slug}/today: missing today content`);
+  assert(todayHtml.includes(`${signName} Real Sky Reading Today`), `${slug}/today: missing today content`);
 }
 
 for (const slug of legalRoutes) {
@@ -57,6 +58,13 @@ const compatibilityHtml = assertSeoHtml(
   'compatibility/aries/leo',
 );
 assert(compatibilityHtml.includes('Aries and Leo Compatibility'), 'compatibility page missing content');
+assert(compatibilityHtml.includes('birthplace-aware chart overlays'), 'compatibility page missing chart-overlay positioning');
+
+const landingHtml = assertSeoHtml(join(distDir, 'index.html'), 'landing');
+assert(landingHtml.includes('Astrology mapped to the real sky.'), 'landing page missing hero content');
+assert(landingHtml.includes('Why Astralis feels different'), 'landing page missing differentiation content');
+assert(landingHtml.includes('Birthplace-aware charting'), 'landing page missing birthplace content');
+assert(landingHtml.includes("Mongolia's vast night sky"), 'landing page missing Mongolia-inspired positioning');
 
 const sitemap = readFileSync(join(distDir, 'sitemap.xml'), 'utf8');
 for (const slug of signs) {

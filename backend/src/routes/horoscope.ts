@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
 import { createRateLimitMiddleware } from '../middleware/rateLimit';
-import { getOrCreateDailyHoroscope } from '../services/horoscopeService';
+import { getOrCreateDailyHoroscope, personalizeDailyHoroscope } from '../services/horoscopeService';
+import type { NatalChartData } from '../services/astrologyService';
 import { currentStreakDateISO, recordDailyHoroscopeStreak } from '../services/streakService';
 import { isZodiacSign, ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
 import { natalCharts, users } from '../db/schema';
@@ -92,7 +93,15 @@ router.get('/daily', authMiddleware, async (c) => {
     .where(eq(users.id, userId))
     .get();
   const dateISO = safeDateISO(user?.timezone ?? 'UTC');
-  const horoscope = await getOrCreateDailyHoroscope(db, chart.sunSign as ZodiacSign, lang, dateISO);
+  const baseHoroscope = await getOrCreateDailyHoroscope(db, chart.sunSign as ZodiacSign, lang, dateISO);
+  const horoscope = personalizeDailyHoroscope(baseHoroscope, {
+    sunSign: chart.sunSign as ZodiacSign,
+    moonSign: chart.moonSign as ZodiacSign,
+    risingSign: chart.risingSign as ZodiacSign | null,
+    planets: chart.planets as NatalChartData['planets'],
+    houses: chart.houses as NatalChartData['houses'],
+    aspects: chart.aspects as NatalChartData['aspects'],
+  });
   const streak = await recordDailyHoroscopeStreak(db, userId, currentStreakDateISO());
   for (const event of streak.analyticsEvents) {
     metric(c.env, event, {

@@ -1,10 +1,11 @@
 import { and, eq } from 'drizzle-orm';
 import type { DB } from '../db/client';
 import { dailyHoroscopes, type DailyHoroscope } from '../db/schema';
-import { generateDailyHoroscope } from '../utils/horoscopeTemplates';
+import { enrichDailyHoroscope, generateDailyHoroscope, type PersonalizedChartContext } from '../utils/horoscopeTemplates';
 import type { ZodiacSign } from '../utils/zodiac';
 import type { Lang } from '../utils/lang';
 import { safeDateISO } from '../utils/localDate';
+import { computeDailySkySnapshot, computeTransitToNatalAspects } from './astrologyService';
 
 export interface HoroscopeResponse {
   sign: ZodiacSign;
@@ -16,6 +17,20 @@ export interface HoroscopeResponse {
   health: string;
   luckyNumber: number;
   luckyColor: string;
+  skyContext?: {
+    sunSign: ZodiacSign;
+    moonSign: ZodiacSign;
+    moonPhase: string;
+    focusTransit?: {
+      transitBody: string;
+      natalBody: string;
+      aspect: string;
+      orb: number;
+      natalHouse?: number;
+      transitSign: ZodiacSign;
+      natalSign: ZodiacSign;
+    };
+  };
 }
 
 export async function getOrCreateDailyHoroscope(
@@ -26,6 +41,7 @@ export async function getOrCreateDailyHoroscope(
   timezone?: string,
 ): Promise<HoroscopeResponse> {
   const date = dateISO ?? safeDateISO(timezone);
+  const sky = computeDailySkySnapshot(date);
   const existing = await db
     .select()
     .from(dailyHoroscopes)
@@ -37,9 +53,12 @@ export async function getOrCreateDailyHoroscope(
       ),
     )
     .get();
-  if (existing) return mapToResponse(existing);
+  if (existing) {
+    const response = mapToResponse(existing);
+    return { ...response, ...enrichDailyHoroscope(response, sign, date, lang, { sky }) };
+  }
 
-  const generated = generateDailyHoroscope(sign, date, lang);
+  const generated = generateDailyHoroscope(sign, date, lang, { sky });
   const id = crypto.randomUUID();
   await db
     .insert(dailyHoroscopes)
@@ -69,7 +88,27 @@ export async function getOrCreateDailyHoroscope(
     )
     .get();
 
-  return persisted ? mapToResponse(persisted) : { sign, date, lang, ...generated };
+  if (persisted) {
+    const response = mapToResponse(persisted);
+    return { ...response, ...enrichDailyHoroscope(response, sign, date, lang, { sky }) };
+  }
+  return { sign, date, lang, ...generated };
+}
+
+export function personalizeDailyHoroscope(
+  horoscope: HoroscopeResponse,
+  chart: PersonalizedChartContext,
+): HoroscopeResponse {
+  const sky = computeDailySkySnapshot(horoscope.date);
+  const transitAspects = computeTransitToNatalAspects(sky.planets, chart.planets);
+  return {
+    ...horoscope,
+    ...enrichDailyHoroscope(horoscope, horoscope.sign, horoscope.date, horoscope.lang, {
+      sky,
+      natalChart: chart,
+      transitAspects,
+    }),
+  };
 }
 
 function mapToResponse(row: DailyHoroscope): HoroscopeResponse {

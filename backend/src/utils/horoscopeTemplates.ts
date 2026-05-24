@@ -1,5 +1,7 @@
 import type { ZodiacSign } from './zodiac';
+import { getZodiacInfo } from './zodiac';
 import type { Lang } from './lang';
+import type { Aspect, DailySkySnapshot, HouseCusp, NatalChartData, PlanetPosition, TransitToNatalAspect } from '../services/astrologyService';
 
 interface PerSignText {
   overall: string[];
@@ -535,17 +537,49 @@ export interface DailyHoroscopeContent {
   health: string;
   luckyNumber: number;
   luckyColor: string;
+  skyContext?: DailySkyContext;
+}
+
+export interface DailySkyContext {
+  sunSign: ZodiacSign;
+  moonSign: ZodiacSign;
+  moonPhase: string;
+  focusTransit?: {
+    transitBody: string;
+    natalBody: string;
+    aspect: string;
+    orb: number;
+    natalHouse?: number;
+    transitSign: ZodiacSign;
+    natalSign: ZodiacSign;
+  };
+}
+
+export interface DailyHoroscopeGenerationOptions {
+  sky?: DailySkySnapshot;
+  natalChart?: PersonalizedChartContext | null;
+  transitAspects?: TransitToNatalAspect[];
+}
+
+export interface PersonalizedChartContext {
+  sunSign: ZodiacSign;
+  moonSign: ZodiacSign;
+  risingSign: ZodiacSign | null;
+  planets: NatalChartData['planets'] | PlanetPosition[];
+  houses: NatalChartData['houses'] | HouseCusp[];
+  aspects: NatalChartData['aspects'] | Aspect[];
 }
 
 export function generateDailyHoroscope(
   sign: ZodiacSign,
   dateISO: string,
   lang: Lang,
+  options: DailyHoroscopeGenerationOptions = {},
 ): DailyHoroscopeContent {
   const bundle = BUNDLES[lang] ?? BUNDLES.en;
   const data = bundle.perSign[sign];
   const seed = seedFromSignAndDate(sign, dateISO);
-  return {
+  const fallback = {
     overall: pick(data.overall, seed),
     love: pick(data.love, seed >> 2),
     career: pick(data.career, seed >> 4),
@@ -553,4 +587,227 @@ export function generateDailyHoroscope(
     luckyNumber: (seed % 99) + 1,
     luckyColor: pick(bundle.colors, seed >> 8),
   };
+  if (!options.sky || lang !== 'en') return fallback;
+  return buildAstronomyAwareReading(sign, dateISO, fallback, options);
+}
+
+export function enrichDailyHoroscope(
+  content: DailyHoroscopeContent,
+  sign: ZodiacSign,
+  dateISO: string,
+  lang: Lang,
+  options: DailyHoroscopeGenerationOptions,
+): DailyHoroscopeContent {
+  if (!options.sky || lang !== 'en') return content;
+  return buildAstronomyAwareReading(sign, dateISO, content, options);
+}
+
+function buildAstronomyAwareReading(
+  sign: ZodiacSign,
+  _dateISO: string,
+  base: DailyHoroscopeContent,
+  options: DailyHoroscopeGenerationOptions,
+): DailyHoroscopeContent {
+  const sky = options.sky;
+  if (!sky) return base;
+  const sun = sky.planets.find((p) => p.name === 'Sun');
+  const moon = sky.planets.find((p) => p.name === 'Moon');
+  const mercury = sky.planets.find((p) => p.name === 'Mercury');
+  if (!sun || !moon) return base;
+
+  const signName = getZodiacInfo(sign).name;
+  const sunName = getZodiacInfo(sun.sign).name;
+  const moonName = getZodiacInfo(moon.sign).name;
+  const focusTransit = selectFocusTransit(options.transitAspects ?? []);
+  const skyContext = buildSkyContext(sun.sign, moon.sign, sky.moonPhase.name, focusTransit);
+
+  if (options.natalChart) {
+    const natal = options.natalChart;
+    const moonHouse = findNatalHouse(moon.longitude, natal.houses);
+    const risingClause = natal.risingSign
+      ? ` Your ${getZodiacInfo(natal.risingSign).name} rising sets the doorway for how this lands outwardly.`
+      : '';
+    const transitClause = focusTransit
+      ? ` The clearest timing note is ${planetLabel(focusTransit.transitBody)} ${aspectLabel(focusTransit.type)} your natal ${planetLabel(focusTransit.natalBody)}${houseClause(focusTransit.natalHouse)} at a ${focusTransit.orb.toFixed(1)} degree orb.`
+      : ` No tight major transit dominates your stored natal planets today, so the reading leans on the Moon's current sign and your birth chart anchor.`;
+
+    return {
+      ...base,
+      skyContext,
+      overall: `Today the Sun is in ${sunName} and the Moon moves through ${moonName} in a ${sky.moonPhase.name.toLowerCase()} phase. For your ${getZodiacInfo(natal.sunSign).name} Sun and ${getZodiacInfo(natal.moonSign).name} Moon, this makes the day feel ${toneForElement(getZodiacInfo(moon.sign).element)} rather than generic.${transitClause}${risingClause}`,
+      love: `Connection benefits from the Moon in ${moonName}: name the feeling before trying to solve it. ${focusTransit ? `Because ${planetLabel(focusTransit.transitBody)} is touching your natal ${planetLabel(focusTransit.natalBody)}, conversations may reveal the real need underneath the surface.` : 'Your chart favors gentle honesty over performance today.'}`,
+      career: `Work and decisions are best read through the actual sky: the Sun in ${sunName} emphasizes ${solarTheme(sun.sign)}, while ${mercury ? `Mercury in ${getZodiacInfo(mercury.sign).name} shapes the pace of planning and messages` : 'Mercury sets the pace of planning and messages'}. If the day feels charged, it is useful data, not a demand to rush.`,
+      health: `Regulate around the Moon in ${moonName}${moonHouse ? ` moving through your ${ordinal(moonHouse)} house` : ''}. The body may ask for ${bodyCueForMoon(moon.sign)}; keep the ritual simple enough to actually feel restorative.`,
+    };
+  }
+
+  return {
+    ...base,
+    skyContext,
+    overall: `Today the Sun is in ${sunName} and the Moon moves through ${moonName} in a ${sky.moonPhase.name.toLowerCase()} phase. For ${signName}, this points to ${solarTheme(sun.sign)} meeting ${lunarTheme(moon.sign)} - the reason the day may feel more specific than a generic horoscope.`,
+    love: `The Moon in ${moonName} favors ${relationshipTheme(moon.sign)}. Say less if the feeling is still forming; say more when the shape of it becomes clear.`,
+    career: `With the Sun in ${sunName}${mercury ? ` and Mercury in ${getZodiacInfo(mercury.sign).name}` : ''}, today's useful work is ${workTheme(mercury?.sign ?? sun.sign)}. Precision matters more than urgency.`,
+    health: `The ${sky.moonPhase.name.toLowerCase()} phase asks for ${moonPhaseCare(sky.moonPhase.name)}. Let ${moonName} guide the pace instead of forcing a mood that is not present.`,
+  };
+}
+
+function buildSkyContext(
+  sunSign: ZodiacSign,
+  moonSign: ZodiacSign,
+  moonPhase: string,
+  focusTransit?: TransitToNatalAspect,
+): DailySkyContext {
+  return {
+    sunSign,
+    moonSign,
+    moonPhase,
+    focusTransit: focusTransit
+      ? {
+          transitBody: focusTransit.transitBody,
+          natalBody: focusTransit.natalBody,
+          aspect: focusTransit.type,
+          orb: focusTransit.orb,
+          natalHouse: focusTransit.natalHouse,
+          transitSign: focusTransit.transitSign,
+          natalSign: focusTransit.natalSign,
+        }
+      : undefined,
+  };
+}
+
+function selectFocusTransit(aspects: TransitToNatalAspect[]): TransitToNatalAspect | undefined {
+  const priority = ['Moon', 'Sun', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+  return [...aspects]
+    .filter((a) => a.orb <= 3.5)
+    .sort((a, b) => {
+      const orb = a.orb - b.orb;
+      if (orb !== 0) return orb;
+      return priority.indexOf(a.transitBody) - priority.indexOf(b.transitBody);
+    })[0];
+}
+
+function findNatalHouse(longitude: number, houses: HouseCusp[] | NatalChartData['houses']): number | undefined {
+  if (!houses.length) return undefined;
+  for (let i = 0; i < houses.length; i += 1) {
+    const start = houses[i].longitude;
+    const end = houses[(i + 1) % houses.length].longitude;
+    const diff = normalizeAngle(longitude - start);
+    const span = normalizeAngle(end - start) || 360;
+    if (diff < span) return houses[i].number;
+  }
+  return undefined;
+}
+
+function normalizeAngle(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
+function planetLabel(planet: string): string {
+  return planet;
+}
+
+function aspectLabel(aspect: string): string {
+  return aspect.replace(/_/g, ' ');
+}
+
+function houseClause(house?: number): string {
+  return house ? ` in the ${ordinal(house)} house` : '';
+}
+
+function ordinal(value: number): string {
+  const suffix = value === 1 ? 'st' : value === 2 ? 'nd' : value === 3 ? 'rd' : 'th';
+  return `${value}${suffix}`;
+}
+
+function toneForElement(element: string): string {
+  switch (element) {
+    case 'fire':
+      return 'warm, direct, and a little catalytic';
+    case 'earth':
+      return 'grounded, practical, and slow enough to trust';
+    case 'air':
+      return 'mental, social, and easier to understand through language';
+    case 'water':
+      return 'emotional, porous, and quietly revealing';
+    default:
+      return 'layered and worth reading slowly';
+  }
+}
+
+function solarTheme(sign: ZodiacSign): string {
+  const info = getZodiacInfo(sign);
+  switch (info.element) {
+    case 'fire':
+      return 'clean action and visible courage';
+    case 'earth':
+      return 'steady choices with real-world consequences';
+    case 'air':
+      return 'clear language, pattern recognition, and perspective';
+    case 'water':
+      return 'emotional intelligence and subtle timing';
+  }
+}
+
+function lunarTheme(sign: ZodiacSign): string {
+  const info = getZodiacInfo(sign);
+  switch (info.element) {
+    case 'fire':
+      return 'instinct that wants movement';
+    case 'earth':
+      return 'a need for steadiness and proof';
+    case 'air':
+      return 'feelings that become clearer when spoken';
+    case 'water':
+      return 'private emotion rising close to the surface';
+  }
+}
+
+function relationshipTheme(sign: ZodiacSign): string {
+  const info = getZodiacInfo(sign);
+  switch (info.element) {
+    case 'fire':
+      return 'warmth, candor, and a brave first sentence';
+    case 'earth':
+      return 'reliability, touch, and small promises kept';
+    case 'air':
+      return 'curiosity, listening, and room for nuance';
+    case 'water':
+      return 'tenderness, memory, and emotional safety';
+  }
+}
+
+function workTheme(sign: ZodiacSign): string {
+  const info = getZodiacInfo(sign);
+  switch (info.element) {
+    case 'fire':
+      return 'choosing the move that has life in it';
+    case 'earth':
+      return 'making the plan more usable and concrete';
+    case 'air':
+      return 'naming the pattern before acting on it';
+    case 'water':
+      return 'trusting the quiet signal without overexplaining it';
+  }
+}
+
+function bodyCueForMoon(sign: ZodiacSign): string {
+  const info = getZodiacInfo(sign);
+  switch (info.element) {
+    case 'fire':
+      return 'warm movement, sunlight, or a short burst of effort';
+    case 'earth':
+      return 'food, rest, texture, and a slower nervous system';
+    case 'air':
+      return 'breath, space, and fewer competing inputs';
+    case 'water':
+      return 'hydration, softness, and a little privacy';
+  }
+}
+
+function moonPhaseCare(phase: string): string {
+  if (phase.includes('New')) return 'beginning quietly, without needing proof yet';
+  if (phase.includes('Waxing')) return 'building one honest step at a time';
+  if (phase.includes('Full')) return 'letting the truth be visible without dramatizing it';
+  if (phase.includes('Waning')) return 'editing, releasing, and returning to what matters';
+  return 'moving with the sky instead of against it';
 }

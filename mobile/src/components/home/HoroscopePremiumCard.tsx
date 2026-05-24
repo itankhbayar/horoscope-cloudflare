@@ -124,7 +124,7 @@ export function HoroscopePremiumCard({
   return (
     <ContentCard>
       <Text style={styles.cardTitle} accessibilityRole="header">
-        Your Horoscope
+        Sky Reading
       </Text>
       <HoroscopeTabs
         tabs={CHRONO_TABS}
@@ -132,7 +132,7 @@ export function HoroscopePremiumCard({
         onSelect={(id) => onPeriodChange(id as HoroscopePeriod)}
         accentUnderline
       />
-      {!isPremium ? <Text style={styles.premiumHint}>Free plan includes Today. Upgrade to unlock all periods.</Text> : null}
+      {!isPremium ? <Text style={styles.premiumHint}>Today is included. Premium opens deeper timing layers without changing your core ritual.</Text> : null}
       {error ? (
         <Text style={styles.error} accessibilityRole="alert">
           {error}
@@ -154,17 +154,17 @@ export function HoroscopePremiumCard({
               style={[styles.preview, loading && preview ? styles.previewDim : null]}
               accessibilityLiveRegion="polite"
             >
-              {preview || (loading ? 'Syncing the sky…' : 'Your reading will appear here.')}
+              {preview || (loading ? "Mapping today's sky..." : 'Your sky reading will appear here.')}
             </Text>
           </View>
         </View>
         {lockedForFreeUser ? (
           <View style={styles.lockOverlay} accessibilityRole="text" accessibilityLabel="Locked. Premium required for this period.">
-            <Text style={styles.lockText}>{'\uD83D\uDD12'} Unlock this content</Text>
+            <Text style={styles.lockText}>{'\uD83D\uDD12'} Open deeper sky layer</Text>
           </View>
         ) : null}
       </View>
-      <CTAButton label="Learn More About Your Journey" onPress={onLearnMore} style={styles.cta} />
+      <CTAButton label="See how Astralis maps the sky" onPress={onLearnMore} style={styles.cta} />
     </ContentCard>
   );
 }

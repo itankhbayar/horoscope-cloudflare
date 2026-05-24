@@ -26,6 +26,7 @@ import {
 } from '../theme';
 import { getApiBaseUrl } from '@astralis/lib/apiClient';
 import { useAppearance } from '../hooks/useAppearance';
+import { BRAND_COPY } from '../lib/brandCopy';
 
 export function LoginScreen(): React.JSX.Element {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -80,9 +81,10 @@ export function LoginScreen(): React.JSX.Element {
             accessibilityRole="header"
             accessibilityLabel="Astralis"
           >
-            ✦ Astralis
+            {BRAND_COPY.mark}
           </Text>
-          <CosmicCard title="Welcome back">
+          <Text style={[styles.originLine, { color: palette.textMuted }]}>{BRAND_COPY.preciseAstrology}</Text>
+          <CosmicCard title="Return to your sky">
             {errorMsg ? (
               <Text style={styles.error} accessibilityRole="alert">
                 {errorMsg}
@@ -163,7 +165,7 @@ export function LoginScreen(): React.JSX.Element {
               accessibilityState={{ disabled: loading }}
               hitSlop={hitSlopComfortable}
             >
-              <Text style={styles.buttonText}>{loading ? 'Signing in…' : 'Sign in'}</Text>
+              <Text style={styles.buttonText}>{loading ? 'Mapping sky...' : 'Sign in'}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.link, pressed && styles.pressed]}
@@ -172,7 +174,7 @@ export function LoginScreen(): React.JSX.Element {
               accessibilityLabel="Create an account"
               hitSlop={hitSlopComfortable}
             >
-              <Text style={[styles.linkText, { color: palette.accent }]}>New here? Create an account</Text>
+              <Text style={[styles.linkText, { color: palette.accent }]}>New here? Map your birth sky</Text>
             </Pressable>
             <LegalLinks compact />
           </CosmicCard>
@@ -195,6 +197,14 @@ const styles = StyleSheet.create({
     color: colors.gold,
     textAlign: 'center',
     marginBottom: spacing.xl,
+  },
+  originLine: {
+    marginTop: -spacing.lg,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   label: { color: colors.textMuted, marginBottom: spacing.xs, marginTop: spacing.sm, fontSize: 14 },
   input: {

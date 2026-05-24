@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -29,6 +29,8 @@ import {
 } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppearance } from '../hooks/useAppearance';
+import { BRAND_COPY } from '../lib/brandCopy';
+import { skyMappingStep, whyBirthplaceMatters } from '../lib/onboardingReveal';
 import {
   deviceTimezoneLabel,
   initialTimezoneOffset,
@@ -42,18 +44,18 @@ type Step = 0 | 1 | 2;
 const STEP_COPY: Record<Step, { eyebrow: string; title: string; body: string }> = {
   0: {
     eyebrow: 'Step 1 of 3',
-    title: 'Create your account',
-    body: 'This keeps your chart, premium status, and notification preferences tied to one secure profile.',
+    title: 'Create your sky profile',
+    body: 'A secure account keeps your calculated chart, preferences, and ritual history in one place.',
   },
   1: {
     eyebrow: 'Step 2 of 3',
-    title: 'Add birth details',
-    body: 'Your birth date and city power the natal chart. Birth time is optional, but improves moon and rising placements.',
+    title: 'Anchor the sky to your birthplace',
+    body: 'Your birth date, time, and city let Astralis calculate real planetary positions for your local sky.',
   },
   2: {
     eyebrow: 'Step 3 of 3',
-    title: 'Confirm timezone',
-    body: 'We use the offset to line up daily readings with your local sky. You can adjust this before launch data gets serious.',
+    title: 'Confirm your local sky',
+    body: 'Timezone helps daily rituals line up with the calendar where you are. The streak ledger stays UTC-based.',
   },
 };
 
@@ -76,11 +78,22 @@ export function RegisterScreen(): React.JSX.Element {
   });
   const [validation, setValidation] = useState<RegisterValidation>({});
   const [errorMsg, setErrorMsg] = useState('');
+  const [mappingStep, setMappingStep] = useState(0);
 
   const hp = horizontalScreenPadding(width);
   const brandSize = useMemo(() => brandTitleSize(width), [width]);
   const isLight = mode === 'light';
   const copy = STEP_COPY[step];
+  const mappingCopy = skyMappingStep(mappingStep);
+
+  useEffect(() => {
+    if (!loading) {
+      setMappingStep(0);
+      return;
+    }
+    const id = setInterval(() => setMappingStep((current) => current + 1), 900);
+    return () => clearInterval(id);
+  }, [loading]);
 
   const patchDraft = useCallback((patch: Partial<RegisterDraft>) => {
     setDraft((prev) => ({ ...prev, ...patch }));
@@ -165,8 +178,9 @@ export function RegisterScreen(): React.JSX.Element {
             style={[styles.brand, { fontSize: brandSize, color: isLight ? palette.accent : colors.gold }]}
             accessibilityRole="header"
           >
-            ✦ Astralis
+            {BRAND_COPY.mark}
           </Text>
+          <Text style={[styles.originLine, { color: palette.textMuted }]}>{BRAND_COPY.originLine}</Text>
           <View style={styles.progressRow} accessibilityLabel={`Registration ${copy.eyebrow}`}>
             {[0, 1, 2].map((i) => (
               <View
@@ -272,6 +286,15 @@ export function RegisterScreen(): React.JSX.Element {
 
             {step === 2 ? (
               <>
+                {loading ? (
+                  <View style={[styles.mappingPanel, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
+                    <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>Real sky mapping</Text>
+                    <Text style={[styles.mappingTitle, { color: palette.text }]}>{mappingCopy}</Text>
+                    <Text style={[styles.mappingBody, { color: palette.textMuted }]}>
+                      {whyBirthplaceMatters(draft.selectedCity?.name ?? draft.birthCity)}
+                    </Text>
+                  </View>
+                ) : null}
                 <View style={[styles.timezoneBox, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
                   <Text style={[styles.timezoneLabel, { color: palette.textMuted }]}>Device timezone</Text>
                   <Text style={[styles.timezoneValue, { color: palette.text }]}>{deviceTimezoneLabel()}</Text>
@@ -298,7 +321,7 @@ export function RegisterScreen(): React.JSX.Element {
                     accessibilityState={{ checked: draft.birthDataConsent }}
                   />
                   <Text style={[styles.consentText, { color: palette.text }]}>
-                    I agree to Astralis processing my birth details to generate astrology readings.
+                    I agree to Astralis processing my birth details to calculate my chart and sky-based readings.
                   </Text>
                 </View>
                 {validation.birthDataConsent ? <Text style={styles.error}>{validation.birthDataConsent}</Text> : null}
@@ -333,7 +356,7 @@ export function RegisterScreen(): React.JSX.Element {
                 accessibilityState={{ disabled: loading }}
                 hitSlop={hitSlopComfortable}
               >
-                <Text style={styles.buttonText}>{loading ? 'Creating...' : step === 2 ? 'Create account' : 'Continue'}</Text>
+                <Text style={styles.buttonText}>{loading ? mappingCopy : step === 2 ? 'Create account' : 'Continue'}</Text>
               </Pressable>
             </View>
           </CosmicCard>
@@ -422,6 +445,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: spacing.md,
   },
+  originLine: {
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
   progressRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -462,6 +493,22 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.sm,
   },
+  mappingPanel: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  mappingEyebrow: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  mappingTitle: { marginTop: 4, fontSize: 17, lineHeight: 22, fontWeight: '900' },
+  mappingBody: { marginTop: 5, fontSize: 13, lineHeight: 19, fontWeight: '600' },
   timezoneLabel: { fontSize: 12, lineHeight: 16, fontWeight: '700', textTransform: 'uppercase' },
   timezoneValue: { marginTop: 2, fontSize: 17, lineHeight: 23, fontWeight: '800' },
   consentRow: {

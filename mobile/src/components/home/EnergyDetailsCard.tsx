@@ -20,9 +20,9 @@ export function EnergyDetailsCard({
   return (
     <ContentCard entranceOpacity={entranceOpacity} onLayout={onLayout}>
       <SectionHeader
-        title="Energy Details"
-        subtitle="Cosmic Waves of Connection and Growth"
-        accessibilityLabel="Energy details. Cosmic waves of connection and growth."
+        title="Today's Sky"
+        subtitle="Why the day may feel this way"
+        accessibilityLabel="Today's sky. Why the day may feel this way."
       />
       <View style={[styles.gradientBand, { backgroundColor: t.lavender }]} pointerEvents="none" />
       <Text style={[styles.body, { color: t.textMuted }]}>{body}</Text>

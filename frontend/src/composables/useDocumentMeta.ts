@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted } from 'vue';
 
 type MetaName = 'description' | 'robots' | 'twitter:card' | 'twitter:title' | 'twitter:description' | 'twitter:image';
 type MetaProperty = 'og:type' | 'og:title' | 'og:description' | 'og:url' | 'og:image';
@@ -49,38 +49,21 @@ export function useDocumentMeta(options: {
   type?: 'website' | 'article';
   robots?: 'index,follow' | 'noindex,nofollow';
 }): void {
-  let previousTitle = '';
-  const previousNamed = new Map<MetaName, string | null>();
-  const previousProperties = new Map<MetaProperty, string | null>();
-  let previousCanonical: string | null = null;
-
   onMounted(() => {
-    previousTitle = document.title;
     document.title = options.title;
     const canonical = `${window.location.origin}${options.canonicalPath}`;
     const imageUrl = `${window.location.origin}${options.imagePath ?? '/og/default.svg'}`;
-    previousNamed.set('description', setNamedMeta('description', options.description));
-    previousNamed.set('robots', setNamedMeta('robots', options.robots ?? 'index,follow'));
-    previousNamed.set('twitter:card', setNamedMeta('twitter:card', 'summary_large_image'));
-    previousNamed.set('twitter:title', setNamedMeta('twitter:title', options.title));
-    previousNamed.set('twitter:description', setNamedMeta('twitter:description', options.description));
-    previousNamed.set('twitter:image', setNamedMeta('twitter:image', imageUrl));
-    previousProperties.set('og:type', setPropertyMeta('og:type', options.type ?? 'website'));
-    previousProperties.set('og:title', setPropertyMeta('og:title', options.title));
-    previousProperties.set('og:description', setPropertyMeta('og:description', options.description));
-    previousProperties.set('og:url', setPropertyMeta('og:url', canonical));
-    previousProperties.set('og:image', setPropertyMeta('og:image', imageUrl));
-    previousCanonical = setCanonical(canonical);
-  });
-
-  onUnmounted(() => {
-    document.title = previousTitle;
-    for (const [name, value] of previousNamed) {
-      if (value !== null) setNamedMeta(name, value);
-    }
-    for (const [property, value] of previousProperties) {
-      if (value !== null) setPropertyMeta(property, value);
-    }
-    if (previousCanonical !== null) setCanonical(previousCanonical);
+    setNamedMeta('description', options.description);
+    setNamedMeta('robots', options.robots ?? 'index,follow');
+    setNamedMeta('twitter:card', 'summary_large_image');
+    setNamedMeta('twitter:title', options.title);
+    setNamedMeta('twitter:description', options.description);
+    setNamedMeta('twitter:image', imageUrl);
+    setPropertyMeta('og:type', options.type ?? 'website');
+    setPropertyMeta('og:title', options.title);
+    setPropertyMeta('og:description', options.description);
+    setPropertyMeta('og:url', canonical);
+    setPropertyMeta('og:image', imageUrl);
+    setCanonical(canonical);
   });
 }

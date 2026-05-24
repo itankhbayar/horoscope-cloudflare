@@ -1,13 +1,109 @@
 {
   "app": {
     "name": "Astralis",
-    "tagline": "Horoscope & Natal Chart",
+    "tagline": "Astronomy-accurate astrology mapped to your real sky",
     "loading": "Loading…"
   },
   "language": {
     "label": "Language",
     "english": "English",
     "mongolian": "Монгол"
+  },
+  "landing": {
+    "seoTitle": "Astralis: Astrology Mapped to the Real Sky",
+    "seoDescription": "Astralis is astronomy-accurate astrology mapped to your birthplace, the moving sky, and calm premium chart interpretation inspired by Mongolia's vast night sky.",
+    "navLanding": "Overview",
+    "heroKicker": "Astronomy-accurate astrology",
+    "heroTitle": "Astrology mapped to the real sky.",
+    "heroSubtitle": "Astralis begins with real planetary positions, your birth time, and the sky above your birthplace, then turns that map into calm, emotionally precise guidance.",
+    "ctaPrimary": "Start your chart",
+    "ctaSecondary": "Explore today's sky",
+    "preview": {
+      "kicker": "Today's sky preview",
+      "sun": "Sun",
+      "sunValue": "Seasonal focus",
+      "moon": "Moon",
+      "moonValue": "Emotional weather",
+      "phase": "Moon phase",
+      "phaseValue": "Ritual timing",
+      "note": "Your private reading connects the moving sky to your calculated natal chart."
+    },
+    "different": {
+      "kicker": "Why Astralis feels different",
+      "title": "Less generic horoscope. More sky-aware interpretation.",
+      "real": {
+        "title": "Real planetary positions",
+        "body": "Readings start from the actual sky for the day, including planetary placements, lunar context, and available transit signals."
+      },
+      "birthplace": {
+        "title": "Birthplace-aware charting",
+        "body": "Your place of birth matters because the horizon and houses are local. Astralis treats location as part of the chart, not a formality."
+      },
+      "calm": {
+        "title": "Calm premium interpretation",
+        "body": "The voice is precise, grounded, and emotionally intelligent, designed for reflection rather than urgency."
+      },
+      "mongolia": {
+        "title": "Built beneath Mongolia's vast night sky",
+        "body": "Astralis carries a global, modern astrology experience inspired by open steppe skies and long attention to the heavens."
+      }
+    },
+    "todaySky": {
+      "kicker": "Today's sky",
+      "title": "The moving sky changes the tone of the day.",
+      "body": "Astralis explains the simple celestial context behind a daily reading before interpreting what it may touch in your chart.",
+      "sun": {
+        "label": "Sun sign",
+        "body": "The Sun marks the season's core emphasis and the kind of attention the day asks for."
+      },
+      "moon": {
+        "label": "Moon sign",
+        "body": "The Moon moves quickly, shaping emotional rhythm, instinct, and the quieter texture of the day."
+      },
+      "phase": {
+        "label": "Moon phase",
+        "body": "The lunar phase gives timing context, from beginning and building to release and integration."
+      },
+      "transits": {
+        "label": "Transits",
+        "body": "When a moving planet closely meets your natal chart, Astralis can explain why today feels more specific."
+      }
+    },
+    "birthplace": {
+      "kicker": "Why birthplace matters",
+      "title": "Your chart begins where the sky met the horizon.",
+      "body": "Latitude and longitude help determine the local horizon, angles, and house structure at birth. Astralis uses that context to keep your chart anchored to the actual sky without claiming astrology is scientifically proven."
+    },
+    "sample": {
+      "kicker": "Sample reading",
+      "title": "A calmer way to read the day",
+      "body": "Example only. A signed-in reading can use the current sky and your available chart fields.",
+      "quote": "With the Moon emphasizing reflection while the Sun steadies your daily rhythm, today may feel less like a push forward and more like a careful recalibration. Notice where your chart asks for precision before momentum."
+    },
+    "mobilePreview": {
+      "kicker": "Mobile experience",
+      "title": "A personal sky map in a quiet daily ritual.",
+      "today": {
+        "label": "Today's sky",
+        "title": "Sun, Moon, phase, transit",
+        "body": "A compact card shows the real-sky context before the reading."
+      },
+      "why": {
+        "label": "Why this reading?",
+        "title": "Reason before interpretation",
+        "body": "The app explains which sky signals shaped the guidance."
+      },
+      "reveal": {
+        "label": "Chart reveal",
+        "title": "Your birthplace anchor",
+        "body": "Onboarding turns birth data into a visible sky-mapping moment."
+      }
+    },
+    "origin": {
+      "kicker": "From Ulaanbaatar to the stars",
+      "title": "Inspired by the open steppe sky, built for a global audience.",
+      "body": "Astralis uses Mongolia as an origin point for tone and imagination, not a boundary. The product stays premium, modern, and globally usable while honoring the feeling of a vast, precise night sky."
+    }
   },
   "nav": {
     "home": "Today",
@@ -50,10 +146,10 @@
     "greetingAfternoon": "Good afternoon",
     "greetingEvening": "Good evening",
     "stargazer": "Stargazer",
-    "yourStarsToday": "Your stars today",
+    "yourStarsToday": "Today's real sky, mapped to you",
     "browseAllSigns": "Browse all signs",
-    "readingStars": "Reading the stars…",
-    "todayOverall": "Today's overall reading",
+    "readingStars": "Mapping the real sky…",
+    "todayOverall": "Why today may feel this way",
     "love": "Love",
     "career": "Career",
     "health": "Health",
@@ -114,8 +210,8 @@
     }
   },
   "compatibility": {
-    "title": "Cosmic Compatibility",
-    "subtitle": "See how two signs harmonize across love, friendship, and communication.",
+    "title": "Chart-Aware Compatibility",
+    "subtitle": "Start with sign dynamics, then go deeper through birthplace-aware chart overlays and calm relationship timing.",
     "firstSign": "First sign",
     "secondSign": "Second sign",
     "compute": "Compute compatibility",
@@ -127,19 +223,19 @@
     "highlights": "Highlights"
   },
   "premium": {
-    "badge": "✨ Premium Features",
-    "title": "Go beyond the basics",
-    "subtitle": "Deeper insights, daily guidance, and personal readings written for you.",
+    "badge": "Astralis Sky Intelligence",
+    "title": "Premium astrology for the actual sky",
+    "subtitle": "Deeper chart intelligence, live sky interpretation, and calm premium rituals built on real planetary positions and your birthplace.",
     "comingSoon": "Coming soon",
     "comingSoonBody": "Premium features are in development. Sign up for early access notifications.",
     "notifyMe": "Notify me when available",
-    "goPremium": "Go Premium",
+    "goPremium": "Open deeper sky layers",
     "checkoutLoading": "Redirecting to secure checkout…",
     "checkoutFailed": "Checkout could not be started. Please try again.",
-    "upgradeTitle": "Upgrade your experience",
-    "upgradeBody": "Unlock Premium with a secure Stripe Checkout session (test mode).",
-    "premiumActiveTitle": "You are Premium",
-    "premiumActiveBody": "Thank you for your support. Premium benefits apply to your account.",
+    "upgradeTitle": "Go deeper without the noise",
+    "upgradeBody": "Open premium chart, transit, and compatibility layers grounded in your calculated sky map.",
+    "premiumActiveTitle": "Deeper sky layers are active",
+    "premiumActiveBody": "Your account has access to Astralis Sky Intelligence.",
     "successTitle": "Payment successful",
     "successBody": "Premium is now active on your account.",
     "syncing": "Syncing your account…",
@@ -152,16 +248,16 @@
     "unlock": "Unlock Premium",
     "features": {
       "ai": {
-        "title": "AI Astrologer Chat",
-        "description": "Have unlimited 1-on-1 conversations with an AI astrologer trained on your full birth chart. Ask anything: love, career, transits, timing."
+        "title": "Chart intelligence",
+        "description": "Explore interpretations grounded in your calculated birth chart, houses, planetary patterns, and birthplace."
       },
       "tarot": {
-        "title": "Tarot Reading",
-        "description": "Daily and on-demand tarot draws with personalized interpretations. Past-Present-Future, Celtic Cross, and custom spreads."
+        "title": "Live sky context",
+        "description": "Read timing through the moving sky and your natal placements, without claiming astrology is science."
       },
       "personal": {
-        "title": "Personalized Reading",
-        "description": "A weekly written report tailored to your transits, progressions, and current planetary cycles. Delivered every Sunday."
+        "title": "Chart overlays",
+        "description": "See compatibility through chart overlays and relationship dynamics rather than generic sign matching."
       }
     }
   },
@@ -212,7 +308,7 @@
     "minor": "Minor"
   },
   "footer": {
-    "brandTagline": "Guided by the stars, grounded in clarity.",
+    "brandTagline": "Astronomy-accurate astrology, built beneath Mongolia's vast night sky.",
     "navigation": "Navigation",
     "legal": "Legal",
     "social": "Social",

@@ -80,9 +80,9 @@ const info = computed(() => getZodiacInfo(sign.value));
 const signCopy = computed(() => copy[sign.value]);
 const todayISO = new Date().toISOString().slice(0, 10);
 const isTodayRoute = computed(() => route.path.endsWith('/today'));
-const title = computed(() => `${info.value.name} Horoscope Today (${todayISO}) | Astralis`);
+const title = computed(() => `${info.value.name} Real Sky Reading Today (${todayISO}) | Astralis`);
 const description = computed(
-  () => `Read the ${todayISO} ${info.value.name} horoscope preview, zodiac traits, and daily astrology guidance from Astralis.`,
+  () => `Read the ${todayISO} ${info.value.name} sky reading from Astralis, an astronomy-accurate astrology platform powered by real planetary positions and birthplace-aware charts.`,
 );
 const canonicalPath = computed(() => `/horoscope/${sign.value}${isTodayRoute.value ? '/today' : ''}`);
 
@@ -105,7 +105,7 @@ useDocumentMeta({
       <article class="hero glass-card">
         <div>
           <p class="kicker">{{ signCopy.dates }} · {{ info.element }} sign</p>
-          <h1>{{ info.name }} Horoscope Today</h1>
+          <h1>{{ info.name }} Real Sky Reading Today</h1>
           <p class="lede">{{ signCopy.intro }}</p>
         </div>
         <div class="sign-orb" aria-hidden="true">
@@ -114,27 +114,27 @@ useDocumentMeta({
       </article>
 
       <section class="daily glass-card">
-        <p class="kicker">Daily horoscope preview</p>
+        <p class="kicker">Astronomy-accurate preview</p>
         <h2>What today asks of {{ info.name }}</h2>
         <p>{{ signCopy.preview }}</p>
         <p>
-          Create your free Astralis chart for personal guidance shaped by your birth profile,
-          zodiac placements, tarot, and compatibility patterns.
+          Create your free Astralis chart for guidance shaped by your birth profile,
+          calculated placements, the moving sky, and the horizon above your birthplace.
         </p>
       </section>
 
       <section class="grid">
         <article class="glass-card">
           <h2>Personal daily timing</h2>
-          <p>Turn zodiac themes into practical timing for love, energy, work, and decisions.</p>
+          <p>Read daily themes through the current Sun, Moon, Moon phase, and your chart anchor.</p>
         </article>
         <article class="glass-card">
           <h2>Birth chart insight</h2>
-          <p>Go beyond your sun sign with chart placements and a more personal reading style.</p>
+          <p>Go beyond your sun sign with placements calculated from birth time, birthplace, and real planetary positions.</p>
         </article>
         <article class="glass-card">
           <h2>Compatibility</h2>
-          <p>Compare zodiac dynamics and understand the emotional rhythm between two people.</p>
+          <p>Compare relationship dynamics through chart-aware overlays, not generic templates.</p>
         </article>
       </section>
 

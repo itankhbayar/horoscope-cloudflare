@@ -7,6 +7,8 @@ import { useProfile } from '../hooks/useProfile';
 import { track } from '../lib/analytics';
 import { colors, hitSlopComfortable, MIN_TOUCH, spacing } from '../theme';
 import { useAppearance } from '../hooks/useAppearance';
+import { BRAND_COPY, ONBOARDING_COPY } from '../lib/brandCopy';
+import { buildNatalRevealCards, skyMappingStep, whyBirthplaceMatters } from '../lib/onboardingReveal';
 
 type Props = {
   onComplete: (hasBirthProfile: boolean) => Promise<void>;
@@ -14,16 +16,16 @@ type Props = {
 
 const CARDS = [
   {
-    title: 'Your chart is the home base',
-    body: 'Birth date, time, city, and timezone feed the daily dashboard, chart placements, and compatibility readings.',
+    title: 'Astronomically calculated',
+    body: 'Astralis uses real planetary positions to build your chart. Astrology is interpreted from the sky map, not treated as science.',
   },
   {
-    title: 'Daily guidance starts simple',
-    body: 'Home gives today first. Premium previews show what deeper timing, tarot, compatibility, and chart layers unlock.',
+    title: 'Place matters',
+    body: 'The sky above your birthplace shapes houses and angles. That is why your city is part of the ritual.',
   },
   {
-    title: 'Notifications stay opt-in',
-    body: 'You can enable daily horoscope reminders later from Profile. If push is not configured, the app explains why.',
+    title: 'Mongolia in the atmosphere',
+    body: "Built beneath Mongolia's vast night sky, designed for anyone looking up from anywhere.",
   },
 ];
 
@@ -48,16 +50,16 @@ export function OnboardingScreen({ onComplete }: Props): React.JSX.Element {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.container}>
-        <Text style={[styles.brand, { color: isLight ? palette.accent : colors.gold }]}>✦ Astralis</Text>
-        <Text style={[styles.title, { color: palette.text }]}>Welcome{user?.fullName ? `, ${firstName(user.fullName)}` : ''}</Text>
+        <Text style={[styles.brand, { color: isLight ? palette.accent : colors.gold }]}>{BRAND_COPY.mark}</Text>
+        <Text style={[styles.title, { color: palette.text }]}>{ONBOARDING_COPY.welcomeTitle}</Text>
         <Text style={[styles.subtitle, { color: palette.textMuted }]}>
-          A quick setup pass before you land in the dashboard.
+          {user?.fullName ? `${firstName(user.fullName)}, ` : ''}{ONBOARDING_COPY.welcomeSubtitle}
         </Text>
 
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={palette.accent} />
-            <Text style={[styles.loadingText, { color: palette.textMuted }]}>Checking your birth profile...</Text>
+            <Text style={[styles.loadingText, { color: palette.textMuted }]}>{skyMappingStep(0)}</Text>
           </View>
         ) : null}
 
@@ -68,6 +70,27 @@ export function OnboardingScreen({ onComplete }: Props): React.JSX.Element {
         ) : null}
 
         <View style={styles.cardList}>
+          {hasBirthProfile && profile?.natalChart ? (
+            <>
+              <View style={[styles.revealHero, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
+                <Text style={[styles.revealEyebrow, { color: colors.gold }]}>Your first sky map</Text>
+                <Text style={[styles.revealTitle, { color: palette.text }]}>Your chart is anchored to the real sky.</Text>
+                <Text style={[styles.revealBody, { color: palette.textMuted }]}>
+                  {whyBirthplaceMatters(profile.birthProfile?.birthCity)}
+                </Text>
+              </View>
+              {buildNatalRevealCards(profile.natalChart).map((card) => (
+                <InsightCard
+                  key={card.label}
+                  label={card.label}
+                  title={card.title}
+                  body={card.body}
+                  palette={palette}
+                  isLight={isLight}
+                />
+              ))}
+            </>
+          ) : null}
           {CARDS.map((card, index) => (
             <View key={card.title} style={[styles.card, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
               <Text style={[styles.cardNumber, { color: colors.gold }]}>{index + 1}</Text>
@@ -89,12 +112,12 @@ export function OnboardingScreen({ onComplete }: Props): React.JSX.Element {
           ]}
         >
           <Text style={[styles.statusTitle, { color: palette.text }]}>
-            {hasBirthProfile ? 'Birth profile ready' : 'Birth profile needs attention'}
+            {hasBirthProfile ? ONBOARDING_COPY.chartReadyTitle : ONBOARDING_COPY.chartNeedsTitle}
           </Text>
           <Text style={[styles.statusBody, { color: palette.textMuted }]}>
             {hasBirthProfile
-              ? 'Your natal chart is available. You can refine account details later from Profile.'
-              : 'The app can still open, but registration or backend profile editing needs work before this is launch-ready.'}
+              ? ONBOARDING_COPY.chartReadyBody
+              : ONBOARDING_COPY.chartNeedsBody}
           </Text>
         </View>
 
@@ -103,10 +126,10 @@ export function OnboardingScreen({ onComplete }: Props): React.JSX.Element {
             style={({ pressed }: { pressed: boolean }) => [styles.primaryButton, pressed && styles.pressed]}
             onPress={() => void onComplete(hasBirthProfile)}
             accessibilityRole="button"
-            accessibilityLabel="Continue to dashboard"
+            accessibilityLabel="Continue to today's sky"
             hitSlop={hitSlopComfortable}
           >
-            <Text style={styles.primaryText}>Go to dashboard</Text>
+            <Text style={styles.primaryText}>Enter today's sky</Text>
           </Pressable>
         </View>
         <LegalLinks compact />
@@ -117,6 +140,28 @@ export function OnboardingScreen({ onComplete }: Props): React.JSX.Element {
 
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] ?? name;
+}
+
+function InsightCard({
+  label,
+  title,
+  body,
+  palette,
+  isLight,
+}: {
+  label: string;
+  title: string;
+  body: string;
+  palette: { text: string; textMuted: string; border: string; surface: string };
+  isLight: boolean;
+}): React.JSX.Element {
+  return (
+    <View style={[styles.insightCard, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
+      <Text style={[styles.insightLabel, { color: colors.gold }]}>{label}</Text>
+      <Text style={[styles.insightTitle, { color: palette.text }]}>{title}</Text>
+      <Text style={[styles.insightBody, { color: palette.textMuted }]}>{body}</Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -156,6 +201,34 @@ const styles = StyleSheet.create({
   },
   loadingText: { fontSize: 13, lineHeight: 18 },
   cardList: { gap: spacing.sm },
+  revealHero: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: spacing.md,
+  },
+  revealEyebrow: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  revealTitle: { marginTop: 4, fontSize: 19, lineHeight: 24, fontWeight: '900' },
+  revealBody: { marginTop: 5, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  insightCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: spacing.md,
+  },
+  insightLabel: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  insightTitle: { marginTop: 3, fontSize: 18, lineHeight: 23, fontWeight: '900' },
+  insightBody: { marginTop: 4, fontSize: 13, lineHeight: 19 },
   card: {
     borderWidth: 1,
     borderRadius: 16,

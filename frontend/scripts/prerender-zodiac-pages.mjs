@@ -116,8 +116,8 @@ function breadcrumbLd(items) {
 
 function horoscopeHtml(sign, { today = false } = {}) {
   const route = `/horoscope/${sign.slug}${today ? '/today' : ''}`;
-  const title = `${sign.name} Horoscope Today${today ? ` (${todayISO})` : ''} | Astralis`;
-  const description = `Read the ${today ? `${todayISO} ` : ''}${sign.name} horoscope preview, zodiac traits, daily themes, and astrology guidance from Astralis.`;
+  const title = `${sign.name} Real Sky Reading Today${today ? ` (${todayISO})` : ''} | Astralis`;
+  const description = `Read the ${today ? `${todayISO} ` : ''}${sign.name} real-sky astrology preview from Astralis, built on real planetary positions and birthplace-aware charting.`;
   const canonical = `${siteUrl}${route}`;
   const structuredData = [
     websiteLd(),
@@ -135,8 +135,8 @@ function horoscopeHtml(sign, { today = false } = {}) {
     },
     breadcrumbLd([
       { name: 'Home', path: '/' },
-      { name: 'Horoscopes', path: '/horoscope/aries' },
-      { name: `${sign.name} Horoscope`, path: route },
+      { name: 'Real Sky Readings', path: '/horoscope/aries' },
+      { name: `${sign.name} Sky Reading`, path: route },
     ]),
   ];
   const otherSigns = zodiacSigns
@@ -155,21 +155,21 @@ function horoscopeHtml(sign, { today = false } = {}) {
       <article class="hero">
         <div>
           <p class="kicker">${escapeHtml(sign.dates)} · ${escapeHtml(sign.element)} sign</p>
-          <h1>${escapeHtml(sign.name)} Horoscope Today</h1>
+          <h1>${escapeHtml(sign.name)} Real Sky Reading Today</h1>
           <p class="lede">${escapeHtml(sign.intro)}</p>
           <p>${escapeHtml(sign.preview)}</p>
         </div>
         <div class="orb" aria-hidden="true">${escapeHtml(sign.name.slice(0, 3).toUpperCase())}</div>
       </article>
       <section class="band">
-        <p class="kicker">Daily horoscope preview</p>
+        <p class="kicker">Astronomy-accurate preview</p>
         <h2>What today asks of ${escapeHtml(sign.name)}</h2>
-        <p>${escapeHtml(sign.preview)} Create your free Astralis chart for guidance shaped by your birth profile, zodiac placements, tarot, and compatibility patterns.</p>
+        <p>${escapeHtml(sign.preview)} Create your free Astralis chart for guidance shaped by your birth profile, calculated placements, the moving sky, and the horizon above your birthplace.</p>
       </section>
       <section class="grid">
-        <article class="card"><h2>Love</h2><p>${escapeHtml(sign.name)} energy helps you notice where connection needs courage, patience, or clearer language.</p></article>
-        <article class="card"><h2>Career</h2><p>Use today's astrology as a planning lens for focus, timing, and decisions that need practical momentum.</p></article>
-        <article class="card"><h2>Wellness</h2><p>Let the day's theme guide a simpler rhythm for rest, attention, and emotional steadiness.</p></article>
+        <article class="card"><h2>Real sky calculations</h2><p>Astralis starts with planetary positions for the date, then reads them through a calm astrological lens.</p></article>
+        <article class="card"><h2>Birthplace-aware charting</h2><p>Your birth location matters because the sky is local; private charts can map houses and angles to that place.</p></article>
+        <article class="card"><h2>Calm premium astrology</h2><p>Premium layers focus on deeper chart intelligence, transits, and compatibility without aggressive urgency.</p></article>
       </section>
       <section>
         <h2>Explore other zodiac horoscopes</h2>
@@ -182,7 +182,7 @@ function horoscopeHtml(sign, { today = false } = {}) {
 function compatibilityHtml(signA, signB) {
   const route = `/compatibility/${signA.slug}/${signB.slug}`;
   const title = `${signA.name} and ${signB.name} Compatibility | Astralis`;
-  const description = `Explore ${signA.name} and ${signB.name} zodiac compatibility for love, friendship, communication, and emotional timing.`;
+  const description = `Explore ${signA.name} and ${signB.name} compatibility with Astralis, where public sign dynamics can deepen into birthplace-aware chart overlays after sign-in.`;
   const canonical = `${siteUrl}${route}`;
   return html({
     title,
@@ -209,16 +209,16 @@ function compatibilityHtml(signA, signB) {
     body: `<main class="page">
       <article class="hero">
         <div>
-          <p class="kicker">Zodiac compatibility</p>
+          <p class="kicker">Chart-aware compatibility</p>
           <h1>${escapeHtml(signA.name)} and ${escapeHtml(signB.name)} Compatibility</h1>
           <p class="lede">${escapeHtml(description)}</p>
-          <p>Astralis uses sign qualities as a starting point, then adds private chart-based tools after sign-in for deeper relationship guidance.</p>
+          <p>Astralis uses sign qualities as a starting point, then adds private chart overlays and real-sky context after sign-in for deeper relationship guidance.</p>
         </div>
         <div class="orb" aria-hidden="true">${escapeHtml(signA.name[0])}+${escapeHtml(signB.name[0])}</div>
       </article>
       <section class="grid">
-        <article class="card"><h2>Love</h2><p>${escapeHtml(signA.name)} and ${escapeHtml(signB.name)} can build connection by honoring each sign's rhythm and needs.</p></article>
-        <article class="card"><h2>Friendship</h2><p>Shared curiosity, boundaries, and emotional timing shape how this pair keeps trust alive.</p></article>
+        <article class="card"><h2>Love</h2><p>${escapeHtml(signA.name)} and ${escapeHtml(signB.name)} can build connection by honoring each sign's rhythm before chart overlays add more context.</p></article>
+        <article class="card"><h2>Birthplace context</h2><p>Private compatibility can compare calculated charts when birth data is available, instead of relying only on sun signs.</p></article>
         <article class="card"><h2>Communication</h2><p>Clear language matters most when the signs approach conflict, planning, or affection differently.</p></article>
       </section>
     </main>`,
@@ -265,9 +265,9 @@ function ogSvg(title, subtitle) {
 function writeOgImages() {
   const ogDir = join(distDir, 'og');
   mkdirSync(ogDir, { recursive: true });
-  writeFileSync(join(ogDir, 'default.svg'), ogSvg('Daily Horoscope', 'Natal chart, tarot, and compatibility'), 'utf8');
+  writeFileSync(join(ogDir, 'default.svg'), ogSvg('Real Sky Astrology', 'Birthplace-aware charts and calm premium rituals'), 'utf8');
   for (const sign of zodiacSigns) {
-    writeFileSync(join(ogDir, `horoscope-${sign.slug}.svg`), ogSvg(`${sign.name} Horoscope`, todayISO), 'utf8');
+    writeFileSync(join(ogDir, `horoscope-${sign.slug}.svg`), ogSvg(`${sign.name} Sky Reading`, 'Mapped to the real sky'), 'utf8');
   }
 }
 
@@ -306,7 +306,44 @@ Sitemap: ${siteUrl}/sitemap.xml
 `, 'utf8');
 }
 
-readFileSync(join(distDir, 'index.html'), 'utf8');
+function landingStaticMarkup() {
+  return `<main class="page">
+    <section class="hero">
+      <div>
+        <p class="kicker">Astronomy-accurate astrology</p>
+        <h1>Astrology mapped to the real sky.</h1>
+        <p class="lede">Astralis begins with real planetary positions, your birth time, and the sky above your birthplace, then turns that map into calm, emotionally precise guidance.</p>
+        <p>Built beneath Mongolia's vast night sky and designed for a global audience, Astralis makes astrology feel more personal by anchoring readings to the sky that was actually above you.</p>
+      </div>
+      <div class="orb" aria-hidden="true">AST</div>
+    </section>
+    <section class="band">
+      <p class="kicker">Why Astralis feels different</p>
+      <h2>Less generic horoscope. More sky-aware interpretation.</h2>
+      <p>Astralis uses real planetary positions, birthplace-aware charting, calm premium interpretation, and a Mongolia-inspired identity to explain why today may feel the way it does.</p>
+    </section>
+    <section class="grid">
+      <article class="card"><h2>Real planetary positions</h2><p>Daily readings can reference the Sun, Moon, Moon phase, and available transit signals instead of relying on generic templates.</p></article>
+      <article class="card"><h2>Birthplace-aware charting</h2><p>Latitude and longitude help locate the horizon, angles, and houses that make your chart local.</p></article>
+      <article class="card"><h2>Today's sky</h2><p>Astralis explains how the moving sky interacts with natal placements when those calculated fields are available.</p></article>
+    </section>
+    <section class="band">
+      <p class="kicker">Sample reading</p>
+      <h2>A calmer way to read the day</h2>
+      <p>With the Moon emphasizing reflection while the Sun steadies your daily rhythm, today may feel less like a push forward and more like a careful recalibration. Notice where your chart asks for precision before momentum.</p>
+      <p><a href="/register">Start your chart</a> <a href="/horoscope/aries/today">Explore today's sky</a></p>
+    </section>
+  </main>`;
+}
+
+function injectLandingIntoRoot() {
+  const indexPath = join(distDir, 'index.html');
+  const html = readFileSync(indexPath, 'utf8');
+  if (!html.includes('<div id="app"></div>')) return;
+  writeFileSync(indexPath, html.replace('<div id="app"></div>', `<div id="app">${landingStaticMarkup()}</div>`), 'utf8');
+}
+
+injectLandingIntoRoot();
 writeOgImages();
 for (const sign of zodiacSigns) {
   writeFileRoute(`/horoscope/${sign.slug}`, horoscopeHtml(sign));

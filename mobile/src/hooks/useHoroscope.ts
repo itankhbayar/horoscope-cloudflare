@@ -32,7 +32,7 @@ export function useHoroscope(): {
       cache.set(key, data);
       setHoroscope(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load horoscope');
+      setError(e instanceof Error ? e.message : 'Failed to load sky reading');
     } finally {
       setLoading(false);
     }
@@ -45,7 +45,7 @@ export function useHoroscope(): {
       const data = await horoscopeService.fetchMyDailyHoroscope();
       setHoroscope(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load horoscope');
+      setError(e instanceof Error ? e.message : 'Failed to load sky reading');
     } finally {
       setLoading(false);
     }

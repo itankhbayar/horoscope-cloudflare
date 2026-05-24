@@ -18,10 +18,10 @@ const sign1 = computed(() => normalizeSign(route.params.sign1));
 const sign2 = computed(() => normalizeSign(route.params.sign2));
 const info1 = computed(() => getZodiacInfo(sign1.value));
 const info2 = computed(() => getZodiacInfo(sign2.value));
-const title = computed(() => `${info1.value.name} and ${info2.value.name} Compatibility | Astralis`);
+const title = computed(() => `${info1.value.name} and ${info2.value.name} Chart Compatibility | Astralis`);
 const description = computed(
   () =>
-    `Explore ${info1.value.name} and ${info2.value.name} zodiac compatibility for love, friendship, communication, and emotional timing.`,
+    `Explore ${info1.value.name} and ${info2.value.name} compatibility with Astralis, where relationship readings begin with sign dynamics and can deepen through birthplace-aware chart overlays.`,
 );
 
 useDocumentMeta({
@@ -36,15 +36,16 @@ useDocumentMeta({
   <AppContainer size="lg">
     <ScreenLayout class="compat-static-page">
       <article class="hero glass-card">
-        <p class="kicker">Zodiac compatibility</p>
+        <p class="kicker">Birthplace-aware compatibility</p>
         <h1>{{ info1.name }} and {{ info2.name }} Compatibility</h1>
         <p>{{ description }}</p>
+        <p class="note">Public previews stay sign-based. Private Astralis compatibility can use calculated charts and overlays when both birth profiles are available.</p>
       </article>
 
       <section class="grid">
         <article class="glass-card">
           <h2>Love</h2>
-          <p>{{ info1.name }} and {{ info2.name }} can build connection by honoring each sign's rhythm and needs.</p>
+          <p>{{ info1.name }} and {{ info2.name }} can build connection by honoring each sign's rhythm before deeper chart overlays add timing and context.</p>
         </article>
         <article class="glass-card">
           <h2>Friendship</h2>
@@ -87,6 +88,10 @@ h1 {
 p {
   color: var(--text-secondary);
   max-width: 72ch;
+}
+.note {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 .grid {
   display: grid;

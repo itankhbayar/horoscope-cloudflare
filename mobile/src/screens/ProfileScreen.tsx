@@ -170,7 +170,7 @@ export function ProfileScreen(): React.JSX.Element {
     <ScreenScroll contentContainerStyle={styles.container}>
       {!isLight ? <View style={styles.backgroundGlowTop} pointerEvents="none" /> : null}
       {!isLight ? <View style={styles.backgroundGlowBottom} pointerEvents="none" /> : null}
-      {loading ? <LoadingBlock message="Casting chart…" /> : null}
+      {loading ? <LoadingBlock message="Calculating your sky..." /> : null}
       {error ? (
         <Text style={styles.error} accessibilityRole="alert">
           {error}
@@ -270,7 +270,7 @@ export function ProfileScreen(): React.JSX.Element {
               />
               <Field label="Email" value={draft.email} editable={false} />
               <Text style={styles.microcopy}>
-                Sun, moon, and rising signs are recalculated from your saved birth details.
+                Sun, moon, and rising signs are recalculated from your saved birth time and birthplace.
               </Text>
               <Field
                 label="Birth date (YYYY-MM-DD)"

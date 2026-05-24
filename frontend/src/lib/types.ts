@@ -149,6 +149,20 @@ export interface DailyHoroscope {
   health: string;
   luckyNumber: number;
   luckyColor: string;
+  skyContext?: {
+    sunSign: ZodiacSign;
+    moonSign: ZodiacSign;
+    moonPhase: string;
+    focusTransit?: {
+      transitBody: string;
+      natalBody: string;
+      aspect: string;
+      orb: number;
+      natalHouse?: number;
+      transitSign: ZodiacSign;
+      natalSign: ZodiacSign;
+    };
+  };
   sunSign?: ZodiacSign;
   moonSign?: ZodiacSign;
   risingSign?: ZodiacSign | null;

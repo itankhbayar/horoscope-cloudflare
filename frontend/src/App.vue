@@ -62,7 +62,7 @@ const navLinks = computed(() => [
   { to: '/chart', label: 'Chart', icon: '◎' },
   { to: '/premium', label: t('nav.premium'), icon: '✦' },
   { to: '/profile', label: t('nav.profile'), icon: '☽' },
-]);
+].map((link) => (link.to === '/' ? { ...link, to: '/today' } : link)));
 
 const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? '');
 const isGuestRoute = computed(() => Boolean(route.meta.guest));
@@ -98,7 +98,7 @@ watch(
     </nav>
 
     <nav v-else-if="isAuthenticated" class="navbar">
-      <router-link to="/" class="nav-brand">
+      <router-link to="/today" class="nav-brand">
         <span class="brand-icon">✦</span>
         <span class="brand-text">{{ t('app.name') }}</span>
       </router-link>
@@ -143,11 +143,13 @@ watch(
     </nav>
 
     <nav v-else class="navbar guest-navbar">
-      <router-link to="/login" class="nav-brand">
+      <router-link to="/" class="nav-brand">
         <span class="brand-icon">✦</span>
         <span class="brand-text">{{ t('app.name') }}</span>
       </router-link>
       <div class="nav-right">
+        <router-link to="/login" class="guest-link">{{ t('auth.signIn') }}</router-link>
+        <router-link to="/register" class="guest-cta">{{ t('landing.ctaPrimary') }}</router-link>
         <LanguageSwitcher />
       </div>
     </nav>
@@ -158,7 +160,9 @@ watch(
       </div>
       <router-view v-else v-slot="{ Component }">
         <Suspense>
-          <component :is="Component" />
+          <div class="route-view">
+            <component :is="Component" />
+          </div>
           <template #fallback>
             <div class="auth-boot">
               <p class="auth-boot-text">{{ t('app.loading') }}</p>
@@ -192,6 +196,13 @@ watch(
 .page-content--guest {
   min-height: 0;
   flex: none;
+}
+.route-view {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .auth-boot {
   flex: 1;
@@ -279,6 +290,28 @@ watch(
   align-items: center;
   gap: 0.85rem;
   justify-content: flex-end;
+}
+.guest-link,
+.guest-cta {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 0.85rem;
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.guest-link {
+  color: var(--text-secondary);
+}
+.guest-link:hover {
+  color: var(--gold-light);
+}
+.guest-cta {
+  color: #121226;
+  background: var(--gold);
 }
 .nav-desktop-actions {
   display: flex;

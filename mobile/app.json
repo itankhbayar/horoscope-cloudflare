@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "Astralis",
+    "description": "Astronomy-accurate astrology mapped to your real sky, with birthplace-aware charts and a calm design inspired by Mongolia's vast night sky.",
     "slug": "astralis-mobile",
     "version": "1.0.0",
     "orientation": "portrait",

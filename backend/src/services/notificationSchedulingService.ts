@@ -65,9 +65,9 @@ export function streakSegmentForNotification(streakCount: number): StreakSegment
 }
 
 export function streakReminderCopy(streakCount: number, segment = streakSegmentForNotification(streakCount)): string {
-  if (segment === 'legendary') return `${streakCount} nights aligned under the same stars \uD83C\uDF19`;
-  if (segment === 'devoted') return 'Your ritual history is glowing.';
+  if (segment === 'legendary') return `${streakCount} nights mapped beneath the same sky \uD83C\uDF19`;
+  if (segment === 'devoted') return 'Your ritual history is glowing under the open sky.';
   if (segment === 'aligned') return `${streakCount} nights aligned under the same stars \uD83C\uDF19`;
   if (segment === 'building') return 'Your cosmic rhythm is building \u2728';
-  return 'Your cosmic rhythm continues tonight \u2728';
+  return "Today's sky is ready when you are \u2728";
 }
