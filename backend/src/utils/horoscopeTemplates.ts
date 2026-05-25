@@ -27,7 +27,7 @@ const COLORS_MN = [
 const FIRE_OVERALL_EN = [
   'Cosmic energy fuels your fire today—channel it into bold action.',
   'A spark of inspiration lights up your path; trust your instincts.',
-  'The universe rewards courage; step beyond your comfort zone.',
+  'You keep calling it readiness, but the real question is what desire costs when it becomes visible.',
   'Your inner flame guides important decisions today.',
 ];
 const EARTH_OVERALL_EN = [
@@ -604,7 +604,7 @@ export function enrichDailyHoroscope(
 
 function buildAstronomyAwareReading(
   sign: ZodiacSign,
-  _dateISO: string,
+  dateISO: string,
   base: DailyHoroscopeContent,
   options: DailyHoroscopeGenerationOptions,
 ): DailyHoroscopeContent {
@@ -620,35 +620,285 @@ function buildAstronomyAwareReading(
   const moonName = getZodiacInfo(moon.sign).name;
   const focusTransit = selectFocusTransit(options.transitAspects ?? []);
   const skyContext = buildSkyContext(sun.sign, moon.sign, sky.moonPhase.name, focusTransit);
+  const seed = seedFromSignAndDate(sign, dateISO);
+  const mercuryName = mercury ? getZodiacInfo(mercury.sign).name : null;
+  const phase = sky.moonPhase.name.toLowerCase();
 
   if (options.natalChart) {
     const natal = options.natalChart;
     const moonHouse = findNatalHouse(moon.longitude, natal.houses);
-    const risingClause = natal.risingSign
-      ? ` Your ${getZodiacInfo(natal.risingSign).name} rising sets the doorway for how this lands outwardly.`
-      : '';
-    const transitClause = focusTransit
-      ? ` The clearest timing note is ${planetLabel(focusTransit.transitBody)} ${aspectLabel(focusTransit.type)} your natal ${planetLabel(focusTransit.natalBody)}${houseClause(focusTransit.natalHouse)} at a ${focusTransit.orb.toFixed(1)} degree orb.`
-      : ` No tight major transit dominates your stored natal planets today, so the reading leans on the Moon's current sign and your birth chart anchor.`;
+    const natalSunName = getZodiacInfo(natal.sunSign).name;
+    const natalMoonName = getZodiacInfo(natal.moonSign).name;
+    const risingSign = natal.risingSign;
+    const risingName = risingSign ? getZodiacInfo(risingSign).name : null;
+    const socialHouse = focusTransit?.natalHouse ?? moonHouse;
+    const timing = focusTransit
+      ? `Timing cue: ${planetLabel(focusTransit.transitBody)} ${aspectLabel(focusTransit.type)} your natal ${planetLabel(focusTransit.natalBody)}${houseClause(focusTransit.natalHouse)} at a ${focusTransit.orb.toFixed(1)} degree orb.`
+      : `Timing cue: no tight major transit dominates your stored natal planets, so today's pressure comes through the Moon in ${moonName}${moonHouse ? ` moving across your ${ordinal(moonHouse)} house` : ''}.`;
+    const chartLead = `For your ${natalSunName} Sun and ${natalMoonName} Moon${risingName ? ` with ${risingName} rising` : ''}`;
 
     return {
       ...base,
       skyContext,
-      overall: `Today the Sun is in ${sunName} and the Moon moves through ${moonName} in a ${sky.moonPhase.name.toLowerCase()} phase. For your ${getZodiacInfo(natal.sunSign).name} Sun and ${getZodiacInfo(natal.moonSign).name} Moon, this makes the day feel ${toneForElement(getZodiacInfo(moon.sign).element)} rather than generic.${transitClause}${risingClause}`,
-      love: `Connection benefits from the Moon in ${moonName}: name the feeling before trying to solve it. ${focusTransit ? `Because ${planetLabel(focusTransit.transitBody)} is touching your natal ${planetLabel(focusTransit.natalBody)}, conversations may reveal the real need underneath the surface.` : 'Your chart favors gentle honesty over performance today.'}`,
-      career: `Work and decisions are best read through the actual sky: the Sun in ${sunName} emphasizes ${solarTheme(sun.sign)}, while ${mercury ? `Mercury in ${getZodiacInfo(mercury.sign).name} shapes the pace of planning and messages` : 'Mercury sets the pace of planning and messages'}. If the day feels charged, it is useful data, not a demand to rush.`,
-      health: `Regulate around the Moon in ${moonName}${moonHouse ? ` moving through your ${ordinal(moonHouse)} house` : ''}. The body may ask for ${bodyCueForMoon(moon.sign)}; keep the ritual simple enough to actually feel restorative.`,
+      overall: `${chartLead}, ${personalTension(natal.moonSign, seed)} ${risingSign ? risingBehavior(risingSign, seed >> 1) : sunBehavior(natal.sunSign, seed >> 1)} ${hiddenDesireOrFear(natal.sunSign, natal.moonSign, seed >> 2)} ${timing} Let the day show you where the performance is heavier than the truth.`,
+      love: `${relationshipSignal(moon.sign, seed)} ${socialHouse ? `It may land through ${houseRelationshipCue(socialHouse)}` : `It may show up in the gap between what you say and what you hope someone notices`}. ${focusTransit ? `Because ${planetLabel(focusTransit.transitBody)} is pressing your natal ${planetLabel(focusTransit.natalBody)}, a small change in tone can say more than the official conversation.` : `The Moon in ${moonName} makes indirect signals louder than planned speeches.`}`,
+      career: `${workSignal(sun.sign, mercury?.sign ?? sun.sign, seed)} ${mercuryName ? `Mercury in ${mercuryName} shapes the wording, so clean up the message before you push the decision.` : `The message matters as much as the decision.`} If you feel behind, check whether you are chasing urgency or trying to earn permission.`,
+      health: `With the Moon in ${moonName}${moonHouse ? ` crossing your ${ordinal(moonHouse)} house` : ''} during a ${phase} phase, your system may want ${bodyCueForMoon(moon.sign)}. Keep it ordinary and repeatable; the point is to stop overriding the signal.`,
     };
   }
 
   return {
     ...base,
     skyContext,
-    overall: `Today the Sun is in ${sunName} and the Moon moves through ${moonName} in a ${sky.moonPhase.name.toLowerCase()} phase. For ${signName}, this points to ${solarTheme(sun.sign)} meeting ${lunarTheme(moon.sign)} - the reason the day may feel more specific than a generic horoscope.`,
-    love: `The Moon in ${moonName} favors ${relationshipTheme(moon.sign)}. Say less if the feeling is still forming; say more when the shape of it becomes clear.`,
-    career: `With the Sun in ${sunName}${mercury ? ` and Mercury in ${getZodiacInfo(mercury.sign).name}` : ''}, today's useful work is ${workTheme(mercury?.sign ?? sun.sign)}. Precision matters more than urgency.`,
-    health: `The ${sky.moonPhase.name.toLowerCase()} phase asks for ${moonPhaseCare(sky.moonPhase.name)}. Let ${moonName} guide the pace instead of forcing a mood that is not present.`,
+    overall: `${publicOpening(signName, seed)} The Sun in ${sunName} brings ${solarTheme(sun.sign)}, while the Moon in ${moonName} pulls up ${lunarTheme(moon.sign)} during a ${phase} phase. ${publicTension(moon.sign, seed >> 1)} End the day by naming the thing you kept negotiating with yourself.`,
+    love: `${relationshipSignal(moon.sign, seed)} The Moon in ${moonName} makes ${relationshipTheme(moon.sign)} easier to read, especially in pauses, replies, and the tone someone uses when they think they are being casual.`,
+    career: `${workSignal(sun.sign, mercury?.sign ?? sun.sign, seed)} ${mercuryName ? `Mercury in ${mercuryName} affects how fast people understand the point.` : `The point needs a cleaner shape before it needs more force.`} Precision matters more than urgency.`,
+    health: `The ${phase} phase favors ${moonPhaseCare(sky.moonPhase.name)}. Let ${moonName} set the pace: ${bodyCueForMoon(moon.sign)} is enough of a ritual for today.`,
   };
+}
+
+function publicOpening(signName: string, seed: number): string {
+  return pick([
+    `${signName}, the mood is not dramatic, but it is precise.`,
+    `${signName}, notice what you keep almost saying and then editing down.`,
+    `${signName}, the day has a private pressure point around honesty.`,
+    `${signName}, the obvious task may not be the real story.`,
+  ], seed);
+}
+
+function publicTension(moonSign: ZodiacSign, seed: number): string {
+  const info = getZodiacInfo(moonSign);
+  switch (info.element) {
+    case 'fire':
+      return pick([
+        'You may call it momentum, but part of you is trying to outrun the feeling.',
+        'A quick reaction could reveal the desire you were trying to make look casual.',
+        'The irritation is probably less about the moment and more about not feeling chosen quickly enough.',
+      ], seed);
+    case 'earth':
+      return pick([
+        'You may call it patience, but part of you has been emotionally stalled.',
+        'The need for proof is real; the habit of withholding warmth until proof arrives may cost more than it protects.',
+        'Something steady may feel heavy only because you have been carrying it without admitting the weight.',
+      ], seed);
+    case 'air':
+      return pick([
+        'You can explain the feeling elegantly, but the explanation may be helping you avoid needing it.',
+        'A conversation may sound light while carrying a much sharper question underneath.',
+        'You may be waiting for the perfect wording because plain need feels too exposed.',
+      ], seed);
+    case 'water':
+      return pick([
+        'You have been performing calm so convincingly that even you almost believed it.',
+        'A small shift in tone may hit harder than expected, especially from someone whose approval you pretend not to need.',
+        'The feeling is older than the situation, which does not make it false.',
+      ], seed);
+  }
+}
+
+function personalTension(moonSign: ZodiacSign, seed: number): string {
+  const info = getZodiacInfo(moonSign);
+  switch (info.element) {
+    case 'fire':
+      return pick([
+        'your emotional weather is impatient with anything that makes desire look too needy.',
+        'you may be pushing for a clean answer because waiting feels like losing authority over yourself.',
+        'the sharp feeling under the surface is not anger exactly; it is wanting to be met without having to perform confidence first.',
+      ], seed);
+    case 'earth':
+      return pick([
+        'you keep calling it being realistic, but some part of you has been asking for reassurance in a quieter language.',
+        'your steadiness is useful until it becomes a costume for disappointment.',
+        'you may be holding the practical line because admitting the softer need would change the whole negotiation.',
+      ], seed);
+    case 'air':
+      return pick([
+        'your mind can make the situation sound manageable before your body has agreed.',
+        'you may be translating a raw feeling into analysis because analysis lets you stay impressive.',
+        'the sentence you keep revising is probably less important than the need underneath it.',
+      ], seed);
+    case 'water':
+      return pick([
+        'you have been carrying a feeling that wants witness, not a solution.',
+        'your sensitivity is picking up the room before the room has admitted anything.',
+        'the tenderness you are protecting may be exactly where the honest information lives.',
+      ], seed);
+  }
+}
+
+function risingBehavior(risingSign: ZodiacSign, seed: number): string {
+  const info = getZodiacInfo(risingSign);
+  switch (info.element) {
+    case 'fire':
+      return pick([
+        'Outwardly, you may move first and explain later, which makes hesitation feel like betrayal.',
+        'People may see certainty before they notice how carefully you are testing the room.',
+        'Your face may say ready before your nervous system has caught up.',
+      ], seed);
+    case 'earth':
+      return pick([
+        'Outwardly, you may look composed enough that people forget to ask what it costs.',
+        'You may default to being useful when what you actually want is to be considered.',
+        'Your restraint reads as confidence, even when it is partly self-protection.',
+      ], seed);
+    case 'air':
+      return pick([
+        'Outwardly, you may keep things conversational so nobody can tell where it touched you.',
+        'You may become clever right where you most need to be simple.',
+        'People may hear your nuance and miss the ache inside it.',
+      ], seed);
+    case 'water':
+      return pick([
+        'Outwardly, you may soften the room while privately tracking every emotional temperature change.',
+        'You may offer care before naming what you need back.',
+        'People may feel your warmth before they understand your boundary.',
+      ], seed);
+  }
+}
+
+function sunBehavior(sunSign: ZodiacSign, seed: number): string {
+  const info = getZodiacInfo(sunSign);
+  switch (info.element) {
+    case 'fire':
+      return pick([
+        'You may try to solve the discomfort by taking action before the desire is fully honest.',
+        'The instinct to be brave is real, but bravery does not have to arrive as speed.',
+      ], seed);
+    case 'earth':
+      return pick([
+        'You may try to make the feeling useful before you let it be true.',
+        'The practical answer is not wrong; it is just not the whole confession.',
+      ], seed);
+    case 'air':
+      return pick([
+        'You may try to name every angle except the one that makes you vulnerable.',
+        'The thought is moving faster than the feeling, so give both a little room.',
+      ], seed);
+    case 'water':
+      return pick([
+        'You may absorb the mood around you and then wonder why your own signal is hard to hear.',
+        'The emotional truth is already present; it just may not be convenient.',
+      ], seed);
+  }
+}
+
+function hiddenDesireOrFear(sunSign: ZodiacSign, moonSign: ZodiacSign, seed: number): string {
+  const sun = getZodiacInfo(sunSign).element;
+  const moon = getZodiacInfo(moonSign).element;
+  if (sun === 'fire' || moon === 'fire') {
+    return pick([
+      'The hidden desire is to be wanted without having to make the first brave move.',
+      'The fear is that slowing down will make the answer disappear.',
+    ], seed);
+  }
+  if (sun === 'earth' || moon === 'earth') {
+    return pick([
+      'The hidden desire is for someone to notice the labor you stopped advertising.',
+      'The fear is that asking directly will make the need feel less dignified.',
+    ], seed);
+  }
+  if (sun === 'air' || moon === 'air') {
+    return pick([
+      'The hidden desire is to be understood before you have to overexplain yourself.',
+      'The fear is that plain emotional language will leave you with nowhere clever to hide.',
+    ], seed);
+  }
+  return pick([
+    'The hidden desire is to be held in mind without having to keep proving your tenderness.',
+    'The fear is that needing more will make you harder to love.',
+  ], seed);
+}
+
+function relationshipSignal(moonSign: ZodiacSign, seed: number): string {
+  const info = getZodiacInfo(moonSign);
+  switch (info.element) {
+    case 'fire':
+      return pick([
+        'In connection, watch the first impulse to test whether someone will follow your heat.',
+        'Someone may respond to your directness, but the softer request underneath it matters more.',
+        'Flirtation, irritation, and honesty may stand closer together than usual.',
+      ], seed);
+    case 'earth':
+      return pick([
+        'In connection, reliability matters, but so does the tenderness behind the reliable act.',
+        'Someone may be measuring care through consistency, timing, or what gets remembered.',
+        'A quiet gesture can expose more truth than a polished conversation.',
+      ], seed);
+    case 'air':
+      return pick([
+        'In connection, the subtext may travel through timing, punctuation, and what gets left unsaid.',
+        'Someone may need curiosity more than reassurance, at least at first.',
+        'A light exchange can carry a serious question about whether you are being truly heard.',
+      ], seed);
+    case 'water':
+      return pick([
+        'In connection, small changes in tone may hit harder today.',
+        'Someone may be asking for safety without using the official language of need.',
+        'The emotional truth may arrive through memory, silence, or a reaction that feels bigger than the moment.',
+      ], seed);
+  }
+}
+
+function houseRelationshipCue(house: number): string {
+  switch (house) {
+    case 1:
+      return 'how visible, chosen, or exposed you feel';
+    case 2:
+      return 'worth, reassurance, and the need to feel valued without bargaining';
+    case 3:
+      return 'texts, tone, siblings, neighbors, or the small daily language of care';
+    case 4:
+      return 'home, family patterns, and the private self you rarely perform';
+    case 5:
+      return 'desire, romance, play, and the risk of being openly pleased';
+    case 6:
+      return 'routine, labor, and whether care has become another task';
+    case 7:
+      return 'partnership, projection, and the person who mirrors what you avoid naming';
+    case 8:
+      return 'trust, vulnerability, money shared with others, and the fear of owing too much';
+    case 9:
+      return 'distance, belief, travel, and the story you use to make longing noble';
+    case 10:
+      return 'reputation, ambition, and the approval you pretend not to need';
+    case 11:
+      return 'friends, groups, and the uneasy wish to belong without shrinking';
+    case 12:
+      return 'privacy, old grief, and the pattern you keep trying to outgrow quietly';
+    default:
+      return 'the part of life asking for a more honest exchange';
+  }
+}
+
+function workSignal(sunSign: ZodiacSign, mercurySign: ZodiacSign, seed: number): string {
+  const sun = getZodiacInfo(sunSign).element;
+  const mercury = getZodiacInfo(mercurySign).element;
+  if (sun === 'fire' || mercury === 'fire') {
+    return pick([
+      'At work, the useful move is direct, but not impulsive.',
+      'A decision wants courage, though the timing still deserves respect.',
+      'You may want to force momentum where one honest sentence would do more.',
+    ], seed);
+  }
+  if (sun === 'earth' || mercury === 'earth') {
+    return pick([
+      'At work, the useful move is to make the vague thing measurable.',
+      'A practical detail may reveal who has actually been paying attention.',
+      'You do not need to carry the whole structure just because you can see where it is weak.',
+    ], seed);
+  }
+  if (sun === 'air' || mercury === 'air') {
+    return pick([
+      'At work, the useful move is to name the pattern before reacting to the noise.',
+      'A message may need less polish and more precision.',
+      'The room may be waiting for someone to say the obvious thing without making it dramatic.',
+    ], seed);
+  }
+  return pick([
+    'At work, the useful move is to trust the quiet signal without turning it into a speech.',
+    'A subtle mood shift may tell you which conversation needs better boundaries.',
+    'You may be reading the emotional weather correctly; just do not volunteer to manage all of it.',
+  ], seed);
 }
 
 function buildSkyContext(
@@ -719,21 +969,6 @@ function ordinal(value: number): string {
   return `${value}${suffix}`;
 }
 
-function toneForElement(element: string): string {
-  switch (element) {
-    case 'fire':
-      return 'warm, direct, and a little catalytic';
-    case 'earth':
-      return 'grounded, practical, and slow enough to trust';
-    case 'air':
-      return 'mental, social, and easier to understand through language';
-    case 'water':
-      return 'emotional, porous, and quietly revealing';
-    default:
-      return 'layered and worth reading slowly';
-  }
-}
-
 function solarTheme(sign: ZodiacSign): string {
   const info = getZodiacInfo(sign);
   switch (info.element) {
@@ -773,20 +1008,6 @@ function relationshipTheme(sign: ZodiacSign): string {
       return 'curiosity, listening, and room for nuance';
     case 'water':
       return 'tenderness, memory, and emotional safety';
-  }
-}
-
-function workTheme(sign: ZodiacSign): string {
-  const info = getZodiacInfo(sign);
-  switch (info.element) {
-    case 'fire':
-      return 'choosing the move that has life in it';
-    case 'earth':
-      return 'making the plan more usable and concrete';
-    case 'air':
-      return 'naming the pattern before acting on it';
-    case 'water':
-      return 'trusting the quiet signal without overexplaining it';
   }
 }
 

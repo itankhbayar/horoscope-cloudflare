@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EnergyDetailsCard } from '../components/home/EnergyDetailsCard';
 import { EnergyRing } from '../components/home/EnergyRing';
@@ -31,6 +31,7 @@ import { loadDailyStreak, localDateISO, type DailyStreak } from '../lib/streaks'
 import { consumeMilestoneCelebration } from '../lib/streakCelebration';
 import { normalizeStreakCount, normalizeStreakSegment, type StreakMilestone } from '../lib/streakDisplay';
 import { shareStreakMilestoneCard } from '../lib/streakShare';
+import { shareDailyHoroscopeCard } from '../lib/horoscopeShareCard';
 import { track, trackDailyActiveOnce } from '../lib/analytics';
 import { BRAND_COPY } from '../lib/brandCopy';
 import { goToPremium } from '../navigation/navigationRef';
@@ -188,6 +189,11 @@ export function HomeScreen(): ReactElement {
     }
   };
 
+  const onShareTodayReading = (): void => {
+    if (!horoscope) return;
+    void shareDailyHoroscopeCard(horoscope);
+  };
+
   return (
     <ScreenScroll
       scrollBackgroundColor={theme.bgDeep}
@@ -307,6 +313,17 @@ export function HomeScreen(): ReactElement {
               goToPremium('post_reading');
             }}
           />
+          {horoscope && effectiveHoroscopePeriod === 'today' ? (
+            <Pressable
+              style={({ pressed }) => [styles.dailyShareButton, pressed && styles.pressed]}
+              onPress={onShareTodayReading}
+              accessibilityRole="button"
+              accessibilityLabel="Share today's reading"
+            >
+              <Text style={styles.dailyShareIcon}>{'\u2197'}</Text>
+              <Text style={styles.dailyShareText}>Share today's reading</Text>
+            </Pressable>
+          ) : null}
         </Animated.View>
       ) : null}
 
@@ -617,5 +634,35 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     textAlign: 'center',
     fontSize: 14,
+  },
+  dailyShareButton: {
+    minHeight: 52,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 217, 139, 0.34)',
+    backgroundColor: 'rgba(184, 168, 255, 0.14)',
+    marginTop: -spacing.md,
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  dailyShareIcon: {
+    color: '#f4d98b',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '900',
+  },
+  dailyShareText: {
+    color: '#f5f3ff',
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  pressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.99 }],
   },
 });

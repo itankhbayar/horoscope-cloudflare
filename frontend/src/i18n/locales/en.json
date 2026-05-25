@@ -155,7 +155,10 @@
     "health": "Health",
     "luckyNumber": "Lucky number",
     "luckyColor": "Lucky color",
-    "sunSuffix": "sun"
+    "sunSuffix": "sun",
+    "shareTodayReading": "Share today's reading",
+    "sharePreparing": "Preparing card...",
+    "shareError": "Could not prepare the share card. Please try again."
   },
   "profile": {
     "castingChart": "Casting your chart…",

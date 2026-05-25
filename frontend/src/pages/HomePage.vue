@@ -11,6 +11,9 @@ import PredictionCard from '../components/PredictionCard.vue';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
+import { buildHoroscopeShareCardPayload } from '../lib/horoscopeShareCard';
+import { shareHoroscopeCardOnWeb } from '../lib/horoscopeShareWeb';
+import { track } from '../lib/analytics';
 
 const { t, locale } = useI18n();
 const { user } = useAuth();
@@ -19,6 +22,8 @@ const { horoscope, loading, error: horoscopeError, load: loadHoroscope, reset: r
   useHoroscope();
 
 const selectedSign = ref<ZodiacSign | null>(null);
+const shareBusy = ref(false);
+const shareError = ref<string | null>(null);
 
 const sunSign = computed<ZodiacSign | null>(() => profile.value?.natalChart?.sunSign ?? null);
 const sunSignName = computed(() => (sunSign.value ? t(`zodiac.${sunSign.value}`) : ''));
@@ -42,6 +47,30 @@ onMounted(async () => {
 async function selectSign(sign: ZodiacSign): Promise<void> {
   selectedSign.value = sign;
   await loadHoroscope(sign);
+}
+
+async function shareTodayReading(): Promise<void> {
+  if (!horoscope.value || shareBusy.value) return;
+  shareBusy.value = true;
+  shareError.value = null;
+  const eventBase = { source: 'home', sign: horoscope.value.sign, date: horoscope.value.date };
+  track('horoscope_share_card_opened', eventBase);
+  try {
+    const payload = buildHoroscopeShareCardPayload(horoscope.value, {
+      locale: locale.value === 'mn' ? 'mn-MN' : 'en-US',
+    });
+    track('horoscope_share_card_generated', { ...eventBase, surface: 'web' });
+    const result = await shareHoroscopeCardOnWeb(payload);
+    track('horoscope_share_card_shared', { ...eventBase, method: result.method });
+  } catch (err) {
+    shareError.value = t('home.shareError');
+    track('horoscope_share_card_failed', {
+      ...eventBase,
+      reason: err instanceof Error ? err.message.slice(0, 80) : 'unknown',
+    });
+  } finally {
+    shareBusy.value = false;
+  }
 }
 
 watch(locale, async () => {
@@ -95,6 +124,10 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
       <div class="overall-card glass-card">
         <p class="overall-eyebrow">{{ t('home.todayOverall') }}</p>
         <p class="overall-text">{{ horoscope.overall }}</p>
+        <button type="button" class="share-reading-btn" :disabled="shareBusy" @click="shareTodayReading">
+          {{ shareBusy ? t('home.sharePreparing') : t('home.shareTodayReading') }}
+        </button>
+        <p v-if="shareError" class="share-error" role="alert">{{ shareError }}</p>
       </div>
 
       <div class="prediction-grid">
@@ -205,6 +238,28 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
   line-height: 1.5;
   color: var(--text-primary);
   font-style: italic;
+}
+.share-reading-btn {
+  margin-top: 1.4rem;
+  border: 1px solid rgba(244, 217, 139, 0.42);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(244, 217, 139, 0.2), rgba(184, 168, 255, 0.22));
+  color: var(--text-primary);
+  padding: 0.8rem 1.2rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 18px 50px rgba(184, 168, 255, 0.16);
+}
+.share-reading-btn:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+.share-error {
+  margin-top: 0.8rem;
+  color: #ffb4b4;
+  font-size: 0.9rem;
 }
 .prediction-grid {
   display: grid;

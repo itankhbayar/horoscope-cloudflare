@@ -22,6 +22,10 @@ export type AnalyticsEventMap = {
     period: 'yesterday' | 'today' | 'tomorrow' | 'weekly' | 'monthly' | 'annual';
     isPremium: boolean;
   };
+  horoscope_share_card_opened: { source: 'home'; sign: string; date: string };
+  horoscope_share_card_generated: { source: 'home'; sign: string; date: string; surface: 'native' };
+  horoscope_share_card_shared: { source: 'home'; sign: string; date: string; method: 'native' | 'message_fallback' };
+  horoscope_share_card_failed: { source: 'home'; sign: string; date: string; reason: string };
   locked_content_tapped: {
     surface: 'horoscope_period' | 'home_module';
     period?: 'yesterday' | 'tomorrow' | 'weekly' | 'monthly' | 'annual';

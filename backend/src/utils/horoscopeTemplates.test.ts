@@ -17,8 +17,8 @@ describe('generateDailyHoroscope', () => {
     const b = generateDailyHoroscope('gemini', '2026-05-20', 'en', { sky });
 
     expect(a).toEqual(b);
-    expect(a.overall).toContain('Today the Sun is in');
-    expect(a.overall).toContain('Moon moves through');
+    expect(a.overall).toContain('The Sun in');
+    expect(a.overall).toContain('Moon in');
     expect(a.skyContext).toMatchObject({
       sunSign: sky.planets.find((p) => p.name === 'Sun')?.sign,
       moonSign: sky.planets.find((p) => p.name === 'Moon')?.sign,
@@ -36,8 +36,9 @@ describe('generateDailyHoroscope', () => {
     });
 
     expect(reading.overall).toContain('For your Gemini Sun and Pisces Moon');
-    expect(reading.overall).toMatch(/natal|No tight major transit/);
+    expect(reading.overall).toMatch(/Timing cue:|natal/);
     expect(reading.health).toContain('Moon in');
+    expect(reading.love).toMatch(/tone|texts|partnership|connection|approval|safety|trust|friends|home|desire|worth|privacy/);
   });
 
   it('falls back to legacy localized templates when sky context is missing', () => {
@@ -46,5 +47,31 @@ describe('generateDailyHoroscope', () => {
     expect(reading.skyContext).toBeUndefined();
     expect(reading.overall).not.toContain('Today the Sun is in');
     expect(reading.overall.length).toBeGreaterThan(10);
+  });
+
+  it('keeps sky-aware English copy away from repetitive generic advice phrases', () => {
+    const sky = computeDailySkySnapshot('2026-05-20');
+    const transitAspects = computeTransitToNatalAspects(sky.planets, chart.planets);
+    const reading = generateDailyHoroscope('gemini', '2026-05-20', 'en', {
+      sky,
+      natalChart: chart,
+      transitAspects,
+    });
+    const copy = [reading.overall, reading.love, reading.career, reading.health].join(' ');
+
+    expect(copy).not.toMatch(/powerful energy|focus on self-care|good day to reflect|the universe rewards/i);
+    expect(copy).toMatch(/hidden desire|fear|approval|performance|truth|tone|signal/i);
+  });
+
+  it('varies the public reading frame by date without changing the response contract', () => {
+    const maySky = computeDailySkySnapshot('2026-05-20');
+    const juneSky = computeDailySkySnapshot('2026-06-03');
+    const may = generateDailyHoroscope('gemini', '2026-05-20', 'en', { sky: maySky });
+    const june = generateDailyHoroscope('gemini', '2026-06-03', 'en', { sky: juneSky });
+
+    expect(may.overall).not.toBe(june.overall);
+    expect(Object.keys(may).sort()).toEqual(Object.keys(june).sort());
+    expect(may.skyContext).toBeDefined();
+    expect(june.skyContext).toBeDefined();
   });
 });

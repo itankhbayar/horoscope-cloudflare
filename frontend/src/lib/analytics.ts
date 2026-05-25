@@ -8,7 +8,11 @@ type AnalyticsEvent =
   | 'paywall_viewed'
   | 'checkout_started'
   | 'premium_purchased'
-  | 'subscription_restored';
+  | 'subscription_restored'
+  | 'horoscope_share_card_opened'
+  | 'horoscope_share_card_generated'
+  | 'horoscope_share_card_shared'
+  | 'horoscope_share_card_failed';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 

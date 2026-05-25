@@ -155,7 +155,10 @@
     "health": "Эрүүл мэнд",
     "luckyNumber": "Азын тоо",
     "luckyColor": "Азын өнгө",
-    "sunSuffix": "нарны орд"
+    "sunSuffix": "нарны орд",
+    "shareTodayReading": "Share today's reading",
+    "sharePreparing": "Preparing card...",
+    "shareError": "Could not prepare the share card. Please try again."
   },
   "profile": {
     "castingChart": "Төрсний зургийг тооцоолж байна…",

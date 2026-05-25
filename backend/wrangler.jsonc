@@ -62,9 +62,7 @@
 			"bucket_name": "horoscope"
 		}
 	],
-	// "compatibility_flags": [
-	//   "nodejs_compat"
-	// ],
+	"compatibility_flags": ["nodejs_compat_v2"],
 	"vars": {
 	  "APP_PUBLIC_URL": "https://horoscope-frontend.pages.dev",
 	  "CRON_TIMEZONE": "Asia/Ulaanbaatar",
