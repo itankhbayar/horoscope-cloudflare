@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import type { City, DailyHoroscope, GlobalSkyToday, PersonalSkyLayer, ZodiacSign } from './types';
+import type { City, DailyHoroscope, DailyRitualCompletion, GlobalSkyToday, PersonalSkyLayer, ZodiacSign } from './types';
 
 export async function fetchDailyHoroscope(sign: ZodiacSign, date?: string): Promise<DailyHoroscope> {
   const query = date ? `?date=${encodeURIComponent(date)}` : '';
@@ -8,6 +8,10 @@ export async function fetchDailyHoroscope(sign: ZodiacSign, date?: string): Prom
 
 export async function fetchMyDailyHoroscope(): Promise<DailyHoroscope> {
   return apiRequest<DailyHoroscope>('/api/horoscope/daily', { auth: true });
+}
+
+export async function completeDailyRitual(): Promise<DailyRitualCompletion> {
+  return apiRequest<DailyRitualCompletion>('/api/rituals/daily/complete', { method: 'POST', auth: true });
 }
 
 export async function fetchGlobalSkyToday(date?: string): Promise<GlobalSkyToday> {

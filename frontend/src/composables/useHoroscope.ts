@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import { horoscopeService } from '../lib';
 import { getApiLocale } from '../lib/apiClient';
-import type { DailyHoroscope, ZodiacSign } from '../lib/types';
+import type { DailyHoroscope, DailyRitualCompletion, ZodiacSign } from '../lib/types';
 import { track } from '../lib/analytics';
 import { captureFrontendException } from '../lib/errorTracking';
 
@@ -49,10 +49,32 @@ export function useHoroscope() {
     }
   }
 
+  async function completeToday(): Promise<DailyRitualCompletion> {
+    const completion = await horoscopeService.completeDailyRitual();
+    if (horoscope.value) {
+      horoscope.value = {
+        ...horoscope.value,
+        streakCount: completion.currentStreak,
+        longestStreakCount: completion.longestStreak,
+        streakLastDate: completion.streakLastDate,
+        streakFreezes: completion.freezeCount,
+        streakFreezeAwarded: completion.streakFreezeAwarded,
+        streakFreezeCap: completion.freezeCap,
+        streakFreezeAwardReason: completion.streakFreezeAwardReason,
+        isNewStreakDay: completion.shouldCelebrate,
+        streakPreservedByFreeze: completion.streakPreservedByFreeze,
+        milestoneReached: completion.shouldCelebrate ? completion.milestoneReached : null,
+        nextMilestone: completion.nextMilestone,
+        streakSegment: completion.streakSegment,
+      };
+    }
+    return completion;
+  }
+
   function reset(): void {
     horoscope.value = null;
     error.value = null;
   }
 
-  return { horoscope, loading, error, load, loadMine, reset };
+  return { horoscope, loading, error, load, loadMine, completeToday, reset };
 }

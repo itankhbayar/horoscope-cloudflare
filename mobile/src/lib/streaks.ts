@@ -50,3 +50,8 @@ export async function checkInDaily(today = localDateISO()): Promise<DailyStreak>
   await AsyncStorage.setItem(STREAK_KEY, JSON.stringify(next));
   return next;
 }
+
+export async function saveDailyStreak(next: DailyStreak): Promise<DailyStreak> {
+  await AsyncStorage.setItem(STREAK_KEY, JSON.stringify(next));
+  return next;
+}

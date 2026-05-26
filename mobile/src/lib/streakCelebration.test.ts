@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { consumeMilestoneCelebration, milestoneCelebrationKey } from './streakCelebration';
+import {
+  consumeDailyRitualCelebration,
+  consumeMilestoneCelebration,
+  dailyRitualCelebrationKey,
+  milestoneCelebrationKey,
+} from './streakCelebration';
 
 const storage = vi.hoisted(() => new Map<string, string>());
 
@@ -31,5 +36,13 @@ describe('streak milestone celebration persistence', () => {
   it('does not celebrate incomplete milestone payloads', async () => {
     await expect(consumeMilestoneCelebration(null, '2026-05-20')).resolves.toBeNull();
     await expect(consumeMilestoneCelebration(3, null)).resolves.toBeNull();
+  });
+
+  it('allows a daily ritual completion celebration once for a completed date', async () => {
+    expect(dailyRitualCelebrationKey('2026-05-20')).toBe(
+      'engagement:daily-ritual-completion-seen:2026-05-20',
+    );
+    await expect(consumeDailyRitualCelebration('2026-05-20')).resolves.toBe(true);
+    await expect(consumeDailyRitualCelebration('2026-05-20')).resolves.toBe(false);
   });
 });

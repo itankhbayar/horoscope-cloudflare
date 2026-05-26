@@ -5,15 +5,21 @@ import { getZodiacInfo } from '@astralis/lib/zodiac';
 import { useSanctuaryTheme, type SanctuaryPalette } from './sanctuaryTheme';
 import { spacing } from '../../theme';
 import {
-  formatStreakRitual,
-  formatFreezeSafeguard,
+  formatFreezeCapacity,
   freezeAwardCopy,
+  keepStreakAliveCopy,
+  longestStreakCopy,
   milestoneCelebration,
   milestoneCopy,
+  milestoneExperience,
+  milestoneProgress,
+  nextMilestoneFor,
   segmentCopy,
+  type StreakCelebration,
   type StreakMilestone,
   type StreakSegment,
 } from '../../lib/streakDisplay';
+import { localDateISO } from '../../lib/streaks';
 
 const SUN = '\u2609';
 const MOON = '\u263D';
@@ -25,11 +31,15 @@ type Props = {
   moonSign: ZodiacSign | null;
   risingSign: ZodiacSign | null;
   streakCount?: number;
+  longestStreakCount?: number;
   streakFreezes?: number;
+  streakFreezeCap?: number;
   streakFreezeAwarded?: boolean;
   streakPreservedByFreeze?: boolean;
   streakSegment?: StreakSegment;
   milestoneReached?: StreakMilestone | null;
+  nextMilestone?: StreakMilestone | null;
+  streakLastDate?: string | null;
   shareMilestone?: StreakMilestone | null;
   onShareMilestone?: () => void;
 };
@@ -46,30 +56,26 @@ export function HomeHeader({
   moonSign,
   risingSign,
   streakCount = 0,
+  longestStreakCount = 0,
   streakFreezes = 0,
+  streakFreezeCap = 1,
   streakFreezeAwarded = false,
   streakPreservedByFreeze = false,
   streakSegment = 'new',
   milestoneReached = null,
+  nextMilestone = null,
+  streakLastDate = null,
   shareMilestone = null,
   onShareMilestone,
 }: Props): ReactElement {
   const t = useSanctuaryTheme();
-  const pulse = useRef(new Animated.Value(0.22)).current;
+  const pulse = useRef(new Animated.Value(0.18)).current;
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 0.38,
-          duration: 2200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0.18,
-          duration: 2200,
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulse, { toValue: 0.34, duration: 2400, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.16, duration: 2400, useNativeDriver: true }),
       ]),
     );
     loop.start();
@@ -79,86 +85,151 @@ export function HomeHeader({
   const sun = signLabel(sunSign);
   const moon = signLabel(moonSign);
   const rise = signLabel(risingSign);
-  const streakLabel = formatStreakRitual(streakCount);
-  const freezeLabel = formatFreezeSafeguard(streakFreezes);
-  const awardText = freezeAwardCopy(streakFreezeAwarded);
+  const resolvedNextMilestone = nextMilestone ?? nextMilestoneFor(streakCount);
+  const completedToday = Boolean(streakLastDate && streakLastDate === localDateISO());
   const celebration = milestoneCelebration(milestoneReached);
-  const celebrationText = milestoneCopy(milestoneReached);
-  const isLongStreak = streakCount >= 30;
-  const isLegendary = streakCount >= 100 || milestoneReached === 100;
   const glowOpacity = pulse.interpolate({
-    inputRange: [0.18, 0.38],
-    outputRange: [0.18, isLegendary ? 0.56 : isLongStreak ? 0.44 : 0.32],
+    inputRange: [0.16, 0.34],
+    outputRange: [0.16, streakCount >= 100 ? 0.54 : streakCount >= 30 ? 0.4 : 0.28],
   });
 
   return (
     <View style={styles.wrap} accessibilityRole="summary">
-      <Animated.View
-        style={[styles.glow, { opacity: pulse, backgroundColor: t.glowLavender }]}
-        pointerEvents="none"
-      />
+      <Animated.View style={[styles.glow, { opacity: pulse, backgroundColor: t.glowLavender }]} pointerEvents="none" />
       <Text style={[styles.greeting, { color: t.text }]} accessibilityRole="header">
         Hi, {displayName}!
       </Text>
       <Text style={[styles.checkIn, { color: t.textSoft }]}>
         {streakCount > 0 ? segmentCopy(streakSegment, streakCount) : 'Today is ready when you are'}
       </Text>
-      {streakLabel ? (
-        <View
-          style={[
-            styles.streakChip,
-            {
-              borderColor: t.cardBorder,
-              backgroundColor: t.card,
-              shadowColor: celebration === 'cosmic' ? t.pink : t.lavender,
-            },
-            isLongStreak ? styles.streakLong : null,
-            isLegendary ? styles.streakLegendary : null,
-            celebration === 'sparkle' ? styles.streakSparkle : null,
-            celebration === 'glow' ? styles.streakGlow : null,
-            celebration === 'cosmic' ? styles.streakCosmic : null,
-            streakSegment === 'building' ? styles.segmentBuilding : null,
-            streakSegment === 'aligned' ? styles.segmentAligned : null,
-            streakSegment === 'devoted' ? styles.segmentDevoted : null,
-            streakSegment === 'legendary' ? styles.segmentLegendary : null,
-          ]}
-          accessibilityLabel={`Current ritual streak: ${streakCount} days`}
-        >
-          <Animated.View
-            style={[styles.streakInnerGlow, { opacity: glowOpacity, backgroundColor: t.glowLavender }]}
-            pointerEvents="none"
-          />
-          <View style={[styles.gradientWash, { backgroundColor: t.lavender }]} pointerEvents="none" />
-          <View style={[styles.gradientWashAlt, { backgroundColor: t.mint }]} pointerEvents="none" />
-          <Text style={[styles.streakText, { color: t.text }]}>{streakLabel}</Text>
-          {freezeLabel ? <Text style={[styles.freezeText, { color: t.textMuted }]}>{freezeLabel}</Text> : null}
-          {awardText ? <Text style={[styles.milestoneText, { color: t.textSoft }]}>{awardText}</Text> : null}
-          {streakPreservedByFreeze ? (
-            <Text style={[styles.milestoneText, { color: t.textSoft }]}>Your ritual was protected last night ✨</Text>
-          ) : null}
-          {celebrationText ? (
-            <Text style={[styles.milestoneText, { color: t.textSoft }]}>{celebrationText}</Text>
-          ) : null}
-          {milestoneReached === 7 ? <Constellation theme={t} /> : null}
-          {milestoneReached === 30 || milestoneReached === 50 ? <CosmicBurst theme={t} /> : null}
-          {milestoneReached === 100 ? <LegendaryOrbit theme={t} /> : null}
-          {shareMilestone && onShareMilestone ? (
-            <Pressable
-              style={({ pressed }) => [styles.shareButton, { borderColor: t.cardBorder }, pressed && styles.pressed]}
-              onPress={onShareMilestone}
-              accessibilityRole="button"
-              accessibilityLabel="Share streak milestone"
-            >
-              <Text style={[styles.shareText, { color: t.text }]}>Share this alignment</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
+      <StreakStatusCard
+        theme={t}
+        streakCount={streakCount}
+        longestStreakCount={longestStreakCount}
+        freezeCount={streakFreezes}
+        freezeCap={streakFreezeCap}
+        nextMilestone={resolvedNextMilestone}
+        completedToday={completedToday}
+        progress={milestoneProgress(streakCount, resolvedNextMilestone)}
+        awardText={freezeAwardCopy(streakFreezeAwarded)}
+        celebrationText={milestoneCopy(milestoneReached)}
+        milestoneTitle={milestoneReached ? milestoneExperience(milestoneReached).title : null}
+        streakPreservedByFreeze={streakPreservedByFreeze}
+        shareMilestone={shareMilestone}
+        onShareMilestone={onShareMilestone}
+        glowOpacity={glowOpacity}
+        celebration={celebration}
+      />
       <View style={styles.row}>
         <Placement icon={SUN} info={sun} label="Sun" theme={t} />
         <Placement icon={MOON} info={moon} label="Moon" theme={t} />
         <Placement icon={RISING} info={rise} label="Rising" theme={t} />
       </View>
+    </View>
+  );
+}
+
+function StreakStatusCard({
+  theme: t,
+  streakCount,
+  longestStreakCount,
+  freezeCount,
+  freezeCap,
+  nextMilestone,
+  completedToday,
+  progress,
+  awardText,
+  celebrationText,
+  milestoneTitle,
+  streakPreservedByFreeze,
+  shareMilestone,
+  onShareMilestone,
+  glowOpacity,
+  celebration,
+}: {
+  theme: SanctuaryPalette;
+  streakCount: number;
+  longestStreakCount: number;
+  freezeCount: number;
+  freezeCap: number;
+  nextMilestone: StreakMilestone | null;
+  completedToday: boolean;
+  progress: number;
+  awardText: string | null;
+  celebrationText: string | null;
+  milestoneTitle: string | null;
+  streakPreservedByFreeze: boolean;
+  shareMilestone: StreakMilestone | null;
+  onShareMilestone?: () => void;
+  glowOpacity: Animated.AnimatedInterpolation<string | number>;
+  celebration: StreakCelebration;
+}): ReactElement {
+  const progressPercent = `${Math.round(progress * 100)}%` as `${number}%`;
+  return (
+    <View
+      style={[
+        styles.streakCard,
+        {
+          borderColor: t.cardBorder,
+          backgroundColor: t.card,
+          shadowColor: celebration === 'cosmic' ? t.pink : t.lavender,
+        },
+      ]}
+      accessibilityLabel={`Ritual streak status. Current streak ${streakCount} days. Longest streak ${longestStreakCount} days. ${formatFreezeCapacity(freezeCount, freezeCap)}. ${keepStreakAliveCopy(completedToday, streakCount)}`}
+    >
+      <Animated.View style={[styles.streakGlow, { opacity: glowOpacity, backgroundColor: t.glowLavender }]} pointerEvents="none" />
+      <View style={[styles.gradientWash, { backgroundColor: t.lavender }]} pointerEvents="none" />
+      <View style={[styles.gradientWashAlt, { backgroundColor: t.mint }]} pointerEvents="none" />
+      <View style={styles.streakTopRow}>
+        <View>
+          <Text style={[styles.streakEyebrow, { color: t.textMuted }]}>Ritual streak</Text>
+          <Text style={[styles.streakNumber, { color: t.text }]}>{streakCount}</Text>
+        </View>
+        <View style={styles.streakMetricStack}>
+          <Metric label="Longest" value={longestStreakCopy(longestStreakCount).replace('Longest rhythm: ', '')} theme={t} />
+          <Metric label="Safeguards" value={formatFreezeCapacity(freezeCount, freezeCap)} theme={t} />
+        </View>
+      </View>
+      <Text style={[styles.streakStatus, { color: t.textSoft }]}>
+        {keepStreakAliveCopy(completedToday, streakCount)}
+      </Text>
+      <View style={styles.progressHeader}>
+        <Text style={[styles.progressLabel, { color: t.textMuted }]}>Next milestone</Text>
+        <Text style={[styles.progressValue, { color: t.text }]}>
+          {nextMilestone ? `${nextMilestone} nights` : 'Solar rhythm complete'}
+        </Text>
+      </View>
+      <View style={[styles.progressTrack, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+        <View style={[styles.progressFill, { width: progressPercent, backgroundColor: t.lavender }]} />
+      </View>
+      {milestoneTitle ? <Text style={[styles.milestoneTitle, { color: t.text }]}>{milestoneTitle}</Text> : null}
+      {awardText ? <Text style={[styles.milestoneText, { color: t.textSoft }]}>{awardText}</Text> : null}
+      {streakPreservedByFreeze ? (
+        <Text style={[styles.milestoneText, { color: t.textSoft }]}>A safeguard protected your rhythm.</Text>
+      ) : null}
+      {celebrationText ? <Text style={[styles.milestoneText, { color: t.textSoft }]}>{celebrationText}</Text> : null}
+      {shareMilestone === 7 ? <Constellation theme={t} /> : null}
+      {shareMilestone === 30 || shareMilestone === 50 ? <CosmicBurst theme={t} /> : null}
+      {shareMilestone === 100 || shareMilestone === 365 ? <LegendaryOrbit theme={t} /> : null}
+      {shareMilestone && onShareMilestone ? (
+        <Pressable
+          style={({ pressed }) => [styles.shareButton, { borderColor: t.cardBorder }, pressed && styles.pressed]}
+          onPress={onShareMilestone}
+          accessibilityRole="button"
+          accessibilityLabel="Share streak milestone"
+        >
+          <Text style={[styles.shareText, { color: t.text }]}>Share this alignment</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function Metric({ label, value, theme: t }: { label: string; value: string; theme: SanctuaryPalette }): ReactElement {
+  return (
+    <View style={styles.metric}>
+      <Text style={[styles.metricLabel, { color: t.textMuted }]}>{label}</Text>
+      <Text style={[styles.metricValue, { color: t.text }]}>{value}</Text>
     </View>
   );
 }
@@ -218,7 +289,7 @@ function Placement({
           </Text>
         </>
       ) : (
-        <Text style={[styles.placeholder, { color: t.textSoft }]}>—</Text>
+        <Text style={[styles.placeholder, { color: t.textSoft }]}>-</Text>
       )}
     </View>
   );
@@ -239,7 +310,6 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 22,
     fontWeight: '800',
-    letterSpacing: 0.2,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
@@ -250,116 +320,138 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     textAlign: 'center',
   },
-  streakChip: {
+  streakCard: {
+    width: '100%',
     borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: spacing.md,
-    alignItems: 'center',
-    maxWidth: '100%',
+    borderRadius: 24,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
     overflow: 'hidden',
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
   },
-  streakInnerGlow: {
+  streakGlow: {
     ...StyleSheet.absoluteFillObject,
   },
   gradientWash: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 80,
-    right: -74,
-    top: -80,
+    width: 170,
+    height: 170,
+    borderRadius: 90,
+    right: -80,
+    top: -90,
     opacity: 0.13,
   },
   gradientWashAlt: {
     position: 'absolute',
-    width: 120,
-    height: 120,
+    width: 130,
+    height: 130,
     borderRadius: 70,
-    left: -68,
-    bottom: -78,
+    left: -72,
+    bottom: -82,
     opacity: 0.1,
   },
-  streakLong: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+  streakTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  streakLegendary: {
-    borderWidth: 2,
+  streakEyebrow: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
-  streakSparkle: {
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 2,
+  streakNumber: {
+    fontSize: 56,
+    lineHeight: 62,
+    fontWeight: '900',
   },
-  streakGlow: {
-    shadowOpacity: 0.24,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 3,
+  streakMetricStack: {
+    flex: 1,
+    gap: spacing.xs,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
-  streakCosmic: {
-    borderWidth: 1.5,
-    shadowOpacity: 0.32,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 4,
+  metric: {
+    alignItems: 'flex-end',
   },
-  segmentBuilding: {
-    borderColor: 'rgba(184, 168, 255, 0.42)',
+  metricLabel: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
-  segmentAligned: {
-    borderColor: 'rgba(159, 227, 194, 0.48)',
-  },
-  segmentDevoted: {
-    borderColor: 'rgba(243, 182, 214, 0.55)',
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-  },
-  segmentLegendary: {
-    borderColor: 'rgba(247, 230, 166, 0.72)',
-    shadowOpacity: 0.34,
-    shadowRadius: 18,
-  },
-  streakText: {
+  metricValue: {
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '800',
-    textAlign: 'center',
+    textAlign: 'right',
   },
-  freezeText: {
-    marginTop: 3,
+  streakStatus: {
+    marginTop: spacing.sm,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  progressLabel: {
     fontSize: 11,
     lineHeight: 15,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  progressValue: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '900',
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginTop: spacing.xs,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  milestoneTitle: {
+    marginTop: spacing.md,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '900',
   },
   milestoneText: {
-    marginTop: 3,
-    fontSize: 11,
-    lineHeight: 15,
+    marginTop: spacing.xs,
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '700',
-    textAlign: 'center',
   },
   shareButton: {
-    marginTop: 8,
+    marginTop: spacing.md,
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     backgroundColor: 'rgba(255,255,255,0.08)',
+    alignSelf: 'flex-start',
   },
   shareText: {
-    fontSize: 11,
-    fontWeight: '800',
-    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '900',
   },
   constellation: {
     width: 86,
     height: 24,
-    marginTop: 6,
+    marginTop: spacing.sm,
   },
   star: {
     position: 'absolute',
@@ -384,7 +476,7 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: spacing.sm,
   },
   burstRing: {
     position: 'absolute',
@@ -404,7 +496,7 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: spacing.sm,
   },
   orbit: {
     position: 'absolute',

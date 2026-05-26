@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { DB } from '../db/client';
 import { users } from '../db/schema';
 
-export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100] as const;
+export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 365] as const;
 export type StreakMilestone = (typeof STREAK_MILESTONES)[number];
 export const STREAK_FREEZE_AWARD_MILESTONES = [7, 30, 100] as const;
 export type StreakFreezeAwardReason = '7_day' | '30_day' | '100_day';
@@ -36,6 +36,23 @@ export type StreakAnalyticsEvent = 'streak_started' | 'streak_milestone' | 'stre
 export interface StreakUpdateResult {
   data: StreakData;
   analyticsEvents: StreakAnalyticsEvent[];
+}
+
+export interface DailyRitualCompletionResult {
+  currentStreak: number;
+  longestStreak: number;
+  freezeCount: number;
+  freezeCap: number;
+  nextMilestone: StreakMilestone | null;
+  milestoneReached: StreakMilestone | null;
+  streakFreezeAwarded: boolean;
+  alreadyCompletedToday: boolean;
+  shouldCelebrate: boolean;
+  completedDate: string;
+  streakLastDate: string | null;
+  streakPreservedByFreeze: boolean;
+  streakFreezeAwardReason: StreakFreezeAwardReason | null;
+  streakSegment: StreakSegment;
 }
 
 function previousDateISO(dateISO: string): string {
@@ -114,7 +131,7 @@ export function buildStreakData(
   };
 }
 
-export async function recordDailyHoroscopeStreak(
+export async function recordDailyRitualStreak(
   db: DB,
   userId: string,
   todayISO: string,
@@ -222,6 +239,66 @@ export async function recordDailyHoroscopeStreak(
   const analyticsEvents = classifyStreakAnalyticsEvents(before, data);
 
   return { data, analyticsEvents };
+}
+
+export async function getCurrentStreakData(db: DB, userId: string): Promise<StreakData> {
+  const row = await db
+    .select({
+      streakCount: users.streakCount,
+      longestStreakCount: users.longestStreakCount,
+      streakLastDate: users.streakLastDate,
+      streakFreezes: users.streakFreezes,
+      isPremium: users.isPremium,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  return buildStreakData(
+    row ?? {
+      streakCount: 0,
+      longestStreakCount: 0,
+      streakLastDate: null,
+      streakFreezes: 0,
+      isPremium: false,
+    },
+    false,
+  );
+}
+
+export function toDailyRitualCompletionResult(
+  update: StreakUpdateResult,
+  completedDate: string,
+): DailyRitualCompletionResult {
+  const { data } = update;
+  const alreadyCompletedToday = !data.isNewStreakDay && data.streakLastDate === completedDate;
+  return {
+    currentStreak: data.streakCount,
+    longestStreak: data.longestStreakCount,
+    freezeCount: data.streakFreezes,
+    freezeCap: data.streakFreezeCap,
+    nextMilestone: data.nextMilestone,
+    milestoneReached: data.milestoneReached,
+    streakFreezeAwarded: data.streakFreezeAwarded,
+    alreadyCompletedToday,
+    shouldCelebrate: data.isNewStreakDay,
+    completedDate,
+    streakLastDate: data.streakLastDate,
+    streakPreservedByFreeze: data.streakPreservedByFreeze,
+    streakFreezeAwardReason: data.streakFreezeAwardReason,
+    streakSegment: data.streakSegment,
+  };
+}
+
+export async function completeDailyRitual(
+  db: DB,
+  userId: string,
+  ritualDateISO: string,
+): Promise<StreakUpdateResult & { completion: DailyRitualCompletionResult }> {
+  const update = await recordDailyRitualStreak(db, userId, ritualDateISO);
+  return {
+    ...update,
+    completion: toDailyRitualCompletionResult(update, ritualDateISO),
+  };
 }
 
 export function classifyStreakAnalyticsEvents(

@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildStreakData,
   classifyStreakAnalyticsEvents,
+  completeDailyRitual,
   currentStreakDateISO,
   nextStreakMilestone,
-  recordDailyHoroscopeStreak,
+  recordDailyRitualStreak,
 } from './streakService';
 
 function createStreakDb(initial: {
@@ -71,7 +72,7 @@ function createStreakDb(initial: {
   };
 }
 
-describe('recordDailyHoroscopeStreak', () => {
+describe('recordDailyRitualStreak', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -79,7 +80,7 @@ describe('recordDailyHoroscopeStreak', () => {
   it('creates a first-read streak at 1', async () => {
     const { db } = createStreakDb({ streakCount: 0, longestStreakCount: 0, streakLastDate: null });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toEqual({
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toEqual({
       analyticsEvents: ['streak_started'],
       data: {
       streakCount: 1,
@@ -105,7 +106,7 @@ describe('recordDailyHoroscopeStreak', () => {
       streakLastDate: '2026-05-20',
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({ data: {
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({ data: {
       streakCount: 4,
       longestStreakCount: 4,
       streakLastDate: '2026-05-20',
@@ -121,7 +122,7 @@ describe('recordDailyHoroscopeStreak', () => {
       streakLastDate: '2026-05-19',
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
       analyticsEvents: ['streak_milestone'],
       data: {
       streakCount: 3,
@@ -142,7 +143,7 @@ describe('recordDailyHoroscopeStreak', () => {
       streakLastDate: '2026-05-17',
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
       analyticsEvents: ['streak_lost'],
       data: {
       streakCount: 1,
@@ -161,7 +162,7 @@ describe('recordDailyHoroscopeStreak', () => {
       streakLastDate: '2026-05-19',
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({ data: {
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({ data: {
       streakCount: 7,
       longestStreakCount: 7,
       milestoneReached: 7,
@@ -184,7 +185,7 @@ describe('recordDailyHoroscopeStreak', () => {
       streakFreezes: 2,
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
       analyticsEvents: ['streak_freeze_used'],
       data: {
         streakCount: 8,
@@ -207,7 +208,7 @@ describe('recordDailyHoroscopeStreak', () => {
       isPremium: false,
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
       data: {
         streakCount: 7,
         streakFreezes: 1,
@@ -228,7 +229,7 @@ describe('recordDailyHoroscopeStreak', () => {
       isPremium: true,
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
       data: {
         streakCount: 30,
         streakFreezes: 3,
@@ -249,7 +250,7 @@ describe('recordDailyHoroscopeStreak', () => {
       isPremium: true,
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
       data: {
         streakCount: 100,
         streakFreezes: 3,
@@ -261,6 +262,68 @@ describe('recordDailyHoroscopeStreak', () => {
     });
   });
 
+  it('returns the 365-day milestone without awarding an extra freeze', async () => {
+    const { db } = createStreakDb({
+      streakCount: 364,
+      longestStreakCount: 364,
+      streakLastDate: '2026-05-19',
+      streakFreezes: 1,
+      isPremium: true,
+    });
+
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+      data: {
+        streakCount: 365,
+        milestoneReached: 365,
+        nextMilestone: null,
+        streakFreezeAwarded: false,
+        streakFreezeAwardReason: null,
+      },
+    });
+  });
+
+  it('returns completion state for a first daily ritual completion', async () => {
+    const { db } = createStreakDb({ streakCount: 0, longestStreakCount: 0, streakLastDate: null });
+
+    await expect(completeDailyRitual(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+      completion: {
+        currentStreak: 1,
+        longestStreak: 1,
+        freezeCount: 0,
+        freezeCap: 1,
+        nextMilestone: 3,
+        milestoneReached: null,
+        streakFreezeAwarded: false,
+        alreadyCompletedToday: false,
+        shouldCelebrate: true,
+        completedDate: '2026-05-20',
+      },
+    });
+  });
+
+  it('returns replay-safe completion state for repeated same-day completion', async () => {
+    const capture = createStreakDb({
+      streakCount: 6,
+      longestStreakCount: 6,
+      streakLastDate: '2026-05-19',
+      streakFreezes: 0,
+    });
+
+    await completeDailyRitual(capture.db, 'user-1', '2026-05-20');
+    await expect(completeDailyRitual(capture.db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+      completion: {
+        currentStreak: 7,
+        freezeCount: 1,
+        milestoneReached: null,
+        streakFreezeAwarded: false,
+        alreadyCompletedToday: true,
+        shouldCelebrate: false,
+        completedDate: '2026-05-20',
+      },
+      analyticsEvents: [],
+    });
+  });
+
   it('does not duplicate freeze awards or history rows on repeated same-day reads', async () => {
     const capture = createStreakDb({
       streakCount: 6,
@@ -269,8 +332,8 @@ describe('recordDailyHoroscopeStreak', () => {
       streakFreezes: 0,
     });
 
-    await recordDailyHoroscopeStreak(capture.db, 'user-1', '2026-05-20');
-    await expect(recordDailyHoroscopeStreak(capture.db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+    await recordDailyRitualStreak(capture.db, 'user-1', '2026-05-20');
+    await expect(recordDailyRitualStreak(capture.db, 'user-1', '2026-05-20')).resolves.toMatchObject({
       data: {
         streakCount: 7,
         streakFreezes: 1,
@@ -290,7 +353,7 @@ describe('recordDailyHoroscopeStreak', () => {
       streakFreezes: 0,
     });
 
-    await expect(recordDailyHoroscopeStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
+    await expect(recordDailyRitualStreak(db, 'user-1', '2026-05-20')).resolves.toMatchObject({
       analyticsEvents: ['streak_lost'],
       data: {
         streakCount: 1,
@@ -309,7 +372,7 @@ describe('recordDailyHoroscopeStreak', () => {
     });
     capture.omitChangesMeta();
 
-    await expect(recordDailyHoroscopeStreak(capture.db, 'user-1', '2026-05-20')).resolves.toMatchObject({ data: {
+    await expect(recordDailyRitualStreak(capture.db, 'user-1', '2026-05-20')).resolves.toMatchObject({ data: {
       streakCount: 3,
       isNewStreakDay: true,
       milestoneReached: 3,
@@ -324,7 +387,8 @@ describe('recordDailyHoroscopeStreak', () => {
   it('calculates the next milestone', () => {
     expect(nextStreakMilestone(0)).toBe(3);
     expect(nextStreakMilestone(7)).toBe(14);
-    expect(nextStreakMilestone(100)).toBeNull();
+    expect(nextStreakMilestone(100)).toBe(365);
+    expect(nextStreakMilestone(365)).toBeNull();
   });
 
   it('does not emit milestone analytics for repeated same-day reads', () => {

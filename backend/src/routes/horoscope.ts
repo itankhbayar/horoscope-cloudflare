@@ -7,7 +7,7 @@ import { getOrCreateDailyHoroscope, personalizeDailyHoroscope } from '../service
 import { buildGlobalSkyToday } from '../services/globalSkyService';
 import { buildPersonalSkyLayer } from '../services/personalSkyService';
 import type { NatalChartData } from '../services/astrologyService';
-import { currentStreakDateISO, recordDailyHoroscopeStreak } from '../services/streakService';
+import { getCurrentStreakData } from '../services/streakService';
 import { isZodiacSign, ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
 import { natalCharts, users } from '../db/schema';
 import { searchCities } from '../utils/cities';
@@ -166,21 +166,14 @@ router.get('/daily', authMiddleware, async (c) => {
     houses: chart.houses as NatalChartData['houses'],
     aspects: chart.aspects as NatalChartData['aspects'],
   });
-  const streak = await recordDailyHoroscopeStreak(db, userId, currentStreakDateISO());
-  for (const event of streak.analyticsEvents) {
-    metric(c.env, event, {
-      streakCount: streak.data.streakCount,
-      milestone: streak.data.milestoneReached ?? undefined,
-      freezes: streak.data.streakFreezes,
-    });
-  }
+  const streak = await getCurrentStreakData(db, userId);
   metric(c.env, 'horoscope_viewed', { sign: chart.sunSign, lang, variant: 'authenticated' });
   const response = ok(c, {
     ...horoscope,
     sunSign: chart.sunSign,
     moonSign: chart.moonSign,
     risingSign: chart.risingSign,
-    ...streak.data,
+    ...streak,
   });
   return response;
 });

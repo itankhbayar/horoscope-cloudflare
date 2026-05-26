@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import * as horoscopeService from '@astralis/lib/horoscopeService';
 import { getApiLocale } from '@astralis/lib/apiClient';
-import type { DailyHoroscope, ZodiacSign } from '@astralis/lib/types';
+import type { DailyHoroscope, DailyRitualCompletion, ZodiacSign } from '@astralis/lib/types';
 
 const cache = new Map<string, DailyHoroscope>();
 
@@ -11,6 +11,7 @@ export function useHoroscope(): {
   error: string | null;
   load: (sign: ZodiacSign, date?: string) => Promise<void>;
   loadMine: () => Promise<void>;
+  completeToday: () => Promise<DailyRitualCompletion>;
   reset: () => void;
 } {
   const [horoscope, setHoroscope] = useState<DailyHoroscope | null>(null);
@@ -51,10 +52,34 @@ export function useHoroscope(): {
     }
   }, []);
 
+  const completeToday = useCallback(async () => {
+    const completion = await horoscopeService.completeDailyRitual();
+    setHoroscope((current) =>
+      current
+        ? {
+            ...current,
+            streakCount: completion.currentStreak,
+            longestStreakCount: completion.longestStreak,
+            streakLastDate: completion.streakLastDate,
+            streakFreezes: completion.freezeCount,
+            streakFreezeAwarded: completion.streakFreezeAwarded,
+            streakFreezeCap: completion.freezeCap,
+            streakFreezeAwardReason: completion.streakFreezeAwardReason,
+            isNewStreakDay: completion.shouldCelebrate,
+            streakPreservedByFreeze: completion.streakPreservedByFreeze,
+            milestoneReached: completion.shouldCelebrate ? completion.milestoneReached : null,
+            nextMilestone: completion.nextMilestone,
+            streakSegment: completion.streakSegment,
+          }
+        : current,
+    );
+    return completion;
+  }, []);
+
   const reset = useCallback(() => {
     setHoroscope(null);
     setError(null);
   }, []);
 
-  return { horoscope, loading, error, load, loadMine, reset };
+  return { horoscope, loading, error, load, loadMine, completeToday, reset };
 }

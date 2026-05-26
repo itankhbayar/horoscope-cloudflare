@@ -163,9 +163,26 @@ export interface DailyHoroscope {
   streakFreezeAwardReason?: null | '7_day' | '30_day' | '100_day';
   isNewStreakDay?: boolean;
   streakPreservedByFreeze?: boolean;
-  milestoneReached?: null | 3 | 7 | 14 | 30 | 50 | 100;
-  nextMilestone?: null | 3 | 7 | 14 | 30 | 50 | 100;
+  milestoneReached?: null | 3 | 7 | 14 | 30 | 50 | 100 | 365;
+  nextMilestone?: null | 3 | 7 | 14 | 30 | 50 | 100 | 365;
   streakSegment?: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
+}
+
+export interface DailyRitualCompletion {
+  currentStreak: number;
+  longestStreak: number;
+  freezeCount: number;
+  freezeCap: number;
+  nextMilestone: null | 3 | 7 | 14 | 30 | 50 | 100 | 365;
+  milestoneReached: null | 3 | 7 | 14 | 30 | 50 | 100 | 365;
+  streakFreezeAwarded: boolean;
+  alreadyCompletedToday: boolean;
+  shouldCelebrate: boolean;
+  completedDate: string;
+  streakLastDate: string | null;
+  streakPreservedByFreeze: boolean;
+  streakFreezeAwardReason: null | '7_day' | '30_day' | '100_day';
+  streakSegment: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
 }
 
 /** Canonical alias for daily horoscope reading content. */

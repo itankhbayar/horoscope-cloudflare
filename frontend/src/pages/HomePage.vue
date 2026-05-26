@@ -18,12 +18,15 @@ import { track } from '../lib/analytics';
 const { t, locale } = useI18n();
 const { user } = useAuth();
 const { profile, error: profileError, load: loadProfile } = useProfile();
-const { horoscope, loading, error: horoscopeError, load: loadHoroscope, reset: resetHoroscope } =
+const { horoscope, loading, error: horoscopeError, load: loadHoroscope, completeToday, reset: resetHoroscope } =
   useHoroscope();
 
 const selectedSign = ref<ZodiacSign | null>(null);
 const shareBusy = ref(false);
 const shareError = ref<string | null>(null);
+const completionBusy = ref(false);
+const completionError = ref<string | null>(null);
+const completionMessage = ref<string | null>(null);
 
 const sunSign = computed<ZodiacSign | null>(() => profile.value?.natalChart?.sunSign ?? null);
 const sunSignName = computed(() => (sunSign.value ? t(`zodiac.${sunSign.value}`) : ''));
@@ -70,6 +73,51 @@ async function shareTodayReading(): Promise<void> {
     });
   } finally {
     shareBusy.value = false;
+  }
+}
+
+function completionSeenKey(date: string): string {
+  return `engagement:daily-ritual-completion-seen:${date}`;
+}
+
+async function completeTodayReading(): Promise<void> {
+  if (!user.value || !horoscope.value || completionBusy.value) return;
+  completionBusy.value = true;
+  completionError.value = null;
+  try {
+    const result = await completeToday();
+    track('daily_ritual_completed', {
+      completedDate: result.completedDate,
+      currentStreak: result.currentStreak,
+      alreadyCompletedToday: result.alreadyCompletedToday,
+      shouldCelebrate: result.shouldCelebrate,
+      milestone: result.milestoneReached,
+    });
+    if (!result.shouldCelebrate || window.localStorage.getItem(completionSeenKey(result.completedDate)) === '1') {
+      track('daily_ritual_completion_replayed_blocked', { completedDate: result.completedDate, source: 'home' });
+      completionMessage.value = `${result.currentStreak} дахь өдөр аль хэдийн баталгаажсан.`;
+      return;
+    }
+    window.localStorage.setItem(completionSeenKey(result.completedDate), '1');
+    completionMessage.value = result.milestoneReached === 30
+      ? '30 өдрийн сарны мөчлөг бүрдлээ. Энэ бол зүгээр нэг дараалал биш — таны өөртөө гаргасан жижиг орон зай.'
+      : `${result.currentStreak} дахь өдөр баталгаажлаа. Та энэ жижиг зан үйлдээ дахин эргэн ирлээ.`;
+    track('streak_completion_celebrated', {
+      streakCount: result.currentStreak,
+      milestone: result.milestoneReached,
+      freezeAwarded: result.streakFreezeAwarded,
+    });
+    if (result.milestoneReached) {
+      track('streak_milestone_reached', {
+        streakCount: result.currentStreak,
+        milestone: result.milestoneReached,
+        freezeAwarded: result.streakFreezeAwarded,
+      });
+    }
+  } catch (err) {
+    completionError.value = err instanceof Error ? err.message : 'Unable to complete today yet.';
+  } finally {
+    completionBusy.value = false;
   }
 }
 
@@ -127,7 +175,18 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
         <button type="button" class="share-reading-btn" :disabled="shareBusy" @click="shareTodayReading">
           {{ shareBusy ? t('home.sharePreparing') : t('home.shareTodayReading') }}
         </button>
+        <button
+          v-if="user"
+          type="button"
+          class="complete-ritual-btn"
+          :disabled="completionBusy || horoscope.streakLastDate === horoscope.date"
+          @click="completeTodayReading"
+        >
+          {{ completionBusy ? 'Confirming quietly...' : horoscope.streakLastDate === horoscope.date ? 'Today is in your rhythm' : 'Complete today’s ritual' }}
+        </button>
         <p v-if="shareError" class="share-error" role="alert">{{ shareError }}</p>
+        <p v-if="completionMessage" class="completion-message">{{ completionMessage }}</p>
+        <p v-if="completionError" class="share-error" role="alert">{{ completionError }}</p>
       </div>
 
       <div class="prediction-grid">
@@ -255,6 +314,29 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
 .share-reading-btn:disabled {
   cursor: wait;
   opacity: 0.68;
+}
+.complete-ritual-btn {
+  margin-top: 0.8rem;
+  margin-left: 0.75rem;
+  border: 1px solid rgba(167, 228, 196, 0.42);
+  border-radius: 999px;
+  background: rgba(167, 228, 196, 0.14);
+  color: var(--text-primary);
+  padding: 0.8rem 1.2rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.complete-ritual-btn:disabled {
+  cursor: default;
+  opacity: 0.68;
+}
+.completion-message {
+  margin-top: 0.9rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.55;
 }
 .share-error {
   margin-top: 0.8rem;

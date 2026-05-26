@@ -12,7 +12,11 @@ type AnalyticsEvent =
   | 'horoscope_share_card_opened'
   | 'horoscope_share_card_generated'
   | 'horoscope_share_card_shared'
-  | 'horoscope_share_card_failed';
+  | 'horoscope_share_card_failed'
+  | 'daily_ritual_completed'
+  | 'streak_completion_celebrated'
+  | 'streak_milestone_reached'
+  | 'daily_ritual_completion_replayed_blocked';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 

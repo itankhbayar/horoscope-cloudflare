@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EnergyDetailsCard } from '../components/home/EnergyDetailsCard';
 import { EnergyRing } from '../components/home/EnergyRing';
@@ -28,9 +28,9 @@ import { ScreenScroll } from '../components/ScreenScroll';
 import { useAuth } from '../hooks/useAuth';
 import { useHoroscope } from '../hooks/useHoroscope';
 import { useProfile } from '../hooks/useProfile';
-import { loadDailyStreak, localDateISO, type DailyStreak } from '../lib/streaks';
-import { consumeMilestoneCelebration } from '../lib/streakCelebration';
-import { normalizeStreakCount, normalizeStreakSegment, type StreakMilestone } from '../lib/streakDisplay';
+import { loadDailyStreak, localDateISO, saveDailyStreak, type DailyStreak } from '../lib/streaks';
+import { consumeDailyRitualCelebration, consumeMilestoneCelebration } from '../lib/streakCelebration';
+import { milestoneExperience, normalizeStreakCount, normalizeStreakSegment, type StreakMilestone } from '../lib/streakDisplay';
 import { shareStreakMilestoneCard } from '../lib/streakShare';
 import { shareDailyHoroscopeCard } from '../lib/horoscopeShareCard';
 import { track, trackDailyActiveOnce, trackRitualEvent } from '../lib/analytics';
@@ -38,6 +38,7 @@ import { BRAND_COPY } from '../lib/brandCopy';
 import { shouldCompressExplanations } from '../lib/emotionalScreenHierarchy';
 import { goToPremium } from '../navigation/navigationRef';
 import { spacing } from '../theme';
+import type { DailyRitualCompletion } from '@astralis/lib/types';
 
 const TAROT_GLYPH = '\u2728';
 const CRYSTAL_GLYPH = '\u2726';
@@ -50,12 +51,16 @@ export function HomeScreen(): ReactElement {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { profile, load: loadProfile, loading: profileLoading, error: profileError } = useProfile();
-  const { horoscope, load, loadMine, loading: horoLoading, error: horoError } = useHoroscope();
+  const { horoscope, load, loadMine, completeToday, loading: horoLoading, error: horoError } = useHoroscope();
   const [horoscopePeriod, setHoroscopePeriod] = useState<HoroscopePeriod>('today');
   const [activeEnergy, setActiveEnergy] = useState<'love' | 'opportunity' | 'stress'>('opportunity');
   const [openMoment, setOpenMoment] = useState<'resonance' | 'reflection' | 'deeper' | 'closed' | null>(null);
   const [dailyStreak, setDailyStreak] = useState<DailyStreak>({ count: 0, lastCheckInDate: null });
   const [visibleMilestone, setVisibleMilestone] = useState<StreakMilestone | null>(null);
+  const [completion, setCompletion] = useState<DailyRitualCompletion | null>(null);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  const [completionPending, setCompletionPending] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   const opacities = useMemo(() => Array.from({ length: 9 }, () => new Animated.Value(0)), []);
 
@@ -72,6 +77,12 @@ export function HomeScreen(): ReactElement {
 
   useEffect(() => {
     void loadDailyStreak().then(setDailyStreak);
+  }, []);
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReducedMotion);
+    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', setReducedMotion);
+    return () => sub?.remove?.();
   }, []);
 
   useEffect(() => {
@@ -97,31 +108,16 @@ export function HomeScreen(): ReactElement {
   }, [effectiveHoroscopePeriod, horoLoading, horoscope, isPremium]);
 
   useEffect(() => {
-    if (!horoscope?.isNewStreakDay) return;
-    if (horoscope.streakPreservedByFreeze) {
-      void track('streak_freeze_used', {
-        streakCount: horoscope.streakCount ?? 0,
-        freezesRemaining: horoscope.streakFreezes ?? 0,
-      });
-      return;
-    }
-    if (horoscope.milestoneReached) {
-      void track('streak_milestone', {
-        streakCount: horoscope.streakCount ?? horoscope.milestoneReached,
-        milestone: horoscope.milestoneReached,
-      });
-      return;
-    }
-    if (horoscope.streakCount === 1) {
-      void track('streak_started', { streakCount: 1 });
-    }
-  }, [
-    horoscope?.isNewStreakDay,
-    horoscope?.milestoneReached,
-    horoscope?.streakCount,
-    horoscope?.streakFreezes,
-    horoscope?.streakPreservedByFreeze,
-  ]);
+    if (!horoscope || horoLoading || effectiveHoroscopePeriod !== 'today') return;
+    void track('streak_status_viewed', {
+      source: 'home_launch',
+      streakCount: horoscope.streakCount ?? dailyStreak.count,
+      longestStreakCount: horoscope.longestStreakCount ?? user?.longestStreakCount ?? 0,
+      freezesRemaining: horoscope.streakFreezes ?? 0,
+      nextMilestone: horoscope.nextMilestone ?? null,
+      completedToday: (horoscope.streakLastDate ?? dailyStreak.lastCheckInDate) === localDateISO(),
+    });
+  }, [dailyStreak.count, dailyStreak.lastCheckInDate, effectiveHoroscopePeriod, horoLoading, horoscope, user?.longestStreakCount]);
 
   useEffect(() => {
     let mounted = true;
@@ -185,7 +181,7 @@ export function HomeScreen(): ReactElement {
   const compressHome = shouldCompressExplanations({
     returningUser: streakCount >= 3,
     ambientMode: false,
-    reducedMotion: false,
+    reducedMotion,
     ritualNights: streakCount,
   });
 
@@ -200,6 +196,7 @@ export function HomeScreen(): ReactElement {
 
   const onShareMilestone = (): void => {
     if (!shareMilestone) return;
+    void track('streak_milestone_shared', { milestone: shareMilestone, source: 'home' });
     void shareStreakMilestoneCard({
       milestone: shareMilestone,
       zodiacSign: sun,
@@ -228,6 +225,64 @@ export function HomeScreen(): ReactElement {
     void shareDailyHoroscopeCard(horoscope);
   };
 
+  const onCompleteDailyRitual = async (source: 'end_of_reading' | 'cta'): Promise<void> => {
+    if (!horoscope || effectiveHoroscopePeriod !== 'today' || completionPending) return;
+    setCompletionPending(true);
+    setCompletionError(null);
+    try {
+      const result = await completeToday();
+      const nextLocal = await saveDailyStreak({
+        count: result.currentStreak,
+        lastCheckInDate: result.streakLastDate ?? result.completedDate,
+      });
+      setDailyStreak(nextLocal);
+      await track('daily_ritual_completed', {
+        completedDate: result.completedDate,
+        currentStreak: result.currentStreak,
+        alreadyCompletedToday: result.alreadyCompletedToday,
+        shouldCelebrate: result.shouldCelebrate,
+        milestone: result.milestoneReached,
+      });
+      if (!result.shouldCelebrate) {
+        setCompletion(null);
+        await track('daily_ritual_completion_replayed_blocked', { completedDate: result.completedDate, source: 'home' });
+        return;
+      }
+      const canShow = await consumeDailyRitualCelebration(result.completedDate);
+      if (!canShow) {
+        setCompletion(null);
+        await track('daily_ritual_completion_replayed_blocked', { completedDate: result.completedDate, source: 'home' });
+        return;
+      }
+      setCompletion(result);
+      if (result.milestoneReached) {
+        setVisibleMilestone(result.milestoneReached as StreakMilestone);
+        await track('streak_milestone_reached', {
+          streakCount: result.currentStreak,
+          milestone: result.milestoneReached,
+          freezeAwarded: result.streakFreezeAwarded,
+        });
+      }
+      if (result.streakPreservedByFreeze) {
+        await track('streak_freeze_used', {
+          streakCount: result.currentStreak,
+          freezesRemaining: result.freezeCount,
+        });
+      }
+      await track('streak_completion_celebrated', {
+        streakCount: result.currentStreak,
+        milestone: result.milestoneReached,
+        freezeAwarded: result.streakFreezeAwarded,
+      });
+      if (result.currentStreak === 1) await track('streak_started', { streakCount: 1 });
+      if (source === 'end_of_reading') await track('ritual_flow_completion', { surface: 'guest_ritual' });
+    } catch (err) {
+      setCompletionError(err instanceof Error ? err.message : 'Could not complete the ritual yet.');
+    } finally {
+      setCompletionPending(false);
+    }
+  };
+
   return (
     <ScreenScroll
       scrollBackgroundColor={theme.bgDeep}
@@ -254,11 +309,15 @@ export function HomeScreen(): ReactElement {
           moonSign={moonSign}
           risingSign={risingSign}
           streakCount={streakCount}
+          longestStreakCount={horoscope?.longestStreakCount ?? user?.longestStreakCount ?? 0}
           streakFreezes={horoscope?.streakFreezes ?? 0}
+          streakFreezeCap={horoscope?.streakFreezeCap ?? user?.streakFreezeCap ?? 1}
           streakFreezeAwarded={Boolean(horoscope?.streakFreezeAwarded)}
           streakPreservedByFreeze={Boolean(horoscope?.streakPreservedByFreeze)}
           streakSegment={streakSegment}
           milestoneReached={visibleMilestone}
+          nextMilestone={horoscope?.nextMilestone ?? null}
+          streakLastDate={horoscope?.streakLastDate ?? dailyStreak.lastCheckInDate}
           shareMilestone={shareMilestone}
           onShareMilestone={shareMilestone ? onShareMilestone : undefined}
         />
@@ -437,8 +496,21 @@ export function HomeScreen(): ReactElement {
             onClose={() => {
               setOpenMoment('closed');
               void track('home_sequence_completed', { finalMoment: 'quiet_close' });
+              void onCompleteDailyRitual('end_of_reading');
             }}
           />
+          {effectiveHoroscopePeriod === 'today' ? (
+            <DailyRitualCompletionMoment
+              streakCount={streakCount}
+              completedToday={(horoscope.streakLastDate ?? dailyStreak.lastCheckInDate) === localDateISO()}
+              pending={completionPending}
+              error={completionError}
+              onComplete={() => void onCompleteDailyRitual('cta')}
+            />
+          ) : null}
+          {completion?.shouldCelebrate ? (
+            <RitualCompletionSheet completion={completion} reducedMotion={reducedMotion} />
+          ) : null}
         </>
       ) : null}
     </ScreenScroll>
@@ -594,6 +666,75 @@ function PremiumContinuationMoment({ onPress }: { onPress: () => void }): ReactE
       >
         <Text style={styles.premiumContinuationButtonText}>Open private continuation</Text>
       </Pressable>
+    </View>
+  );
+}
+
+function DailyRitualCompletionMoment({
+  streakCount,
+  completedToday,
+  pending,
+  error,
+  onComplete,
+}: {
+  streakCount: number;
+  completedToday: boolean;
+  pending: boolean;
+  error: string | null;
+  onComplete: () => void;
+}): ReactElement {
+  return (
+    <View style={styles.completeMoment}>
+      <Text style={styles.completeTitle}>
+        {completedToday ? `${streakCount} дахь өдөр баталгаажлаа.` : `Өнөөдрийн зурвасаа уншиж дуусгаад ${streakCount + 1} дахь өдрөө баталгаажуулаарай.`}
+      </Text>
+      <Text style={styles.completeBody}>
+        {completedToday
+          ? 'Та энэ жижиг зан үйлдээ дахин эргэн ирлээ.'
+          : 'This only counts after you choose to close the ritual, not just because the page loaded.'}
+      </Text>
+      {error ? <Text style={styles.completeError}>{error}</Text> : null}
+      <Pressable
+        style={({ pressed }) => [styles.completeButton, (completedToday || pending) && styles.completeButtonDisabled, pressed && !completedToday && !pending && styles.pressed]}
+        onPress={onComplete}
+        disabled={completedToday || pending}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: completedToday || pending, busy: pending }}
+        accessibilityLabel={completedToday ? 'Today ritual already completed' : "Complete today's ritual"}
+      >
+        <Text style={styles.completeButtonText}>
+          {pending ? 'Confirming quietly...' : completedToday ? 'Today is in your rhythm' : "Complete today's ritual"}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function RitualCompletionSheet({
+  completion,
+  reducedMotion,
+}: {
+  completion: DailyRitualCompletion;
+  reducedMotion: boolean;
+}): ReactElement {
+  const milestone = completion.milestoneReached as StreakMilestone | null;
+  const milestoneText = milestone ? milestoneExperience(milestone).copy : null;
+  return (
+    <View style={[styles.completionSheet, reducedMotion && styles.completionSheetReduced]}>
+      <View style={styles.completionHalo} />
+      <Text style={styles.completionEyebrow}>Ritual complete</Text>
+      <Text style={styles.completionTitle}>
+        {completion.currentStreak} дахь өдөр баталгаажлаа.
+      </Text>
+      <Text style={styles.completionBody}>
+        {milestoneText ?? 'Та энэ жижиг зан үйлдээ дахин эргэн ирлээ.'}
+      </Text>
+      {completion.streakPreservedByFreeze ? (
+        <Text style={styles.completionMeta}>A safeguard protected your rhythm.</Text>
+      ) : null}
+      {completion.streakFreezeAwarded ? (
+        <Text style={styles.completionMeta}>A safeguard was added for a future missed night.</Text>
+      ) : null}
     </View>
   );
 }
@@ -995,6 +1136,102 @@ const styles = StyleSheet.create({
     color: '#18122d',
     fontSize: 14,
     lineHeight: 19,
+    fontWeight: '900',
+  },
+  completeMoment: {
+    borderWidth: 1,
+    borderColor: 'rgba(167, 228, 196, 0.24)',
+    borderRadius: 22,
+    backgroundColor: 'rgba(8, 22, 34, 0.72)',
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  completeTitle: {
+    color: '#f5f3ff',
+    fontSize: 18,
+    lineHeight: 25,
+    fontWeight: '900',
+  },
+  completeBody: {
+    color: '#c9c7df',
+    marginTop: spacing.xs,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  completeError: {
+    color: '#ffb5b5',
+    marginTop: spacing.sm,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  completeButton: {
+    minHeight: 50,
+    borderRadius: 999,
+    backgroundColor: '#a7e4c4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  completeButtonDisabled: {
+    opacity: 0.62,
+  },
+  completeButtonText: {
+    color: '#081622',
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  completionSheet: {
+    borderWidth: 1,
+    borderColor: 'rgba(244, 217, 139, 0.34)',
+    borderRadius: 26,
+    backgroundColor: 'rgba(24, 20, 43, 0.86)',
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    overflow: 'hidden',
+  },
+  completionSheetReduced: {
+    borderColor: 'rgba(216, 221, 255, 0.26)',
+  },
+  completionHalo: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    right: -72,
+    top: -78,
+    backgroundColor: 'rgba(244, 217, 139, 0.12)',
+  },
+  completionEyebrow: {
+    color: '#f4d98b',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  completionTitle: {
+    color: '#f5f3ff',
+    marginTop: spacing.sm,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '900',
+  },
+  completionBody: {
+    color: '#d8d7ea',
+    marginTop: spacing.sm,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+  completionMeta: {
+    color: '#a7e4c4',
+    marginTop: spacing.sm,
+    fontSize: 12,
+    lineHeight: 17,
     fontWeight: '900',
   },
   pressed: {

@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockGetOrCreateDailyHoroscope: vi.fn(),
   mockPersonalizeDailyHoroscope: vi.fn((horoscope: unknown) => horoscope),
-  mockRecordDailyHoroscopeStreak: vi.fn(),
+  mockGetCurrentStreakData: vi.fn(),
 }));
 
 vi.mock('../db/client', () => ({
@@ -30,8 +30,7 @@ vi.mock('../services/horoscopeService', () => ({
 }));
 
 vi.mock('../services/streakService', () => ({
-  currentStreakDateISO: () => '2026-05-19',
-  recordDailyHoroscopeStreak: mocks.mockRecordDailyHoroscopeStreak,
+  getCurrentStreakData: mocks.mockGetCurrentStreakData,
 }));
 
 import horoscopeRoutes, { dailyHoroscopeCacheKey, globalSkyCacheKey, personalSkyCacheKey } from './horoscope';
@@ -93,22 +92,19 @@ describe('horoscope routes', () => {
       luckyNumber: 7,
       luckyColor: 'blue',
     });
-    mocks.mockRecordDailyHoroscopeStreak.mockResolvedValue({
-      data: {
-        streakCount: 1,
-        longestStreakCount: 1,
-        streakLastDate: '2026-05-20',
-        streakFreezes: 0,
-        streakFreezeAwarded: false,
-        streakFreezeCap: 1,
-        streakFreezeAwardReason: null,
-        isNewStreakDay: true,
-        streakPreservedByFreeze: false,
-        milestoneReached: null,
-        nextMilestone: 3,
-        streakSegment: 'new',
-      },
-      analyticsEvents: ['streak_started'],
+    mocks.mockGetCurrentStreakData.mockResolvedValue({
+      streakCount: 0,
+      longestStreakCount: 0,
+      streakLastDate: null,
+      streakFreezes: 0,
+      streakFreezeAwarded: false,
+      streakFreezeCap: 1,
+      streakFreezeAwardReason: null,
+      isNewStreakDay: false,
+      streakPreservedByFreeze: false,
+      milestoneReached: null,
+      nextMilestone: 3,
+      streakSegment: 'new',
     });
   });
 
@@ -138,7 +134,7 @@ describe('horoscope routes', () => {
       'en',
       '2026-05-20',
     );
-    expect(mocks.mockRecordDailyHoroscopeStreak).not.toHaveBeenCalled();
+    expect(mocks.mockGetCurrentStreakData).not.toHaveBeenCalled();
     expect(mockCache.put).toHaveBeenCalledTimes(1);
     const cached = cacheStore.get(
       dailyHoroscopeCacheKey('aries', '2026-05-20', 'en').url,
@@ -283,18 +279,18 @@ describe('horoscope routes', () => {
         risingSign: 'libra',
       }),
     );
-    expect(mocks.mockRecordDailyHoroscopeStreak).toHaveBeenCalledWith(db, 'user-1', '2026-05-19');
+    expect(mocks.mockGetCurrentStreakData).toHaveBeenCalledWith(db, 'user-1');
     expect(mockCache.match).not.toHaveBeenCalled();
     expect(mockCache.put).not.toHaveBeenCalled();
     await expect(res.json()).resolves.toMatchObject({
-      streakCount: 1,
-      longestStreakCount: 1,
-      streakLastDate: '2026-05-20',
+      streakCount: 0,
+      longestStreakCount: 0,
+      streakLastDate: null,
       streakFreezes: 0,
       streakFreezeAwarded: false,
       streakFreezeCap: 1,
       streakFreezeAwardReason: null,
-      isNewStreakDay: true,
+      isNewStreakDay: false,
       streakPreservedByFreeze: false,
       milestoneReached: null,
       nextMilestone: 3,
@@ -310,10 +306,10 @@ describe('horoscope routes', () => {
     const res = await app.request('/api/horoscope/daily/aries?date=2026-05-20', {}, mockEnv, executionCtx as any);
 
     expect(res.status).toBe(200);
-    expect(mocks.mockRecordDailyHoroscopeStreak).not.toHaveBeenCalled();
+    expect(mocks.mockGetCurrentStreakData).not.toHaveBeenCalled();
   });
 
-  it('uses server UTC streak date so profile timezone changes cannot farm streak days', async () => {
+  it('returns current streak state without mutating it for timezone-shifted profiles', async () => {
     const db = {
       select: vi
         .fn()
@@ -332,6 +328,6 @@ describe('horoscope routes', () => {
       'en',
       '2026-05-20',
     );
-    expect(mocks.mockRecordDailyHoroscopeStreak).toHaveBeenCalledWith(db, 'user-1', '2026-05-19');
+    expect(mocks.mockGetCurrentStreakData).toHaveBeenCalledWith(db, 'user-1');
   });
 });

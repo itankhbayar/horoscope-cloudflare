@@ -195,6 +195,25 @@ export type AnalyticsEventMap = {
   streak_milestone: { streakCount: number; milestone: number };
   streak_freeze_used: { streakCount: number; freezesRemaining: number };
   streak_lost: { previousStreak?: number };
+  streak_status_viewed: {
+    source: 'home_launch';
+    streakCount: number;
+    longestStreakCount: number;
+    freezesRemaining: number;
+    nextMilestone?: number | null;
+    completedToday: boolean;
+  };
+  daily_ritual_completed: {
+    completedDate: string;
+    currentStreak: number;
+    alreadyCompletedToday: boolean;
+    shouldCelebrate: boolean;
+    milestone?: number | null;
+  };
+  streak_completion_celebrated: { streakCount: number; milestone?: number | null; freezeAwarded: boolean };
+  streak_milestone_reached: { streakCount: number; milestone: number; freezeAwarded: boolean };
+  daily_ritual_completion_replayed_blocked: { completedDate: string; source: 'home' };
+  streak_milestone_shared: { milestone: number; source: 'home' | 'profile' };
 };
 
 export type AnalyticsEvent = keyof AnalyticsEventMap;
