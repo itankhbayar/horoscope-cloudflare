@@ -8,6 +8,12 @@ export interface CityRecord {
 
 export const CITY_DATABASE: CityRecord[] = [
   { name: 'Ulaanbaatar', country: 'Mongolia', latitude: 47.9212, longitude: 106.9186, timezoneOffset: 8 },
+  { name: 'Erdenet', country: 'Mongolia', latitude: 49.0276, longitude: 104.0444, timezoneOffset: 8 },
+  { name: 'Darkhan', country: 'Mongolia', latitude: 49.4867, longitude: 105.9228, timezoneOffset: 8 },
+  { name: 'Choibalsan', country: 'Mongolia', latitude: 48.0784, longitude: 114.535, timezoneOffset: 8 },
+  { name: 'Murun', country: 'Mongolia', latitude: 49.6356, longitude: 100.1625, timezoneOffset: 8 },
+  { name: 'Khovd', country: 'Mongolia', latitude: 48.0056, longitude: 91.6419, timezoneOffset: 7 },
+  { name: 'Olgii', country: 'Mongolia', latitude: 48.9683, longitude: 89.9625, timezoneOffset: 7 },
   { name: 'Tokyo', country: 'Japan', latitude: 35.6895, longitude: 139.6917, timezoneOffset: 9 },
   { name: 'Beijing', country: 'China', latitude: 39.9042, longitude: 116.4074, timezoneOffset: 8 },
   { name: 'Seoul', country: 'South Korea', latitude: 37.5665, longitude: 126.978, timezoneOffset: 9 },
@@ -52,12 +58,55 @@ const CITY_ALIASES = new Map<string, string>([
   ['ulanbator', 'ulaanbaatar'],
   ['ulaan baatar', 'ulaanbaatar'],
   ['ulaan-baatar', 'ulaanbaatar'],
+  ['muren', 'murun'],
+  ['moron', 'murun'],
+  ['olgiy', 'olgii'],
+  ['ulgy', 'olgii'],
 ]);
 
 function normalizeCityQuery(query: string): string {
   const cityOnly = query.split(',')[0] ?? query;
-  const normalized = cityOnly.trim().toLowerCase().replace(/\s+/g, ' ');
+  const normalized = cityOnly.trim().toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ');
   return CITY_ALIASES.get(normalized) ?? normalized;
+}
+
+function normalizeComparable(value: string): string {
+  return normalizeCityQuery(value).replace(/[^a-z0-9]/g, '');
+}
+
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  const current = Array.from({ length: b.length + 1 }, () => 0);
+  for (let i = 1; i <= a.length; i += 1) {
+    current[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      current[j] = Math.min(
+        current[j - 1]! + 1,
+        previous[j]! + 1,
+        previous[j - 1]! + cost,
+      );
+    }
+    for (let j = 0; j <= b.length; j += 1) previous[j] = current[j]!;
+  }
+  return previous[b.length]!;
+}
+
+function cityScore(city: CityRecord, query: string): number {
+  const cityName = normalizeComparable(city.name);
+  const country = normalizeComparable(city.country);
+  const needle = normalizeComparable(query);
+  if (!needle) return 0;
+  if (cityName === needle) return 100;
+  if (cityName.startsWith(needle)) return 90;
+  if (cityName.includes(needle) || country.includes(needle)) return 75;
+  const distance = editDistance(cityName, needle);
+  const typoLimit = needle.length <= 4 ? 1 : 2;
+  if (distance <= typoLimit) return 62 - distance;
+  return 0;
 }
 
 export function lookupCity(query: string): CityRecord | null {
@@ -65,9 +114,7 @@ export function lookupCity(query: string): CityRecord | null {
   const needle = normalizeCityQuery(query);
   if (!needle) return null;
   return (
-    CITY_DATABASE.find((c) => c.name.toLowerCase() === needle) ??
-    CITY_DATABASE.find((c) => c.name.toLowerCase().startsWith(needle)) ??
-    CITY_DATABASE.find((c) => c.name.toLowerCase().includes(needle)) ??
+    searchCities(needle, 1)[0] ??
     null
   );
 }
@@ -75,9 +122,10 @@ export function lookupCity(query: string): CityRecord | null {
 export function searchCities(query: string, limit = 10): CityRecord[] {
   if (!query) return CITY_DATABASE.slice(0, limit);
   const needle = normalizeCityQuery(query);
-  return CITY_DATABASE.filter(
-    (c) =>
-      c.name.toLowerCase().includes(needle) ||
-      c.country.toLowerCase().includes(needle),
-  ).slice(0, limit);
+  return CITY_DATABASE
+    .map((city) => ({ city, score: cityScore(city, needle) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || a.city.name.localeCompare(b.city.name))
+    .map(({ city }) => city)
+    .slice(0, limit);
 }

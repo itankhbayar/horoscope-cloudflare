@@ -2,6 +2,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 export type RootStackParamList = {
+  GuestWelcome: undefined;
   Login: undefined;
   Register: undefined;
   Onboarding: undefined;
@@ -10,7 +11,17 @@ export type RootStackParamList = {
   AppAppearance: undefined;
   ManageNotifications: undefined;
   DeleteAccount: undefined;
-  Premium: { source?: 'locked_preview' | 'profile_card' | 'post_reading' | 'onboarding_teaser' } | undefined;
+  Premium: {
+    source?:
+      | 'locked_preview'
+      | 'profile_card'
+      | 'post_reading'
+      | 'onboarding_teaser'
+      | 'saved_reflection'
+      | 'rhythm_insight'
+      | 'relationship_atmosphere'
+      | 'natal_resonance';
+  } | undefined;
 };
 
 export type MainTabParamList = {

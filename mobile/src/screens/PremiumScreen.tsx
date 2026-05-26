@@ -25,10 +25,17 @@ import {
   tabScrollBottomPadding,
 } from '../theme';
 import { usePremiumCheckout } from '../hooks/usePremiumCheckout';
+import { useProfile } from '../hooks/useProfile';
 import { usesRevenueCatBilling } from '../lib/billing/platform';
 import { readRevenueCatConfigurationStatus } from '../lib/revenueCat/config';
 import type { PremiumPlanDisplay } from '../lib/revenueCat/packages';
 import { track } from '../lib/analytics';
+import {
+  getEmotionalPatternMemory,
+  summarizeEmotionalPatternMemory,
+  type EmotionalPatternSummary,
+} from '../lib/emotionalPatternMemory';
+import { getScreenPurpose } from '../lib/emotionalScreenHierarchy';
 import { PREMIUM_POSITIONING_COPY } from '../lib/brandCopy';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -45,47 +52,47 @@ type ComparisonRow = {
 };
 
 const PREMIUM_EXPERIMENT = {
-  variant: 'sky-intelligence-v1',
+  variant: 'private-archive-v1',
   trialDays: null as number | null,
-  urgencyCopy: 'A quieter way to read the sky, when you are ready.',
+  urgencyCopy: 'Your private space is here when the ritual is ready to deepen.',
 };
 
 const COPY = PREMIUM_POSITIONING_COPY;
 
 const FEATURES: PremiumFeature[] = [
   {
-    title: 'Deeper chart intelligence',
-    value: 'Move beyond sun-sign summaries into houses, angles, and chart patterns calculated from your birth data.',
+    title: 'Private ritual archive',
+    value: 'Keep saved reflection moments, favorite ritual cards, and emotional weather bookmarks in one calm personal space.',
     accent: '#c9a34a',
   },
   {
-    title: 'Live sky interpretation',
-    value: 'Read daily timing through the moving sky, with context for why a theme may be active now.',
+    title: 'Emotional continuity',
+    value: 'See how reflection, clarity, uncertainty, relationship atmosphere, and quiet-hour rhythms change over time.',
     accent: '#e0789b',
   },
   {
-    title: 'Compatibility through overlays',
-    value: 'Compare two charts through relationship dynamics instead of reducing people to sign matches.',
+    title: 'Relationship atmosphere memory',
+    value: 'Notice when you revisit relational prompts and how those moments correlate with the living sky.',
     accent: '#7bd3d0',
   },
   {
-    title: 'Astronomy-accurate calculations',
-    value: 'Interpretations begin from real planetary positions and your local birth sky.',
+    title: 'Advanced natal resonance',
+    value: 'Use your completed chart for rising-sign timing, house-based reflection themes, and Venus/Mars relationship context.',
     accent: '#a88cff',
   },
   {
-    title: 'A calm premium ritual',
-    value: 'A quieter interface for deeper reflection, inspired by the open steppe sky.',
+    title: 'Cross-device ritual continuity',
+    value: 'When you choose to sync, preserve ritual history without turning private reflection into surveillance.',
     accent: '#7bbf6a',
   },
 ];
 
 const COMPARISON: ComparisonRow[] = [
-  { label: 'Daily sky', free: 'Today anchored to your chart', premium: 'Today plus deeper timing context' },
-  { label: 'Birth chart', free: 'Core placements', premium: 'Expanded chart layers and patterns' },
-  { label: 'Transits', free: 'Light daily context', premium: 'Live sky interpretation and timing' },
-  { label: 'Compatibility', free: 'Basic sign comparison', premium: 'Chart overlay dynamics' },
-  { label: 'Experience', free: 'Calm core ritual', premium: 'Quieter, deeper premium ritual' },
+  { label: 'Global Sky', free: 'Tonight\'s collective atmosphere', premium: 'Longer emotional sky narrative' },
+  { label: 'Personal Sky', free: 'Light sign or birthday resonance', premium: 'Deeper continuity across nights' },
+  { label: 'Memory', free: 'Recent local rhythm', premium: 'Private archive and pattern reflection' },
+  { label: 'Relationships', free: 'Tonight\'s atmosphere prompt', premium: 'Relationship pattern continuity' },
+  { label: 'Natal timing', free: 'Basic chart when provided', premium: 'Rising, houses, Moon/Venus/Mars layers when data is complete' },
 ];
 
 export function PremiumScreen(): React.JSX.Element {
@@ -105,11 +112,15 @@ export function PremiumScreen(): React.JSX.Element {
     premiumPlansLoading,
     premiumPlansError,
   } = usePremiumCheckout();
+  const { profile, load: loadProfile } = useProfile();
   const isIosIap = usesRevenueCatBilling();
   const purchasesUnavailable = isIosIap && !purchasesConfigured;
   const revenueCatStatus = useMemo(() => (isIosIap ? readRevenueCatConfigurationStatus() : null), [isIosIap]);
   const [selectedPlanId, setSelectedPlanId] = useState<PremiumPlanDisplay['id']>('yearly');
+  const [memorySummary, setMemorySummary] = useState<EmotionalPatternSummary | null>(null);
+  const [continuityDetailsOpen, setContinuityDetailsOpen] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
+  const screenPurpose = useMemo(() => getScreenPurpose('premium'), []);
 
   const hp = horizontalScreenPadding(width);
   const titleSize = screenTitleSize(width) + 8;
@@ -134,7 +145,26 @@ export function PremiumScreen(): React.JSX.Element {
 
   useEffect(() => {
     void track('paywall_viewed', { source: route.params?.source ?? 'premium_screen' });
+    void track('premium_paywall_triggered', { source: route.params?.source ?? 'premium_screen' });
   }, [route.params?.source]);
+
+  useEffect(() => {
+    void loadProfile();
+    void getEmotionalPatternMemory().then((memory) => {
+      const summary = summarizeEmotionalPatternMemory(memory);
+      setMemorySummary(summary);
+      void track('private_archive_view_depth', {
+        archiveCount: summary.archiveCount,
+        ritualNights: summary.ritualNights,
+      });
+      if (summary.ritualNights > 0) {
+        void track('emotional_continuity_engaged', {
+          ritualNights: summary.ritualNights,
+          strongestSignal: summary.strongestSignal ?? undefined,
+        });
+      }
+    });
+  }, [loadProfile]);
 
   const onPrimaryCta = useCallback(() => {
     if (isPremium) {
@@ -163,6 +193,13 @@ export function PremiumScreen(): React.JSX.Element {
             isPremium={isPremium}
             onPress={onPrimaryCta}
             purchasesUnavailable={purchasesUnavailable || selectedPlanUnavailable}
+          />
+
+          <PrivateRitualArchivePreview
+            palette={palette}
+            summary={memorySummary}
+            hasBirthplace={Boolean(profile?.birthProfile?.birthCity)}
+            hasBirthTime={Boolean(profile?.birthProfile?.birthTime)}
           />
 
           {purchasesUnavailable ? (
@@ -203,20 +240,39 @@ export function PremiumScreen(): React.JSX.Element {
             </View>
           ) : null}
 
-          <SectionTitle title={COPY.valueTitle} palette={palette} />
-          <View style={styles.featureGrid}>
-            {FEATURES.map((feature) => (
-              <FeatureCard key={feature.title} feature={feature} palette={palette} />
-            ))}
-          </View>
+          <Pressable
+            style={({ pressed }) => [styles.detailsDisclosure, { borderColor: palette.border }, pressed && styles.pressed]}
+            onPress={() => {
+              setContinuityDetailsOpen((current) => !current);
+              void track('hidden_control_discovered', { screen: screenPurpose.screen, control: 'premium_continuity_details' });
+              void track('text_expansion_used', { screen: screenPurpose.screen, moment: screenPurpose.moment });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={continuityDetailsOpen ? 'Hide premium continuity details' : 'Show premium continuity details'}
+          >
+            <Text style={[styles.restoreLink, { color: palette.accent }]}>
+              {continuityDetailsOpen ? 'Return to the quiet archive' : 'See what deepens'}
+            </Text>
+          </Pressable>
 
-          <LockedPreview palette={palette} />
+          {continuityDetailsOpen ? (
+            <>
+              <SectionTitle title={COPY.valueTitle} palette={palette} />
+              <View style={styles.featureGrid}>
+                {FEATURES.slice(0, 3).map((feature) => (
+                  <FeatureCard key={feature.title} feature={feature} palette={palette} />
+                ))}
+              </View>
 
-          <SectionTitle title={COPY.compareTitle} palette={palette} />
-          <ComparisonTable rows={COMPARISON} palette={palette} />
+              <LockedPreview palette={palette} />
 
-          <SectionTitle title={COPY.proofTitle} palette={palette} />
-          <FoundationProof palette={palette} isIosIap={isIosIap} />
+              <SectionTitle title={COPY.compareTitle} palette={palette} />
+              <ComparisonTable rows={COMPARISON.slice(0, 3)} palette={palette} />
+
+              <SectionTitle title={COPY.proofTitle} palette={palette} />
+              <FoundationProof palette={palette} isIosIap={isIosIap} />
+            </>
+          ) : null}
 
           <SectionTitle title={COPY.pricingTitle} palette={palette} />
           <View style={styles.pricingList}>
@@ -311,11 +367,11 @@ function HeroSection({
         {COPY.heroTitle}
       </Text>
       <Text style={[styles.heroSubtitle, { color: palette.textMuted, fontSize: bodySize, lineHeight }]}>
-        {COPY.heroSubtitle}
+        A private archive for the nights that keep returning.
       </Text>
       <View style={styles.heroStats}>
-        <MiniStat value="Real" label="planetary positions" palette={palette} />
-        <MiniStat value="Local" label="birthplace sky" palette={palette} />
+        <MiniStat value="Private" label="ritual archive" palette={palette} />
+        <MiniStat value="Deeper" label="emotional timing" palette={palette} />
       </View>
       <PrimaryButton
         label={isPremium ? COPY.activeCta : COPY.heroCta}
@@ -325,6 +381,66 @@ function HeroSection({
         accessibilityLabel={isPremium ? 'Manage premium access' : 'Open deeper sky layers'}
       />
       <Text style={[styles.urgency, { color: palette.textMuted }]}>{PREMIUM_EXPERIMENT.urgencyCopy}</Text>
+    </View>
+  );
+}
+
+function PrivateRitualArchivePreview({
+  palette,
+  summary,
+  hasBirthplace,
+  hasBirthTime,
+}: {
+  palette: AppearancePalette;
+  summary: EmotionalPatternSummary | null;
+  hasBirthplace: boolean;
+  hasBirthTime: boolean;
+}): React.JSX.Element {
+  const insights = summary?.insights.length
+    ? summary.insights
+    : ['Your private archive starts with saved reflection moments, quiet-hour tendencies, and the sky tones you return to.'];
+  return (
+    <View style={[styles.archivePreview, { backgroundColor: palette.card, borderColor: palette.border }]}>
+      <Text style={[styles.lockedEyebrow, { color: colors.gold }]}>Private ritual archive</Text>
+      <Text style={[styles.archiveTitle, { color: palette.text }]}>A calm record of the nights that stayed with you.</Text>
+      {insights.slice(0, 3).map((insight) => (
+        <Text key={insight} style={[styles.archiveInsight, { color: palette.textMuted }]}>
+          {insight}
+        </Text>
+      ))}
+      <View style={styles.archiveStats}>
+        <MiniStat value={String(summary?.ritualNights ?? 0)} label="ritual nights" palette={palette} />
+        <MiniStat value={String(summary?.archiveCount ?? 0)} label="saved moments" palette={palette} />
+      </View>
+      <View style={[styles.natalPrompt, { borderColor: palette.border }]}>
+        <Text style={[styles.natalPromptTitle, { color: palette.text }]}>Natal resonance upgrade</Text>
+        <Text style={[styles.archiveInsight, { color: palette.textMuted }]}>
+          {hasBirthplace && hasBirthTime
+            ? 'Your chart can support rising-sign precision, house-based reflection themes, and deeper relationship timing.'
+            : !hasBirthplace
+              ? 'Add birthplace to improve house-based timing. Astralis will not fake local sky precision without it.'
+              : 'Add birth time to unlock rising-sign precision and Moon-house reflection themes.'}
+        </Text>
+        <Pressable
+          onPress={() => {
+            void track('natal_resonance_upgrade_tapped', {
+              missingBirthTime: !hasBirthTime,
+              missingBirthplace: !hasBirthplace,
+            });
+            if (!hasBirthTime) {
+              void track('birth_time_unlock_prompt_conversion', { source: 'premium_archive' });
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Learn about natal resonance precision"
+          hitSlop={hitSlopComfortable}
+        >
+          <Text style={[styles.archiveLink, { color: palette.accent }]}>
+            {hasBirthplace && hasBirthTime ? 'Use full natal timing' : 'Improve chart precision'}
+          </Text>
+        </Pressable>
+      </View>
+      <Text style={[styles.privacyCopy, { color: palette.textMuted }]}>Private, resettable, never diagnostic.</Text>
     </View>
   );
 }
@@ -396,9 +512,9 @@ function ComparisonTable({ rows, palette }: { rows: ComparisonRow[]; palette: Ap
 
 function FoundationProof({ palette, isIosIap }: { palette: AppearancePalette; isIosIap: boolean }) {
   const items = [
-    { metric: 'Sky', label: 'Mapped from astronomical calculations' },
-    { metric: 'Place', label: 'Birth location shapes the chart' },
-    { metric: 'Tone', label: 'Premium, calm, non-cringe ritual design' },
+    { metric: 'Local', label: 'Recent memory stays on this device unless you choose to sync' },
+    { metric: 'Clear', label: 'Reflective patterns are not mental health labels' },
+    { metric: 'Yours', label: 'Reset ritual memory and archive whenever you want' },
   ];
   return (
     <View style={styles.proofWrap}>
@@ -415,7 +531,7 @@ function FoundationProof({ palette, isIosIap }: { palette: AppearancePalette; is
           {COPY.calmLine}
         </Text>
         <Text style={[styles.foundationNoteMeta, { color: palette.textMuted }]}>
-          Astralis keeps astronomical calculation and astrological interpretation clearly distinct.
+          Astralis keeps astronomy, astrology, and emotional reflection clearly distinct.
         </Text>
       </View>
       <Text style={[styles.trustLine, { color: palette.textMuted }]}>
@@ -566,7 +682,7 @@ function StickyCta({
     >
       <View style={styles.stickyCopy}>
         <Text style={[styles.stickyTitle, { color: palette.text }]}>
-          {isPremium ? 'Premium is active' : selectedPlan.bestValue ? 'Yearly unlocks the most value' : 'Start Premium'}
+          {isPremium ? 'Premium is active' : selectedPlan.bestValue ? 'Preserve the yearly archive' : 'Start private space'}
         </Text>
         <Text style={[styles.stickySub, { color: palette.textMuted }]}>{COPY.stickySubtitle}</Text>
       </View>
@@ -682,6 +798,24 @@ const styles = StyleSheet.create({
   featureAccent: { width: 38, height: 4, borderRadius: 999, marginBottom: spacing.sm },
   featureTitle: { fontSize: 16, lineHeight: 21, fontWeight: '800' },
   featureValue: { marginTop: 5, fontSize: 14, lineHeight: 20 },
+  archivePreview: {
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  archiveTitle: { fontSize: 20, lineHeight: 26, fontWeight: '900' },
+  archiveInsight: { fontSize: 13, lineHeight: 20, fontWeight: '700' },
+  archiveStats: { flexDirection: 'row', gap: spacing.sm },
+  natalPrompt: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: spacing.md,
+    backgroundColor: 'rgba(184, 168, 255, 0.08)',
+  },
+  natalPromptTitle: { fontSize: 15, lineHeight: 20, fontWeight: '900' },
+  archiveLink: { marginTop: spacing.xs, fontSize: 13, lineHeight: 18, fontWeight: '900' },
+  privacyCopy: { fontSize: 12, lineHeight: 18, fontWeight: '700' },
   lockedPreview: {
     borderWidth: 1,
     borderRadius: 20,
@@ -748,6 +882,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(123, 191, 106, 0.12)',
     fontSize: 14,
     lineHeight: 20,
+  },
+  detailsDisclosure: {
+    minHeight: MIN_TOUCH,
+    borderWidth: 1,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
   },
   sticky: {
     position: 'absolute',

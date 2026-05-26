@@ -4,6 +4,8 @@ import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
 import { createRateLimitMiddleware } from '../middleware/rateLimit';
 import { getOrCreateDailyHoroscope, personalizeDailyHoroscope } from '../services/horoscopeService';
+import { buildGlobalSkyToday } from '../services/globalSkyService';
+import { buildPersonalSkyLayer } from '../services/personalSkyService';
 import type { NatalChartData } from '../services/astrologyService';
 import { currentStreakDateISO, recordDailyHoroscopeStreak } from '../services/streakService';
 import { isZodiacSign, ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
@@ -13,7 +15,7 @@ import { parseLang } from '../utils/lang';
 import { safeDateISO } from '../utils/localDate';
 import type { AppBindings, AppVariables } from '../types';
 import { metric } from '../utils/logger';
-import { citySearchQuerySchema, dailyHoroscopeParamsSchema, dailyHoroscopeQuerySchema } from '../schemas/horoscope';
+import { citySearchQuerySchema, dailyHoroscopeParamsSchema, dailyHoroscopeQuerySchema, personalSkyQuerySchema } from '../schemas/horoscope';
 import { paginateItems } from '../schemas/common';
 import { parseParams, parseQuery, isResponse } from '../validators/request';
 import { fail, ok } from '../utils/apiResponse';
@@ -39,7 +41,69 @@ export function dailyHoroscopeCacheKey(sign: ZodiacSign, dateISO: string, lang: 
   return new Request(url.toString(), { method: 'GET' });
 }
 
+export function globalSkyCacheKey(dateISO: string, lang: string): Request {
+  const url = new URL('/api/horoscope/global-sky', DAILY_HOROSCOPE_CACHE_ORIGIN);
+  url.searchParams.set('date', dateISO);
+  url.searchParams.set('lang', lang);
+  return new Request(url.toString(), { method: 'GET' });
+}
+
+export function personalSkyCacheKey(signOrBirthDate: string, dateISO: string, lang: string): Request {
+  const url = new URL('/api/horoscope/personal-sky', DAILY_HOROSCOPE_CACHE_ORIGIN);
+  url.searchParams.set('input', signOrBirthDate);
+  url.searchParams.set('date', dateISO);
+  url.searchParams.set('lang', lang);
+  return new Request(url.toString(), { method: 'GET' });
+}
+
 router.get('/signs', publicRateLimit, (c) => ok(c, ZODIAC_SIGNS));
+
+router.get('/global-sky', publicRateLimit, async (c) => {
+  const query = parseQuery(c, dailyHoroscopeQuerySchema);
+  if (isResponse(query)) return query;
+  const dateISO = query.date ?? safeDateISO('UTC');
+  const lang = parseLang(query.lang ?? c.req.header('Accept-Language'));
+  const cache = caches.default;
+  const cacheKey = globalSkyCacheKey(dateISO, lang);
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    metric(c.env, 'global_sky_cache_hit', { lang });
+    return cached;
+  }
+
+  const sky = buildGlobalSkyToday(dateISO);
+  metric(c.env, 'global_sky_viewed', { lang });
+  const response = ok(c, sky);
+  response.headers.set('Cache-Control', DAILY_HOROSCOPE_CACHE_CONTROL);
+  if (response.status === 200) {
+    c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+  }
+  return response;
+});
+
+router.get('/personal-sky', publicRateLimit, async (c) => {
+  const query = parseQuery(c, personalSkyQuerySchema);
+  if (isResponse(query)) return query;
+  const dateISO = query.date ?? safeDateISO('UTC');
+  const lang = parseLang(query.lang ?? c.req.header('Accept-Language'));
+  const inputKey = query.sign ?? query.birthDate!;
+  const cache = caches.default;
+  const cacheKey = personalSkyCacheKey(inputKey, dateISO, lang);
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    metric(c.env, 'personal_sky_cache_hit', { lang });
+    return cached;
+  }
+
+  const personalSky = buildPersonalSkyLayer(query.sign ? { sign: query.sign } : { birthDate: query.birthDate! }, dateISO);
+  metric(c.env, 'personal_sky_viewed', { lang, personalization: personalSky.personalization, sign: personalSky.sign });
+  const response = ok(c, personalSky);
+  response.headers.set('Cache-Control', DAILY_HOROSCOPE_CACHE_CONTROL);
+  if (response.status === 200) {
+    c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+  }
+  return response;
+});
 
 router.get('/cities', publicRateLimit, (c) => {
   const query = parseQuery(c, citySearchQuerySchema);

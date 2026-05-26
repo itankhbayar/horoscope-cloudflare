@@ -27,5 +27,14 @@ describe('searchCities', () => {
   it('returns Ulaanbaatar for common aliases', () => {
     expect(searchCities('Ulan Bator')[0]).toMatchObject({ name: 'Ulaanbaatar' });
   });
-});
 
+  it('handles small Mongolian city anchors', () => {
+    expect(searchCities('Erdenet')[0]).toMatchObject({ name: 'Erdenet', country: 'Mongolia' });
+    expect(searchCities('Muren')[0]).toMatchObject({ name: 'Murun', country: 'Mongolia' });
+  });
+
+  it('tolerates short typos without returning unrelated cities first', () => {
+    expect(searchCities('Ulaanbatar')[0]).toMatchObject({ name: 'Ulaanbaatar' });
+    expect(searchCities('Darkan')[0]).toMatchObject({ name: 'Darkhan' });
+  });
+});

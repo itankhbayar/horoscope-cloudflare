@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { GuestWelcomeScreen } from '../screens/GuestWelcomeScreen';
 import { MainTabs } from './MainTabs';
 import { colors } from '../theme';
 import type { RootStackParamList } from './types';
@@ -18,7 +19,10 @@ import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { PremiumScreen } from '../screens/PremiumScreen';
 import { hasCompletedOnboarding, markOnboardingComplete } from '../lib/onboardingStorage';
+import { getOrCreateGuestOnboardingState, linkGuestToAuthenticatedUser } from '../lib/progressiveOnboarding';
 import { track } from '../lib/analytics';
+import { installNotificationAnalyticsListeners } from '../lib/notifications/analyticsListeners';
+import { reconcileAtmosphericReminderState } from '../lib/notifications/deliveryState';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -28,10 +32,24 @@ export function RootNavigator(): React.JSX.Element {
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
 
+  useEffect(() => installNotificationAnalyticsListeners(), []);
+
+  useEffect(() => {
+    void reconcileAtmosphericReminderState().then((state) => {
+      if (state.duplicateCleanupCount > 0) {
+        void track('duplicate_reminder_cleanup', { count: state.duplicateCleanupCount });
+      }
+      if (state.staleRecovered) {
+        void track('stale_reminder_recovery', { recovered: true });
+      }
+    });
+  }, []);
+
   useEffect(() => {
     let alive = true;
     void (async () => {
       if (!user) {
+        await getOrCreateGuestOnboardingState();
         if (alive) {
           setOnboardingComplete(false);
           setOnboardingReady(true);
@@ -39,6 +57,11 @@ export function RootNavigator(): React.JSX.Element {
         return;
       }
       setOnboardingReady(false);
+      const guestState = await getOrCreateGuestOnboardingState();
+      if (guestState.linkedUserId !== user.id) {
+        await linkGuestToAuthenticatedUser(user.id);
+        void track('guest_to_signup_conversion', { stage: guestState.stage });
+      }
       const complete = await hasCompletedOnboarding(user.id);
       if (alive) {
         setOnboardingComplete(complete);
@@ -77,10 +100,11 @@ export function RootNavigator(): React.JSX.Element {
           animation: 'slide_from_right',
           contentStyle: { backgroundColor: palette.background },
         }}
-        initialRouteName={!user ? 'Login' : onboardingComplete ? 'Main' : 'Onboarding'}
+        initialRouteName={!user ? 'GuestWelcome' : onboardingComplete ? 'Main' : 'Onboarding'}
       >
         {!user ? (
           <>
+            <Stack.Screen name="GuestWelcome" component={GuestWelcomeScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
           </>

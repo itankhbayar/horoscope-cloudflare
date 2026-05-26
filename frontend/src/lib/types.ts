@@ -180,6 +180,71 @@ export interface DailyHoroscope {
   streakSegment?: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
 }
 
+export type AtmosphereKey =
+  | 'tension'
+  | 'intimacy'
+  | 'clarity'
+  | 'momentum'
+  | 'uncertainty'
+  | 'reflection'
+  | 'socialOpenness'
+  | 'emotionalVolatility';
+
+export interface GlobalSkyCard {
+  id: string;
+  title: string;
+  body: string;
+  signal: AtmosphereKey;
+}
+
+export interface GlobalSkyToday {
+  date: string;
+  moonSign: ZodiacSign;
+  moonPhase: string;
+  headline: string;
+  summary: string;
+  cards: GlobalSkyCard[];
+  atmosphere: Record<AtmosphereKey, number>;
+  majorAspects: Array<{
+    body1: PlanetName;
+    body2: PlanetName;
+    type: AspectType;
+    orb: number;
+  }>;
+  mercuryActivity: string;
+  venusMarsTension: string | null;
+  retrogradeBodies: PlanetName[];
+  eclipseWindow: {
+    active: boolean;
+    note: string;
+  };
+  shareLine: string;
+}
+
+export interface PersonalSkyRitualCard {
+  id: 'tonight-window' | 'emotional-weather' | 'reflection-prompt' | 'relationship-atmosphere' | 'dream-sleep-tone';
+  title: string;
+  body: string;
+  signal: AtmosphereKey;
+}
+
+export interface PersonalSkyLayer {
+  date: string;
+  sign: ZodiacSign;
+  personalization: 'zodiac_sign' | 'birth_date';
+  resonanceScore: number;
+  headline: string;
+  howTonightAffectsYou: string;
+  emotionalWeather: string;
+  relationshipAtmosphere: string;
+  reflectionPrompt: string;
+  dreamSleepTone: string;
+  quietHourSuggestion: string;
+  ritualCards: PersonalSkyRitualCard[];
+  premiumBridge: string;
+  sky: Pick<GlobalSkyToday, 'date' | 'moonSign' | 'moonPhase' | 'atmosphere' | 'majorAspects'>;
+}
+
 export interface CompatibilityResult {
   sign1: ZodiacSign;
   sign2: ZodiacSign;

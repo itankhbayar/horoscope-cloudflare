@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +30,8 @@ import {
 import type { RootStackParamList } from '../navigation/types';
 import { useAppearance } from '../hooks/useAppearance';
 import { BRAND_COPY } from '../lib/brandCopy';
+import { track } from '../lib/analytics';
+import { updateGuestOnboardingState } from '../lib/progressiveOnboarding';
 import { skyMappingStep, whyBirthplaceMatters } from '../lib/onboardingReveal';
 import {
   deviceTimezoneLabel,
@@ -44,18 +46,18 @@ type Step = 0 | 1 | 2;
 const STEP_COPY: Record<Step, { eyebrow: string; title: string; body: string }> = {
   0: {
     eyebrow: 'Step 1 of 3',
-    title: 'Create your sky profile',
-    body: 'A secure account keeps your calculated chart, preferences, and ritual history in one place.',
+    title: 'Start with your birthday',
+    body: 'Your birth date gives Astralis a first solar anchor. No account is created yet.',
   },
   1: {
     eyebrow: 'Step 2 of 3',
-    title: 'Anchor the sky to your birthplace',
-    body: 'Your birth date, time, and city let Astralis calculate real planetary positions for your local sky.',
+    title: 'Improve chart accuracy',
+    body: 'Birthplace anchors the local horizon. Birth time is optional, and unlocks rising sign precision when you have it.',
   },
   2: {
     eyebrow: 'Step 3 of 3',
-    title: 'Confirm your local sky',
-    body: 'Timezone helps daily rituals line up with the calendar where you are. The streak ledger stays UTC-based.',
+    title: 'Save your personalized sky',
+    body: 'Create an account only when you are ready to save readings, sync devices, and keep streak history.',
   },
 };
 
@@ -79,6 +81,7 @@ export function RegisterScreen(): React.JSX.Element {
   const [validation, setValidation] = useState<RegisterValidation>({});
   const [errorMsg, setErrorMsg] = useState('');
   const [mappingStep, setMappingStep] = useState(0);
+  const trackedBirthTimeSkip = useRef(false);
 
   const hp = horizontalScreenPadding(width);
   const brandSize = useMemo(() => brandTitleSize(width), [width]);
@@ -110,12 +113,12 @@ export function RegisterScreen(): React.JSX.Element {
     (targetStep: Step): RegisterValidation => {
       const errors = validateRegisterDraft(draft);
       if (targetStep === 0) {
-        return pick(errors, ['fullName', 'email', 'password']);
+        return pick(errors, ['birthDate']);
       }
       if (targetStep === 1) {
-        return pick(errors, ['birthDate', 'birthTime', 'birthCity']);
+        return pick(errors, ['birthCity', 'birthTime']);
       }
-      return pick(errors, ['timezoneOffset', 'birthDataConsent']);
+      return pick(errors, ['fullName', 'email', 'password', 'timezoneOffset', 'birthDataConsent']);
     },
     [draft],
   );
@@ -123,13 +126,35 @@ export function RegisterScreen(): React.JSX.Element {
   const onNext = useCallback((): void => {
     const errors = stepErrors(step);
     setValidation(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      if (step === 1 && errors.birthCity) {
+        void track('birth_city_abandonment', { source: 'register' });
+      }
+      return;
+    }
+    void track('onboarding_step_completed', { step: step === 0 ? 'birth_date' : 'birth_city', guest: true });
+    if (step === 0) {
+      void updateGuestOnboardingState({ birthDate: draft.birthDate.trim(), stage: 'birth_date_collected' });
+      void track('personalized_preview_completed', { method: 'birth_date' });
+    }
+    if (step === 1) {
+      if (!draft.birthTime.trim() && !trackedBirthTimeSkip.current) {
+        trackedBirthTimeSkip.current = true;
+        void track('birth_time_abandonment', { source: 'register' });
+        void updateGuestOnboardingState({ birthTimeSkipped: true, stage: 'birth_time_prompted' });
+      } else {
+        if (draft.birthTime.trim()) {
+          void track('delayed_birth_time_completed', { source: 'post_reading' });
+        }
+        void updateGuestOnboardingState({ stage: 'birth_time_prompted' });
+      }
+    }
     setStep((prev) => (prev === 0 ? 1 : 2));
-  }, [step, stepErrors]);
+  }, [draft.birthDate, draft.birthTime, step, stepErrors]);
 
   const onBack = useCallback((): void => {
     if (step === 0) {
-      navigation.navigate('Login');
+      navigation.navigate('GuestWelcome');
       return;
     }
     setErrorMsg('');
@@ -144,6 +169,7 @@ export function RegisterScreen(): React.JSX.Element {
     if (Object.keys(errors).length > 0) return;
     if (!draft.selectedCity) return;
     try {
+      void track('onboarding_step_completed', { step: 'account_created_after_value', guest: true });
       await register({
         fullName: draft.fullName.trim(),
         email: draft.email.trim(),
@@ -157,6 +183,7 @@ export function RegisterScreen(): React.JSX.Element {
         timezoneOffset: draft.selectedCity.timezoneOffset,
         birthDataConsent: true,
       });
+      void track('activation_completion', { source: 'guest', hasBirthProfile: true });
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Registration failed');
     }
@@ -206,6 +233,70 @@ export function RegisterScreen(): React.JSX.Element {
             {step === 0 ? (
               <>
                 <Field
+                  label="Birth date (YYYY-MM-DD)"
+                  labelNativeId="reg-birthdate-label"
+                  value={draft.birthDate}
+                  onChangeText={(birthDate) => patchDraft({ birthDate })}
+                  autoComplete="birthdate-full"
+                  error={validation.birthDate}
+                  palette={palette}
+                  isLight={isLight}
+                />
+                <Text style={[styles.microcopy, { color: palette.textMuted }]}>
+                  This gives us your Sun sign and a first layer of sky-aware personalization.
+                </Text>
+              </>
+            ) : null}
+
+            {step === 1 ? (
+              <>
+                <CityPicker
+                  label="Search birth city"
+                  query={draft.birthCity}
+                  selectedCity={draft.selectedCity}
+                  onQueryChange={onCityQueryChange}
+                  onSelectCity={(selectedCity) =>
+                    patchDraft({
+                      selectedCity,
+                      birthCity: selectedCity.displayLabel,
+                      timezoneOffset: String(selectedCity.timezoneOffset),
+                    })
+                  }
+                  error={validation.birthCity}
+                  labelNativeId="reg-birthcity-label"
+                />
+                <Field
+                  label="Birth time (optional, HH:MM)"
+                  labelNativeId="reg-birthtime-label"
+                  value={draft.birthTime}
+                  onChangeText={(birthTime) => patchDraft({ birthTime })}
+                  keyboardType="numbers-and-punctuation"
+                  error={validation.birthTime}
+                  palette={palette}
+                  isLight={isLight}
+                />
+                <Text style={[styles.microcopy, { color: palette.textMuted }]}>
+                  Birth time is for rising sign precision and house accuracy. You can leave it blank and add it later.
+                </Text>
+              </>
+            ) : null}
+
+            {step === 2 ? (
+              <>
+                {loading ? (
+                  <View style={[styles.mappingPanel, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
+                    <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>Real sky mapping</Text>
+                    <Text style={[styles.mappingTitle, { color: palette.text }]}>{mappingCopy}</Text>
+                    <Text style={[styles.mappingBody, { color: palette.textMuted }]}>
+                      {whyBirthplaceMatters(draft.selectedCity?.name ?? draft.birthCity)}
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={[styles.timezoneBox, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
+                  <Text style={[styles.timezoneLabel, { color: palette.textMuted }]}>Device timezone</Text>
+                  <Text style={[styles.timezoneValue, { color: palette.text }]}>{deviceTimezoneLabel()}</Text>
+                </View>
+                <Field
                   label="Full name"
                   labelNativeId="reg-fullname-label"
                   value={draft.fullName}
@@ -241,64 +332,6 @@ export function RegisterScreen(): React.JSX.Element {
                   palette={palette}
                   isLight={isLight}
                 />
-              </>
-            ) : null}
-
-            {step === 1 ? (
-              <>
-                <Field
-                  label="Birth date (YYYY-MM-DD)"
-                  labelNativeId="reg-birthdate-label"
-                  value={draft.birthDate}
-                  onChangeText={(birthDate) => patchDraft({ birthDate })}
-                  autoComplete="birthdate-full"
-                  error={validation.birthDate}
-                  palette={palette}
-                  isLight={isLight}
-                />
-                <Field
-                  label="Birth time (optional, HH:MM)"
-                  labelNativeId="reg-birthtime-label"
-                  value={draft.birthTime}
-                  onChangeText={(birthTime) => patchDraft({ birthTime })}
-                  keyboardType="numbers-and-punctuation"
-                  error={validation.birthTime}
-                  palette={palette}
-                  isLight={isLight}
-                />
-                <CityPicker
-                  label="Birth city"
-                  query={draft.birthCity}
-                  selectedCity={draft.selectedCity}
-                  onQueryChange={onCityQueryChange}
-                  onSelectCity={(selectedCity) =>
-                    patchDraft({
-                      selectedCity,
-                      birthCity: selectedCity.displayLabel,
-                      timezoneOffset: String(selectedCity.timezoneOffset),
-                    })
-                  }
-                  error={validation.birthCity}
-                  labelNativeId="reg-birthcity-label"
-                />
-              </>
-            ) : null}
-
-            {step === 2 ? (
-              <>
-                {loading ? (
-                  <View style={[styles.mappingPanel, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
-                    <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>Real sky mapping</Text>
-                    <Text style={[styles.mappingTitle, { color: palette.text }]}>{mappingCopy}</Text>
-                    <Text style={[styles.mappingBody, { color: palette.textMuted }]}>
-                      {whyBirthplaceMatters(draft.selectedCity?.name ?? draft.birthCity)}
-                    </Text>
-                  </View>
-                ) : null}
-                <View style={[styles.timezoneBox, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
-                  <Text style={[styles.timezoneLabel, { color: palette.textMuted }]}>Device timezone</Text>
-                  <Text style={[styles.timezoneValue, { color: palette.text }]}>{deviceTimezoneLabel()}</Text>
-                </View>
                 <Field
                   label="UTC offset"
                   labelNativeId="reg-timezone-label"
@@ -338,10 +371,10 @@ export function RegisterScreen(): React.JSX.Element {
                 ]}
                 onPress={onBack}
                 accessibilityRole="button"
-                accessibilityLabel={step === 0 ? 'Back to sign in' : 'Back'}
+                accessibilityLabel={step === 0 ? 'Back to guest preview' : 'Back'}
                 hitSlop={hitSlopComfortable}
               >
-                <Text style={[styles.secondaryText, { color: palette.accent }]}>{step === 0 ? 'Sign in' : 'Back'}</Text>
+                <Text style={[styles.secondaryText, { color: palette.accent }]}>{step === 0 ? 'Preview' : 'Back'}</Text>
               </Pressable>
               <Pressable
                 style={({ pressed }: { pressed: boolean }) => [

@@ -78,7 +78,7 @@ export function CityPicker({
     if (loading) return 'Searching cities...';
     if (searchError) return searchError;
     if (trimmed.length >= MIN_QUERY_LENGTH && results.length === 0) {
-      return 'No matching cities found. Try a nearby larger city or another spelling.';
+      return 'No exact match yet. Try a nearby larger city, another spelling, or the regional capital you identify with most.';
     }
     return null;
   }, [isResolved, loading, results.length, searchError, selectedCity, trimmed.length]);
@@ -140,7 +140,7 @@ export function CityPicker({
       {canReportMissingCity ? (
         <View style={[styles.fallbackBox, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
           <Text style={[styles.fallbackText, { color: palette.textMuted }]}>
-            Manual coordinates are not enabled yet, so this text cannot be saved as a valid birth city.
+            Exact small-town matching is still expanding. Choosing the nearest larger city keeps the chart usable, and you can refine it later.
           </Text>
           <Pressable
             onPress={() => void reportMissingCity()}

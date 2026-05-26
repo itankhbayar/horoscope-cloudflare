@@ -20,6 +20,8 @@ import { useAppearance } from '../hooks/useAppearance';
 import { profileStreakLines, normalizeRitualHistory, ritualHistoryCompletedCount, type RitualHistoryDay } from '../lib/streakProfile';
 import { shareableMilestoneFor } from '../lib/streakDisplay';
 import { shareStreakMilestoneCard } from '../lib/streakShare';
+import { getScreenPurpose } from '../lib/emotionalScreenHierarchy';
+import { track } from '../lib/analytics';
 
 export function ProfileScreen(): React.JSX.Element {
   const { mode, palette } = useAppearance();
@@ -31,6 +33,8 @@ export function ProfileScreen(): React.JSX.Element {
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [ritualHistoryOpen, setRitualHistoryOpen] = useState(false);
+  const historyPurpose = getScreenPurpose('ritual_history');
 
   useEffect(() => {
     void load();
@@ -210,16 +214,34 @@ export function ProfileScreen(): React.JSX.Element {
               {timezoneLabel ? <InfoPill icon="⌛" label={timezoneLabel} /> : null}
             </View>
             <View style={styles.streakSummary}>
-              {streakLines.map((line) => (
-                <Text key={line} style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
-                  {line}
-                </Text>
-              ))}
-              <RitualHistoryConstellation history={ritualHistory} isLight={isLight} />
+              <Text style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
+                {ritualCompletedCount > 0 ? 'Your recent ritual rhythm is here.' : 'Your ritual memory is quiet for now.'}
+              </Text>
+              {ritualHistoryOpen ? (
+                <>
+                  {streakLines.slice(0, 1).map((line) => (
+                    <Text key={line} style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
+                      {line}
+                    </Text>
+                  ))}
+                  <RitualHistoryConstellation history={ritualHistory} isLight={isLight} />
+                </>
+              ) : null}
               {ritualHistory.length > 0 ? (
-                <Text style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
-                  {ritualCompletedCount > 0 ? 'Your ritual history is glowing.' : 'Your ritual history is ready to glow.'}
-                </Text>
+                <Pressable
+                  style={({ pressed }) => [styles.historyToggle, pressed && styles.pressed]}
+                  onPress={() => {
+                    setRitualHistoryOpen((current) => !current);
+                    void track('text_expansion_used', { screen: historyPurpose.screen, moment: historyPurpose.moment });
+                    void track('hidden_control_discovered', { screen: historyPurpose.screen, control: 'ritual_history_constellation' });
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={ritualHistoryOpen ? 'Hide ritual memory fragments' : 'Open ritual memory fragments'}
+                >
+                  <Text style={[styles.historyToggleText, isLight && { color: palette.accent }]}>
+                    {ritualHistoryOpen ? 'Close memory fragments' : 'Open memory fragments'}
+                  </Text>
+                </Pressable>
               ) : null}
               {shareMilestone ? (
                 <Pressable
@@ -565,6 +587,18 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: spacing.xs,
     marginBottom: 2,
+  },
+  historyToggle: {
+    minHeight: MIN_TOUCH,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  historyToggleText: {
+    color: '#d9d1ff',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '900',
   },
   ritualDot: {
     width: 8,

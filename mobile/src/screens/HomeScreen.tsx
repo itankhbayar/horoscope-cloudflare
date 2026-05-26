@@ -6,6 +6,7 @@ import { EnergyRing } from '../components/home/EnergyRing';
 import { HomeHeader } from '../components/home/HomeHeader';
 import { HoroscopePremiumCard } from '../components/home/HoroscopePremiumCard';
 import { ModularAstrologyCard } from '../components/home/ModularAstrologyCard';
+import { RitualMoment } from '../components/home/RitualMoment';
 import type { HoroscopePeriod } from '../components/home/homeDateUtils';
 import { horoscopeDateForPeriod } from '../components/home/homeDateUtils';
 import {
@@ -32,8 +33,9 @@ import { consumeMilestoneCelebration } from '../lib/streakCelebration';
 import { normalizeStreakCount, normalizeStreakSegment, type StreakMilestone } from '../lib/streakDisplay';
 import { shareStreakMilestoneCard } from '../lib/streakShare';
 import { shareDailyHoroscopeCard } from '../lib/horoscopeShareCard';
-import { track, trackDailyActiveOnce } from '../lib/analytics';
+import { track, trackDailyActiveOnce, trackRitualEvent } from '../lib/analytics';
 import { BRAND_COPY } from '../lib/brandCopy';
+import { shouldCompressExplanations } from '../lib/emotionalScreenHierarchy';
 import { goToPremium } from '../navigation/navigationRef';
 import { spacing } from '../theme';
 
@@ -51,6 +53,7 @@ export function HomeScreen(): ReactElement {
   const { horoscope, load, loadMine, loading: horoLoading, error: horoError } = useHoroscope();
   const [horoscopePeriod, setHoroscopePeriod] = useState<HoroscopePeriod>('today');
   const [activeEnergy, setActiveEnergy] = useState<'love' | 'opportunity' | 'stress'>('opportunity');
+  const [openMoment, setOpenMoment] = useState<'resonance' | 'reflection' | 'deeper' | 'closed' | null>(null);
   const [dailyStreak, setDailyStreak] = useState<DailyStreak>({ count: 0, lastCheckInDate: null });
   const [visibleMilestone, setVisibleMilestone] = useState<StreakMilestone | null>(null);
 
@@ -160,7 +163,7 @@ export function HomeScreen(): ReactElement {
 
   const energyBody = horoscope
     ? energyNarrative(horoscope)
-    : 'Align your birth details to unlock personalized energy insights woven from your chart and today’s sky.';
+    : 'Add birth details when you want tonight mapped more personally.';
 
   const tarot = horoscope ? tarotFromHoroscope(horoscope) : null;
   const crystal = horoscope ? crystalFromHoroscope(horoscope) : null;
@@ -170,6 +173,30 @@ export function HomeScreen(): ReactElement {
   const streakCount = normalizeStreakCount(horoscope?.streakCount, dailyStreak.count);
   const streakSegment = normalizeStreakSegment(horoscope?.streakSegment, streakCount);
   const shareMilestone = (horoscope?.milestoneReached ?? visibleMilestone) as StreakMilestone | null;
+  const dominantSignal = useMemo(() => {
+    if (!horoscope) return 'arrival';
+    const options: Array<[string, number]> = [
+      ['love', loveP],
+      ['opportunity', oppP],
+      ['stress', stressP],
+    ];
+    return options.sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'opportunity';
+  }, [horoscope, loveP, oppP, stressP]);
+  const compressHome = shouldCompressExplanations({
+    returningUser: streakCount >= 3,
+    ambientMode: false,
+    reducedMotion: false,
+    ritualNights: streakCount,
+  });
+
+  useEffect(() => {
+    void track('home_sequence_started', { dominantSignal });
+    return () => {
+      if (!openMoment || openMoment !== 'closed') {
+        void track('home_sequence_dropoff', { moment: openMoment ?? 'arrival' });
+      }
+    };
+  }, [dominantSignal, openMoment]);
 
   const onShareMilestone = (): void => {
     if (!shareMilestone) return;
@@ -183,8 +210,15 @@ export function HomeScreen(): ReactElement {
   const onHoroscopePeriodChange = (next: HoroscopePeriod): void => {
     setHoroscopePeriod(next);
     if (!isPremium && next !== 'today') {
-      void track('locked_content_tapped', { surface: 'horoscope_period', period: next });
-      void track('paywall_viewed', { source: 'locked_preview' });
+      void trackRitualEvent('deeper_layer_tapped', {
+        source: 'home',
+        momentType: 'premium_continuation',
+        premiumState: 'free',
+        trigger: 'period_tab',
+        readingType: next,
+        continuationType: 'period_depth',
+        userMode: user ? 'authenticated' : 'unknown',
+      });
       goToPremium('locked_preview');
     }
   };
@@ -230,74 +264,20 @@ export function HomeScreen(): ReactElement {
         />
       </Animated.View>
 
-      {profile?.natalChart ? (
-        <Animated.View style={{ opacity: opacities[1]! }}>
-          <SkyAnchorCard
-            sun={profile.natalChart.sunInfo.name}
-            moon={profile.natalChart.moonInfo.name}
-            rising={profile.natalChart.risingInfo?.name ?? null}
-            birthCity={profile.birthProfile?.birthCity ?? null}
-            date={horoscope?.date ?? dateISO}
-          />
-        </Animated.View>
-      ) : null}
-
-      {horoscope?.skyContext ? (
-        <Animated.View style={{ opacity: opacities[1]! }}>
-          <TodaySkyCard horoscope={horoscope} />
-        </Animated.View>
-      ) : null}
+      <Animated.View style={{ opacity: opacities[1]! }}>
+        <NightlyArrivalMoment
+          horoscope={horoscope}
+          date={horoscope?.date ?? dateISO}
+          dominantSignal={dominantSignal}
+          compact={compressHome}
+        />
+      </Animated.View>
 
       {!sun && !showProfileSpinner ? (
         <Text style={[styles.hint, { color: theme.textMuted }]}>
-          Complete your profile with a birth chart to unlock daily readings and energy insights.
+          Add a birth chart when you want tonight mapped more personally.
         </Text>
       ) : null}
-
-      <Animated.View style={[styles.ringsRow, { opacity: opacities[2]! }]}>
-        <EnergyRing
-          size={86}
-          stroke={9}
-          color={theme.pink}
-          glow={theme.pink}
-          progress={loveP}
-          centerIcon={'\u2665'}
-          energyLabel="Blaze"
-          sectionTitle="Love"
-          active={activeEnergy === 'love'}
-          onPress={() => setActiveEnergy('love')}
-        />
-        <View style={styles.ringCenterWrap}>
-          <EnergyRing
-            size={102}
-            stroke={10}
-            color={theme.mint}
-            glow={theme.mint}
-            progress={oppP}
-            centerIcon={'\u2726'}
-            energyLabel="Bloom"
-            sectionTitle="Opportunity"
-            active={activeEnergy === 'opportunity'}
-            onPress={() => setActiveEnergy('opportunity')}
-          />
-        </View>
-        <EnergyRing
-          size={86}
-          stroke={9}
-          color={theme.paleYellow}
-          glow={theme.paleYellow}
-          progress={stressP}
-          centerIcon={'\u26A1'}
-          energyLabel="Breeze"
-          sectionTitle="Stress"
-          active={activeEnergy === 'stress'}
-          onPress={() => setActiveEnergy('stress')}
-        />
-      </Animated.View>
-
-      <Animated.View style={{ opacity: opacities[3]! }}>
-        <EnergyDetailsCard body={energyBody} />
-      </Animated.View>
 
       {sun ? (
         <Animated.View style={{ opacity: opacities[4]! }}>
@@ -309,7 +289,15 @@ export function HomeScreen(): ReactElement {
             loading={Boolean(horoLoading)}
             error={horoError}
             onLearnMore={() => {
-              void track('paywall_viewed', { source: 'post_reading' });
+              void trackRitualEvent('premium_continuation_viewed', {
+                source: 'home',
+                momentType: 'main_sky_reading',
+                premiumState: isPremium ? 'premium' : 'free',
+                trigger: 'learn_more',
+                readingType: effectiveHoroscopePeriod,
+                continuationType: 'private_ritual',
+                userMode: user ? 'authenticated' : 'unknown',
+              });
               goToPremium('post_reading');
             }}
           />
@@ -327,9 +315,9 @@ export function HomeScreen(): ReactElement {
         </Animated.View>
       ) : null}
 
-      {horoscope ? (
+      {horoscope && openMoment === 'reflection' ? (
         <Animated.View style={{ opacity: opacities[4]! }}>
-          <WhyThisReadingCard horoscope={horoscope} />
+          <WhyThisReadingCard horoscope={horoscope} compact={compressHome} />
         </Animated.View>
       ) : null}
 
@@ -339,7 +327,7 @@ export function HomeScreen(): ReactElement {
 
       {horoscope ? (
         <>
-          <Animated.View style={{ opacity: opacities[5]! }}>
+          {openMoment === 'reflection' ? <Animated.View style={{ opacity: opacities[5]! }}>
             <ModularAstrologyCard
               title="Symbolic Card"
               segmented={false}
@@ -348,8 +336,8 @@ export function HomeScreen(): ReactElement {
               ctaLabel="Open symbolic layer"
               ctaVariant="lavender"
             />
-          </Animated.View>
-          <Animated.View style={{ opacity: opacities[6]! }}>
+          </Animated.View> : null}
+          {openMoment === 'resonance' ? <Animated.View style={{ opacity: opacities[6]! }}>
             <ModularAstrologyCard
               title="Color & Focus"
               illustration={
@@ -364,8 +352,8 @@ export function HomeScreen(): ReactElement {
               ctaLabel="Open focus note"
               ctaVariant="white"
             />
-          </Animated.View>
-          <Animated.View style={{ opacity: opacities[7]! }}>
+          </Animated.View> : null}
+          {openMoment === 'deeper' && isPremium ? <Animated.View style={{ opacity: opacities[7]! }}>
             <ModularAstrologyCard
               title="Why Today Feels This Way"
               illustration={<Text style={[styles.glyph, { color: theme.lavender }]}>{TRANSIT_GLYPH}</Text>}
@@ -375,8 +363,8 @@ export function HomeScreen(): ReactElement {
               ctaLabel="Open sky context"
               ctaVariant="lavender"
             />
-          </Animated.View>
-          <Animated.View style={{ opacity: opacities[8]! }}>
+          </Animated.View> : null}
+          {openMoment === 'deeper' && isPremium ? <Animated.View style={{ opacity: opacities[8]! }}>
             <ModularAstrologyCard
               title="Moon Rhythm"
               illustration={
@@ -389,8 +377,8 @@ export function HomeScreen(): ReactElement {
               ctaLabel="Open moon rhythm"
               ctaVariant="white"
             />
-          </Animated.View>
-          <Animated.View style={{ opacity: opacities[8]! }}>
+          </Animated.View> : null}
+          {openMoment === 'reflection' ? <Animated.View style={{ opacity: opacities[8]! }}>
             <ModularAstrologyCard
               title="Daily Intention"
               segmented={false}
@@ -399,11 +387,221 @@ export function HomeScreen(): ReactElement {
               ctaLabel="Save intention"
               ctaVariant="lavender"
             />
-          </Animated.View>
+          </Animated.View> : null}
+          {openMoment === 'deeper' && !isPremium ? (
+            <PremiumContinuationMoment
+              onPress={() => {
+                void trackRitualEvent('premium_continuation_tapped', {
+                  source: 'home',
+                  moment: 'premium_continuity',
+                  momentType: 'premium_continuity',
+                  premiumState: 'free',
+                  trigger: 'deeper_moment',
+                  readingType: effectiveHoroscopePeriod,
+                  continuationType: 'private_ritual',
+                  userMode: user ? 'authenticated' : 'unknown',
+                });
+                goToPremium('post_reading');
+              }}
+            />
+          ) : null}
+          <HomeSequenceControls
+            openMoment={openMoment}
+            isPremium={isPremium}
+            onOpen={(moment) => {
+              setOpenMoment(moment);
+              if (moment === 'reflection') {
+                void trackRitualEvent('expanded_reading_requested', {
+                  source: 'home',
+                  moment,
+                  momentType: 'reflection',
+                  premiumState: isPremium ? 'premium' : 'free',
+                  trigger: 'sequence_control',
+                  readingType: 'affirmation',
+                  continuationType: 'reflection',
+                  userMode: user ? 'authenticated' : 'unknown',
+                });
+              }
+              void trackRitualEvent('ritual_moment_continued', {
+                source: 'home',
+                moment,
+                momentType: moment,
+                premiumState: isPremium ? 'premium' : 'free',
+                trigger: 'sequence_control',
+                readingType: effectiveHoroscopePeriod,
+                continuationType: moment,
+                userMode: user ? 'authenticated' : 'unknown',
+              });
+              void track('atmosphere_first_navigation_success', { from: 'home', to: moment, moment });
+            }}
+            onClose={() => {
+              setOpenMoment('closed');
+              void track('home_sequence_completed', { finalMoment: 'quiet_close' });
+            }}
+          />
         </>
       ) : null}
     </ScreenScroll>
   );
+}
+
+// Home is intentionally a sequence of ritual moments. Keep new surfaces staged behind
+// explicit continuations instead of returning to a stacked content dashboard.
+function NightlyArrivalMoment({
+  horoscope,
+  date,
+  dominantSignal,
+  compact,
+}: {
+  horoscope: NonNullable<ReturnType<typeof useHoroscope>['horoscope']> | null;
+  date: string;
+  dominantSignal: string;
+  compact: boolean;
+}): ReactElement {
+  const signal = dominantSignal === 'stress' ? 'sensitivity' : dominantSignal;
+  return (
+    <View style={styles.nightlyArrival}>
+      <Text style={styles.nightlyEyebrow}>Tonight's sequence</Text>
+      <Text style={styles.nightlyTitle}>
+        {horoscope?.overall ? clampHomeLine(horoscope.overall) : 'Arrive slowly. Let the sky come into focus.'}
+      </Text>
+      {!compact ? (
+        <Text style={styles.nightlyBody}>
+          One reading, one resonance, one quiet continuation. The strongest signal tonight is {signal}.
+        </Text>
+      ) : null}
+      <Text style={styles.nightlyMeta}>{date}</Text>
+    </View>
+  );
+}
+
+function HomeSequenceControls({
+  openMoment,
+  isPremium,
+  onOpen,
+  onClose,
+}: {
+  openMoment: 'resonance' | 'reflection' | 'deeper' | 'closed' | null;
+  isPremium: boolean;
+  onOpen: (moment: 'resonance' | 'reflection' | 'deeper') => void;
+  onClose: () => void;
+}): ReactElement {
+  if (openMoment === 'closed') {
+    return (
+      <View style={styles.quietClose}>
+        <Text style={styles.quietCloseTitle}>Enough for tonight.</Text>
+        <Text style={styles.quietCloseBody}>The ritual can stay small and still count.</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.sequenceControls}>
+      <SequenceButton
+        label={openMoment === 'resonance' ? 'Resonance is open' : 'Feel personal resonance'}
+        disabled={openMoment === 'resonance'}
+        onPress={() => onOpen('resonance')}
+      />
+      <SequenceButton
+        label={openMoment === 'reflection' ? 'Reflection is open' : 'Continue reflection'}
+        disabled={openMoment === 'reflection'}
+        onPress={() => onOpen('reflection')}
+      />
+      <SequenceButton
+        label={isPremium ? 'Open deeper sky' : 'Continue deeper'}
+        disabled={openMoment === 'deeper'}
+        onPress={() => onOpen('deeper')}
+      />
+      <Pressable
+        style={({ pressed }) => [styles.closeSequenceButton, pressed && styles.pressed]}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close tonight's ritual"
+      >
+        <Text style={styles.closeSequenceText}>Close softly</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function SequenceButton({
+  label,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+}): ReactElement {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.sequenceButton, disabled && styles.sequenceButtonActive, pressed && !disabled && styles.pressed]}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      accessibilityLabel={label}
+    >
+      <Text style={styles.sequenceButtonText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function EnergySequenceMoment({
+  activeEnergy,
+  setActiveEnergy,
+  body,
+  loveP,
+  oppP,
+  stressP,
+}: {
+  activeEnergy: 'love' | 'opportunity' | 'stress';
+  setActiveEnergy: (value: 'love' | 'opportunity' | 'stress') => void;
+  body: string;
+  loveP: number;
+  oppP: number;
+  stressP: number;
+}): ReactElement {
+  void setActiveEnergy;
+  void loveP;
+  void oppP;
+  void stressP;
+  const theme = useSanctuaryTheme();
+  const label = activeEnergy === 'love' ? 'relationship tone' : activeEnergy === 'stress' ? 'sensitivity tone' : 'opportunity tone';
+  return (
+    <RitualMoment
+      moment="resonance"
+      title={`Personal resonance: ${label}`}
+      primaryLine={clampHomeLine(body)}
+      detail="Choose one tone if you want to feel where tonight lands most clearly."
+      defaultExpanded
+      symbol={<Text style={[styles.glyph, { color: theme.lavender }]}>{CRYSTAL_GLYPH}</Text>}
+    />
+  );
+}
+
+function PremiumContinuationMoment({ onPress }: { onPress: () => void }): ReactElement {
+  return (
+    <View style={styles.premiumContinuation}>
+      <Text style={styles.premiumContinuationTitle}>Continue deeper into tonight's rhythm.</Text>
+      <Text style={styles.premiumContinuationBody}>
+        Premium extends the ritual into private continuity, not more noise.
+      </Text>
+      <Pressable
+        style={({ pressed }) => [styles.premiumContinuationButton, pressed && styles.pressed]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Continue deeper with Premium"
+      >
+        <Text style={styles.premiumContinuationButtonText}>Open private continuation</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function clampHomeLine(text: string): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= 120) return clean;
+  return `${clean.slice(0, 117).trim()}...`;
 }
 
 function TodaySkyCard({ horoscope }: { horoscope: NonNullable<ReturnType<typeof useHoroscope>['horoscope']> }): ReactElement {
@@ -424,11 +622,19 @@ function TodaySkyCard({ horoscope }: { horoscope: NonNullable<ReturnType<typeof 
   );
 }
 
-function WhyThisReadingCard({ horoscope }: { horoscope: NonNullable<ReturnType<typeof useHoroscope>['horoscope']> }): ReactElement {
+function WhyThisReadingCard({
+  horoscope,
+  compact,
+}: {
+  horoscope: NonNullable<ReturnType<typeof useHoroscope>['horoscope']>;
+  compact?: boolean;
+}): ReactElement {
   return (
     <View style={styles.whyReading}>
       <Text style={styles.whyReadingTitle}>Why this reading?</Text>
-      <Text style={styles.whyReadingBody}>{whyThisReadingCopy(horoscope)}</Text>
+      <Text style={styles.whyReadingBody}>
+        {compact ? strongestTransitCopy(horoscope) : whyThisReadingCopy(horoscope)}
+      </Text>
     </View>
   );
 }
@@ -483,6 +689,44 @@ const styles = StyleSheet.create({
     top: 120,
     left: -120,
     opacity: 0.12,
+  },
+  nightlyArrival: {
+    borderWidth: 1,
+    borderColor: 'rgba(184, 168, 255, 0.26)',
+    borderRadius: 24,
+    backgroundColor: 'rgba(16, 17, 37, 0.78)',
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  nightlyEyebrow: {
+    color: '#f4d98b',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  nightlyTitle: {
+    color: '#f5f3ff',
+    marginTop: spacing.sm,
+    fontSize: 22,
+    lineHeight: 29,
+    fontWeight: '900',
+  },
+  nightlyBody: {
+    color: '#c9c7df',
+    marginTop: spacing.sm,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+  nightlyMeta: {
+    color: '#a7e4c4',
+    marginTop: spacing.md,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
   ringsRow: {
     flexDirection: 'row',
@@ -657,6 +901,98 @@ const styles = StyleSheet.create({
   },
   dailyShareText: {
     color: '#f5f3ff',
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  sequenceControls: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  sequenceButton: {
+    minHeight: 52,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(216, 221, 255, 0.18)',
+    backgroundColor: 'rgba(16, 17, 37, 0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  sequenceButtonActive: {
+    borderColor: 'rgba(244, 217, 139, 0.46)',
+    backgroundColor: 'rgba(244, 217, 139, 0.12)',
+  },
+  sequenceButtonText: {
+    color: '#f5f3ff',
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  closeSequenceButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeSequenceText: {
+    color: '#c9c7df',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  quietClose: {
+    borderWidth: 1,
+    borderColor: 'rgba(167, 228, 196, 0.2)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(8, 22, 34, 0.62)',
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  quietCloseTitle: {
+    color: '#f5f3ff',
+    fontSize: 19,
+    lineHeight: 25,
+    fontWeight: '900',
+  },
+  quietCloseBody: {
+    color: '#c9c7df',
+    marginTop: spacing.xs,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  premiumContinuation: {
+    borderWidth: 1,
+    borderColor: 'rgba(244, 217, 139, 0.26)',
+    borderRadius: 22,
+    backgroundColor: 'rgba(24, 20, 43, 0.74)',
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  premiumContinuationTitle: {
+    color: '#f5f3ff',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '900',
+  },
+  premiumContinuationBody: {
+    color: '#d8d7ea',
+    marginTop: spacing.xs,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  premiumContinuationButton: {
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: '#f4d98b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  premiumContinuationButtonText: {
+    color: '#18122d',
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '900',

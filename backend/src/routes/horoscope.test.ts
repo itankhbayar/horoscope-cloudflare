@@ -34,7 +34,7 @@ vi.mock('../services/streakService', () => ({
   recordDailyHoroscopeStreak: mocks.mockRecordDailyHoroscopeStreak,
 }));
 
-import horoscopeRoutes, { dailyHoroscopeCacheKey } from './horoscope';
+import horoscopeRoutes, { dailyHoroscopeCacheKey, globalSkyCacheKey, personalSkyCacheKey } from './horoscope';
 
 function createApp(): Hono {
   const app = new Hono();
@@ -188,6 +188,54 @@ describe('horoscope routes', () => {
 
     expect(ariesToday).not.toBe(taurusToday);
     expect(ariesToday).not.toBe(ariesTomorrow);
+  });
+
+  it('returns and caches a public global sky feed without auth or DB access', async () => {
+    const app = createApp();
+    const res = await app.request('/api/horoscope/global-sky?date=2026-05-20&lang=en', {}, mockEnv, executionCtx as any);
+    await Promise.all(waitUntilPromises);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=300, s-maxage=21600');
+    const body = await res.json() as any;
+    expect(body).toMatchObject({
+      date: '2026-05-20',
+      moonPhase: expect.any(String),
+      atmosphere: expect.any(Object),
+      cards: expect.any(Array),
+    });
+    expect(mocks.mockGetDb).not.toHaveBeenCalled();
+    expect(mockCache.put).toHaveBeenCalledTimes(1);
+    expect(cacheStore.get(globalSkyCacheKey('2026-05-20', 'en').url)).toBeDefined();
+  });
+
+  it('returns and caches a public personal sky layer from sign only', async () => {
+    const app = createApp();
+    const res = await app.request('/api/horoscope/personal-sky?sign=scorpio&date=2026-05-20&lang=en', {}, mockEnv, executionCtx as any);
+    await Promise.all(waitUntilPromises);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body).toMatchObject({
+      date: '2026-05-20',
+      sign: 'scorpio',
+      personalization: 'zodiac_sign',
+      ritualCards: expect.any(Array),
+      sky: expect.objectContaining({ atmosphere: expect.any(Object) }),
+    });
+    expect(JSON.stringify(body)).not.toMatch(/birthCity|birthTime|email|userId|latitude|longitude/i);
+    expect(mocks.mockGetDb).not.toHaveBeenCalled();
+    expect(cacheStore.get(personalSkyCacheKey('scorpio', '2026-05-20', 'en').url)).toBeDefined();
+  });
+
+  it('requires exactly one lightweight personalization input', async () => {
+    const app = createApp();
+    const missing = await app.request('/api/horoscope/personal-sky?date=2026-05-20', {}, mockEnv, executionCtx as any);
+    const both = await app.request('/api/horoscope/personal-sky?sign=scorpio&birthDate=1990-01-05&date=2026-05-20', {}, mockEnv, executionCtx as any);
+
+    expect(missing.status).toBe(400);
+    expect(both.status).toBe(400);
+    expect(mockCache.put).not.toHaveBeenCalled();
   });
 
   it('does not cache non-200 public daily horoscope responses', async () => {

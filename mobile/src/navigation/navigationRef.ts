@@ -45,7 +45,7 @@ export function goToDeleteAccount(): void {
   }
 }
 
-export function goToPremium(source?: 'locked_preview' | 'profile_card' | 'post_reading' | 'onboarding_teaser'): void {
+export function goToPremium(source?: NonNullable<RootStackParamList['Premium']>['source']): void {
   if (navigationRef.isReady()) {
     navigationRef.navigate('Premium', source ? { source } : undefined);
   }
