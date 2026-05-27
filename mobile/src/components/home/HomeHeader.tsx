@@ -20,6 +20,7 @@ import {
   type StreakSegment,
 } from '../../lib/streakDisplay';
 import { localDateISO } from '../../lib/streaks';
+import { useI18n } from '../../i18n';
 
 const SUN = '\u2609';
 const MOON = '\u263D';
@@ -69,6 +70,7 @@ export function HomeHeader({
   onShareMilestone,
 }: Props): ReactElement {
   const t = useSanctuaryTheme();
+  const { t: tr } = useI18n();
   const pulse = useRef(new Animated.Value(0.18)).current;
 
   useEffect(() => {
@@ -97,10 +99,10 @@ export function HomeHeader({
     <View style={styles.wrap} accessibilityRole="summary">
       <Animated.View style={[styles.glow, { opacity: pulse, backgroundColor: t.glowLavender }]} pointerEvents="none" />
       <Text style={[styles.greeting, { color: t.text }]} accessibilityRole="header">
-        Hi, {displayName}!
+        {tr('home.greeting', { name: displayName })}
       </Text>
       <Text style={[styles.checkIn, { color: t.textSoft }]}>
-        {streakCount > 0 ? segmentCopy(streakSegment, streakCount) : 'Today is ready when you are'}
+        {streakCount > 0 ? segmentCopy(streakSegment, streakCount) : tr('home.ready')}
       </Text>
       <StreakStatusCard
         theme={t}
@@ -121,9 +123,9 @@ export function HomeHeader({
         celebration={celebration}
       />
       <View style={styles.row}>
-        <Placement icon={SUN} info={sun} label="Sun" theme={t} />
-        <Placement icon={MOON} info={moon} label="Moon" theme={t} />
-        <Placement icon={RISING} info={rise} label="Rising" theme={t} />
+        <Placement icon={SUN} info={sun} label={tr('chart.sun')} theme={t} />
+        <Placement icon={MOON} info={moon} label={tr('chart.moon')} theme={t} />
+        <Placement icon={RISING} info={rise} label={tr('chart.rising')} theme={t} />
       </View>
     </View>
   );
@@ -164,6 +166,7 @@ function StreakStatusCard({
   glowOpacity: Animated.AnimatedInterpolation<string | number>;
   celebration: StreakCelebration;
 }): ReactElement {
+  const { t: tr } = useI18n();
   const progressPercent = `${Math.round(progress * 100)}%` as `${number}%`;
   return (
     <View
@@ -175,28 +178,28 @@ function StreakStatusCard({
           shadowColor: celebration === 'cosmic' ? t.pink : t.lavender,
         },
       ]}
-      accessibilityLabel={`Ritual streak status. Current streak ${streakCount} days. Longest streak ${longestStreakCount} days. ${formatFreezeCapacity(freezeCount, freezeCap)}. ${keepStreakAliveCopy(completedToday, streakCount)}`}
+      accessibilityLabel={`${tr('streak.eyebrow')}. ${streakCount}. ${tr('streak.longest')}: ${longestStreakCount}. ${formatFreezeCapacity(freezeCount, freezeCap)}. ${keepStreakAliveCopy(completedToday, streakCount)}`}
     >
       <Animated.View style={[styles.streakGlow, { opacity: glowOpacity, backgroundColor: t.glowLavender }]} pointerEvents="none" />
       <View style={[styles.gradientWash, { backgroundColor: t.lavender }]} pointerEvents="none" />
       <View style={[styles.gradientWashAlt, { backgroundColor: t.mint }]} pointerEvents="none" />
       <View style={styles.streakTopRow}>
         <View>
-          <Text style={[styles.streakEyebrow, { color: t.textMuted }]}>Ritual streak</Text>
+          <Text style={[styles.streakEyebrow, { color: t.textMuted }]}>{tr('streak.eyebrow')}</Text>
           <Text style={[styles.streakNumber, { color: t.text }]}>{streakCount}</Text>
         </View>
         <View style={styles.streakMetricStack}>
-          <Metric label="Longest" value={longestStreakCopy(longestStreakCount).replace('Longest rhythm: ', '')} theme={t} />
-          <Metric label="Safeguards" value={formatFreezeCapacity(freezeCount, freezeCap)} theme={t} />
+          <Metric label={tr('streak.longest')} value={longestStreakCopy(longestStreakCount).replace('Longest rhythm: ', '')} theme={t} />
+          <Metric label={tr('streak.safeguards')} value={formatFreezeCapacity(freezeCount, freezeCap)} theme={t} />
         </View>
       </View>
       <Text style={[styles.streakStatus, { color: t.textSoft }]}>
         {keepStreakAliveCopy(completedToday, streakCount)}
       </Text>
       <View style={styles.progressHeader}>
-        <Text style={[styles.progressLabel, { color: t.textMuted }]}>Next milestone</Text>
+        <Text style={[styles.progressLabel, { color: t.textMuted }]}>{tr('streak.nextMilestone')}</Text>
         <Text style={[styles.progressValue, { color: t.text }]}>
-          {nextMilestone ? `${nextMilestone} nights` : 'Solar rhythm complete'}
+          {nextMilestone ? tr('streak.nights', { count: nextMilestone }) : tr('streak.complete')}
         </Text>
       </View>
       <View style={[styles.progressTrack, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
@@ -205,7 +208,7 @@ function StreakStatusCard({
       {milestoneTitle ? <Text style={[styles.milestoneTitle, { color: t.text }]}>{milestoneTitle}</Text> : null}
       {awardText ? <Text style={[styles.milestoneText, { color: t.textSoft }]}>{awardText}</Text> : null}
       {streakPreservedByFreeze ? (
-        <Text style={[styles.milestoneText, { color: t.textSoft }]}>A safeguard protected your rhythm.</Text>
+        <Text style={[styles.milestoneText, { color: t.textSoft }]}>{tr('streak.preserved')}</Text>
       ) : null}
       {celebrationText ? <Text style={[styles.milestoneText, { color: t.textSoft }]}>{celebrationText}</Text> : null}
       {shareMilestone === 7 ? <Constellation theme={t} /> : null}
@@ -216,9 +219,9 @@ function StreakStatusCard({
           style={({ pressed }) => [styles.shareButton, { borderColor: t.cardBorder }, pressed && styles.pressed]}
           onPress={onShareMilestone}
           accessibilityRole="button"
-          accessibilityLabel="Share streak milestone"
+          accessibilityLabel={tr('streak.share')}
         >
-          <Text style={[styles.shareText, { color: t.text }]}>Share this alignment</Text>
+          <Text style={[styles.shareText, { color: t.text }]}>{tr('streak.share')}</Text>
         </Pressable>
       ) : null}
     </View>

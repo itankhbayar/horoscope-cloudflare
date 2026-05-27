@@ -36,7 +36,7 @@ import {
   type EmotionalPatternSummary,
 } from '../lib/emotionalPatternMemory';
 import { getScreenPurpose } from '../lib/emotionalScreenHierarchy';
-import { PREMIUM_POSITIONING_COPY } from '../lib/brandCopy';
+import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 
 type PremiumFeature = {
@@ -52,51 +52,14 @@ type ComparisonRow = {
 };
 
 const PREMIUM_EXPERIMENT = {
-  variant: 'private-archive-v1',
+  variant: 'pattern-memory-v1',
   trialDays: null as number | null,
-  urgencyCopy: 'Your private space is here when the ritual is ready to deepen.',
+  urgencyCopy: 'Built for people who come back to their readings and want the pattern, not just the moment.',
 };
-
-const COPY = PREMIUM_POSITIONING_COPY;
-
-const FEATURES: PremiumFeature[] = [
-  {
-    title: 'Private ritual archive',
-    value: 'Keep saved reflection moments, favorite ritual cards, and emotional weather bookmarks in one calm personal space.',
-    accent: '#c9a34a',
-  },
-  {
-    title: 'Emotional continuity',
-    value: 'See how reflection, clarity, uncertainty, relationship atmosphere, and quiet-hour rhythms change over time.',
-    accent: '#e0789b',
-  },
-  {
-    title: 'Relationship atmosphere memory',
-    value: 'Notice when you revisit relational prompts and how those moments correlate with the living sky.',
-    accent: '#7bd3d0',
-  },
-  {
-    title: 'Advanced natal resonance',
-    value: 'Use your completed chart for rising-sign timing, house-based reflection themes, and Venus/Mars relationship context.',
-    accent: '#a88cff',
-  },
-  {
-    title: 'Cross-device ritual continuity',
-    value: 'When you choose to sync, preserve ritual history without turning private reflection into surveillance.',
-    accent: '#7bbf6a',
-  },
-];
-
-const COMPARISON: ComparisonRow[] = [
-  { label: 'Global Sky', free: 'Tonight\'s collective atmosphere', premium: 'Longer emotional sky narrative' },
-  { label: 'Personal Sky', free: 'Light sign or birthday resonance', premium: 'Deeper continuity across nights' },
-  { label: 'Memory', free: 'Recent local rhythm', premium: 'Private archive and pattern reflection' },
-  { label: 'Relationships', free: 'Tonight\'s atmosphere prompt', premium: 'Relationship pattern continuity' },
-  { label: 'Natal timing', free: 'Basic chart when provided', premium: 'Rising, houses, Moon/Venus/Mars layers when data is complete' },
-];
 
 export function PremiumScreen(): React.JSX.Element {
   const route = useRoute<RouteProp<RootStackParamList, 'Premium'>>();
+  const { t } = useI18n();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { palette, mode } = useAppearance();
@@ -118,7 +81,7 @@ export function PremiumScreen(): React.JSX.Element {
   const revenueCatStatus = useMemo(() => (isIosIap ? readRevenueCatConfigurationStatus() : null), [isIosIap]);
   const [selectedPlanId, setSelectedPlanId] = useState<PremiumPlanDisplay['id']>('yearly');
   const [memorySummary, setMemorySummary] = useState<EmotionalPatternSummary | null>(null);
-  const [continuityDetailsOpen, setContinuityDetailsOpen] = useState(false);
+  const [continuityDetailsOpen, setContinuityDetailsOpen] = useState(true);
   const fade = useRef(new Animated.Value(0)).current;
   const screenPurpose = useMemo(() => getScreenPurpose('premium'), []);
 
@@ -134,6 +97,25 @@ export function PremiumScreen(): React.JSX.Element {
   const stickyReserve = spacing.xxxl + 76;
   const bottomPadding = tabScrollBottomPadding(insets, stickyReserve);
   const isLight = mode === 'light';
+  const features: PremiumFeature[] = useMemo(
+    () => [
+      { title: t('premium.featurePatternTitle'), value: t('premium.featurePatternBody'), accent: '#c9a34a' },
+      { title: t('premium.featureTimingTitle'), value: t('premium.featureTimingBody'), accent: '#e0789b' },
+      { title: t('premium.featureTarotTitle'), value: t('premium.featureTarotBody'), accent: '#7bd3d0' },
+      { title: t('premium.featureQuietTitle'), value: t('premium.featureQuietBody'), accent: '#a88cff' },
+    ],
+    [t],
+  );
+  const comparison: ComparisonRow[] = useMemo(
+    () => [
+      { label: t('premium.compareDaily'), free: t('premium.compareDailyFree'), premium: t('premium.compareDailyPremium') },
+      { label: t('premium.compareMemory'), free: t('premium.compareMemoryFree'), premium: t('premium.compareMemoryPremium') },
+      { label: t('premium.compareTarot'), free: t('premium.compareTarotFree'), premium: t('premium.compareTarotPremium') },
+      { label: t('premium.compareRelationships'), free: t('premium.compareRelationshipsFree'), premium: t('premium.compareRelationshipsPremium') },
+      { label: t('premium.compareNatal'), free: t('premium.compareNatalFree'), premium: t('premium.compareNatalPremium') },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     Animated.timing(fade, {
@@ -191,6 +173,7 @@ export function PremiumScreen(): React.JSX.Element {
             lineHeight={lineHeight}
             busy={busy}
             isPremium={isPremium}
+            t={t}
             onPress={onPrimaryCta}
             purchasesUnavailable={purchasesUnavailable || selectedPlanUnavailable}
           />
@@ -200,6 +183,7 @@ export function PremiumScreen(): React.JSX.Element {
             summary={memorySummary}
             hasBirthplace={Boolean(profile?.birthProfile?.birthCity)}
             hasBirthTime={Boolean(profile?.birthProfile?.birthTime)}
+            t={t}
           />
 
           {purchasesUnavailable ? (
@@ -251,30 +235,30 @@ export function PremiumScreen(): React.JSX.Element {
             accessibilityLabel={continuityDetailsOpen ? 'Hide premium continuity details' : 'Show premium continuity details'}
           >
             <Text style={[styles.restoreLink, { color: palette.accent }]}>
-              {continuityDetailsOpen ? 'Return to the quiet archive' : 'See what deepens'}
+              {continuityDetailsOpen ? t('premium.detailsHide') : t('premium.detailsShow')}
             </Text>
           </Pressable>
 
           {continuityDetailsOpen ? (
             <>
-              <SectionTitle title={COPY.valueTitle} palette={palette} />
+              <SectionTitle title={t('premium.valueTitle')} palette={palette} />
               <View style={styles.featureGrid}>
-                {FEATURES.slice(0, 3).map((feature) => (
+                {features.map((feature) => (
                   <FeatureCard key={feature.title} feature={feature} palette={palette} />
                 ))}
               </View>
 
-              <LockedPreview palette={palette} />
+              <LockedPreview palette={palette} t={t} />
 
-              <SectionTitle title={COPY.compareTitle} palette={palette} />
-              <ComparisonTable rows={COMPARISON.slice(0, 3)} palette={palette} />
+              <SectionTitle title={t('premium.compareTitle')} palette={palette} />
+              <ComparisonTable rows={comparison} palette={palette} />
 
-              <SectionTitle title={COPY.proofTitle} palette={palette} />
-              <FoundationProof palette={palette} isIosIap={isIosIap} />
+              <SectionTitle title={t('premium.proofTitle')} palette={palette} />
+              <FoundationProof palette={palette} isIosIap={isIosIap} t={t} />
             </>
           ) : null}
 
-          <SectionTitle title={COPY.pricingTitle} palette={palette} />
+          <SectionTitle title={t('premium.pricingTitle')} palette={palette} />
           <View style={styles.pricingList}>
             {premiumPlans.map((plan) => (
               <PricingCard
@@ -284,15 +268,16 @@ export function PremiumScreen(): React.JSX.Element {
                 palette={palette}
                 onSelect={setSelectedPlanId}
                 loading={premiumPlansLoading}
+                t={t}
               />
             ))}
           </View>
           <Text style={[styles.trustLine, { color: palette.textMuted }]}>
             {PREMIUM_EXPERIMENT.trialDays
-              ? `${PREMIUM_EXPERIMENT.trialDays}-day free trial included. ${isIosIap ? COPY.secondaryTrustIos : COPY.secondaryTrust}`
+              ? `${PREMIUM_EXPERIMENT.trialDays} day free trial included. ${isIosIap ? t('premium.trustIos') : t('premium.trust')}`
               : isIosIap
-                ? COPY.secondaryTrustIos
-                : COPY.secondaryTrust}
+                ? t('premium.trustIos')
+                : t('premium.trust')}
           </Text>
 
           <BillingActions
@@ -319,6 +304,7 @@ export function PremiumScreen(): React.JSX.Element {
         busy={busy}
         isPremium={isPremium}
         selectedPlan={selectedPlan}
+        t={t}
         onPress={onPrimaryCta}
         purchasesUnavailable={purchasesUnavailable || selectedPlanUnavailable}
       />
@@ -334,6 +320,7 @@ function HeroSection({
   lineHeight,
   busy,
   isPremium,
+  t,
   onPress,
   purchasesUnavailable,
 }: {
@@ -344,6 +331,7 @@ function HeroSection({
   lineHeight: number;
   busy: boolean;
   isPremium: boolean;
+  t: ReturnType<typeof useI18n>['t'];
   onPress: () => void;
   purchasesUnavailable: boolean;
 }): React.JSX.Element {
@@ -362,25 +350,25 @@ function HeroSection({
         <View style={[styles.orbit, styles.orbitSmall]} />
         <View style={styles.moon} />
       </View>
-      <Text style={[styles.badge, { color: colors.gold }]}>{COPY.heroBadge}</Text>
+      <Text style={[styles.badge, { color: colors.gold }]}>{t('premium.badge')}</Text>
       <Text style={[styles.heroTitle, { color: palette.text, fontSize: titleSize }]} accessibilityRole="header">
-        {COPY.heroTitle}
+        {t('premium.heroTitle')}
       </Text>
       <Text style={[styles.heroSubtitle, { color: palette.textMuted, fontSize: bodySize, lineHeight }]}>
-        A private archive for the nights that keep returning.
+        {t('premium.heroSubtitle')}
       </Text>
       <View style={styles.heroStats}>
-        <MiniStat value="Private" label="ritual archive" palette={palette} />
-        <MiniStat value="Deeper" label="emotional timing" palette={palette} />
+        <MiniStat value={t('premium.statSaved')} label={t('premium.statSavedLabel')} palette={palette} />
+        <MiniStat value={t('premium.statDeeper')} label={t('premium.statDeeperLabel')} palette={palette} />
       </View>
       <PrimaryButton
-        label={isPremium ? COPY.activeCta : COPY.heroCta}
+        label={isPremium ? t('premium.activeCta') : t('premium.cta')}
         busy={busy}
         onPress={onPress}
         disabled={purchasesUnavailable && !isPremium}
         accessibilityLabel={isPremium ? 'Manage premium access' : 'Open deeper sky layers'}
       />
-      <Text style={[styles.urgency, { color: palette.textMuted }]}>{PREMIUM_EXPERIMENT.urgencyCopy}</Text>
+      <Text style={[styles.urgency, { color: palette.textMuted }]}>{t('premium.urgency')}</Text>
     </View>
   );
 }
@@ -390,19 +378,21 @@ function PrivateRitualArchivePreview({
   summary,
   hasBirthplace,
   hasBirthTime,
+  t,
 }: {
   palette: AppearancePalette;
   summary: EmotionalPatternSummary | null;
   hasBirthplace: boolean;
   hasBirthTime: boolean;
+  t: ReturnType<typeof useI18n>['t'];
 }): React.JSX.Element {
   const insights = summary?.insights.length
     ? summary.insights
-    : ['Your private archive starts with saved reflection moments, quiet-hour tendencies, and the sky tones you return to.'];
+    : [t('premium.previewEmpty')];
   return (
     <View style={[styles.archivePreview, { backgroundColor: palette.card, borderColor: palette.border }]}>
-      <Text style={[styles.lockedEyebrow, { color: colors.gold }]}>Private ritual archive</Text>
-      <Text style={[styles.archiveTitle, { color: palette.text }]}>A calm record of the nights that stayed with you.</Text>
+      <Text style={[styles.lockedEyebrow, { color: colors.gold }]}>{t('premium.previewEyebrow')}</Text>
+      <Text style={[styles.archiveTitle, { color: palette.text }]}>{t('premium.previewTitle')}</Text>
       {insights.slice(0, 3).map((insight) => (
         <Text key={insight} style={[styles.archiveInsight, { color: palette.textMuted }]}>
           {insight}
@@ -413,13 +403,13 @@ function PrivateRitualArchivePreview({
         <MiniStat value={String(summary?.archiveCount ?? 0)} label="saved moments" palette={palette} />
       </View>
       <View style={[styles.natalPrompt, { borderColor: palette.border }]}>
-        <Text style={[styles.natalPromptTitle, { color: palette.text }]}>Natal resonance upgrade</Text>
+        <Text style={[styles.natalPromptTitle, { color: palette.text }]}>{t('premium.natalTitle')}</Text>
         <Text style={[styles.archiveInsight, { color: palette.textMuted }]}>
           {hasBirthplace && hasBirthTime
-            ? 'Your chart can support rising-sign precision, house-based reflection themes, and deeper relationship timing.'
+            ? t('premium.natalReady')
             : !hasBirthplace
-              ? 'Add birthplace to improve house-based timing. Astralis will not fake local sky precision without it.'
-              : 'Add birth time to unlock rising-sign precision and Moon-house reflection themes.'}
+              ? t('premium.natalMissingPlace')
+              : t('premium.natalMissingTime')}
         </Text>
         <Pressable
           onPress={() => {
@@ -436,11 +426,11 @@ function PrivateRitualArchivePreview({
           hitSlop={hitSlopComfortable}
         >
           <Text style={[styles.archiveLink, { color: palette.accent }]}>
-            {hasBirthplace && hasBirthTime ? 'Use full natal timing' : 'Improve chart precision'}
+            {hasBirthplace && hasBirthTime ? t('premium.natalReadyCta') : t('premium.natalImproveCta')}
           </Text>
         </Pressable>
       </View>
-      <Text style={[styles.privacyCopy, { color: palette.textMuted }]}>Private, resettable, never diagnostic.</Text>
+      <Text style={[styles.privacyCopy, { color: palette.textMuted }]}>{t('premium.privacy')}</Text>
     </View>
   );
 }
@@ -468,30 +458,31 @@ function FeatureCard({ feature, palette }: { feature: PremiumFeature; palette: A
   );
 }
 
-function LockedPreview({ palette }: { palette: AppearancePalette }) {
+function LockedPreview({ palette, t }: { palette: AppearancePalette; t: ReturnType<typeof useI18n>['t'] }) {
   return (
     <View style={[styles.lockedPreview, { backgroundColor: palette.card, borderColor: palette.border }]}>
-      <Text style={[styles.lockedEyebrow, { color: colors.gold }]}>Members-only preview</Text>
-      <Text style={[styles.lockedTitle, { color: palette.text }]}>{COPY.lockedTitle}</Text>
+      <Text style={[styles.lockedEyebrow, { color: colors.gold }]}>{t('premium.membersPreview')}</Text>
+      <Text style={[styles.lockedTitle, { color: palette.text }]}>{t('premium.lockedTitle')}</Text>
       <View style={styles.previewLines} accessibilityLabel="Locked premium reading preview">
         <View style={[styles.previewLine, { width: '92%', backgroundColor: palette.textMuted }]} />
         <View style={[styles.previewLine, { width: '78%', backgroundColor: palette.textMuted }]} />
         <View style={[styles.previewLine, { width: '64%', backgroundColor: palette.textMuted }]} />
       </View>
       <View style={[styles.lockOverlay, { borderColor: palette.border }]}>
-        <Text style={[styles.lockOverlayText, { color: palette.text }]}>{COPY.lockedCta}</Text>
+        <Text style={[styles.lockOverlayText, { color: palette.text }]}>{t('premium.lockedCta')}</Text>
       </View>
     </View>
   );
 }
 
 function ComparisonTable({ rows, palette }: { rows: ComparisonRow[]; palette: AppearancePalette }) {
+  const { t } = useI18n();
   return (
     <View style={[styles.table, { borderColor: palette.border, backgroundColor: palette.card }]}>
       <View style={[styles.tableRow, styles.tableHeader, { borderBottomColor: palette.border }]}>
-        <Text style={[styles.tableCellFeature, styles.tableHeaderText, { color: palette.text }]}>Access</Text>
-        <Text style={[styles.tableCell, styles.tableHeaderText, { color: palette.textMuted }]}>Free</Text>
-        <Text style={[styles.tableCell, styles.tableHeaderText, { color: colors.gold }]}>Premium</Text>
+        <Text style={[styles.tableCellFeature, styles.tableHeaderText, { color: palette.text }]}>{t('premium.tableAccess')}</Text>
+        <Text style={[styles.tableCell, styles.tableHeaderText, { color: palette.textMuted }]}>{t('premium.tableFree')}</Text>
+        <Text style={[styles.tableCell, styles.tableHeaderText, { color: colors.gold }]}>{t('premium.tablePremium')}</Text>
       </View>
       {rows.map((row, index) => (
         <View
@@ -510,7 +501,7 @@ function ComparisonTable({ rows, palette }: { rows: ComparisonRow[]; palette: Ap
   );
 }
 
-function FoundationProof({ palette, isIosIap }: { palette: AppearancePalette; isIosIap: boolean }) {
+function FoundationProof({ palette, isIosIap, t }: { palette: AppearancePalette; isIosIap: boolean; t: ReturnType<typeof useI18n>['t'] }) {
   const items = [
     { metric: 'Local', label: 'Recent memory stays on this device unless you choose to sync' },
     { metric: 'Clear', label: 'Reflective patterns are not mental health labels' },
@@ -528,7 +519,7 @@ function FoundationProof({ palette, isIosIap }: { palette: AppearancePalette; is
       </View>
       <View style={[styles.foundationNote, { backgroundColor: palette.surface, borderColor: palette.border }]}>
         <Text style={[styles.foundationNoteText, { color: palette.text }]}>
-          {COPY.calmLine}
+          {t('premium.calmLine')}
         </Text>
         <Text style={[styles.foundationNoteMeta, { color: palette.textMuted }]}>
           Astralis keeps astronomy, astrology, and emotional reflection clearly distinct.
@@ -549,14 +540,19 @@ function PricingCard({
   palette,
   onSelect,
   loading,
+  t,
 }: {
   plan: PremiumPlanDisplay;
   selected: boolean;
   palette: AppearancePalette;
   onSelect: (id: PremiumPlanDisplay['id']) => void;
   loading: boolean;
+  t: ReturnType<typeof useI18n>['t'];
 }) {
   const disabled = loading || !plan.available;
+  const planTitle = plan.id === 'yearly' ? t('premium.planYearly') : t('premium.planMonthly');
+  const planCadence = plan.id === 'yearly' ? t('premium.cadenceYearly') : t('premium.cadenceMonthly');
+  const planNote = plan.id === 'yearly' ? t('premium.planYearlyNote') : t('premium.planMonthlyNote');
   return (
     <Pressable
       style={[
@@ -573,13 +569,13 @@ function PricingCard({
       disabled={disabled}
       accessibilityRole="radio"
       accessibilityState={{ checked: selected, disabled }}
-      accessibilityLabel={`${plan.title} Premium plan, ${plan.price} ${plan.cadence}`}
+      accessibilityLabel={`${planTitle} Premium plan, ${plan.price} ${planCadence}`}
       hitSlop={hitSlopComfortable}
     >
       <View style={styles.planTopRow}>
         <View>
-          <Text style={[styles.planTitle, { color: palette.text }]}>{plan.title}</Text>
-          <Text style={[styles.planNote, { color: palette.textMuted }]}>{plan.note}</Text>
+          <Text style={[styles.planTitle, { color: palette.text }]}>{planTitle}</Text>
+          <Text style={[styles.planNote, { color: palette.textMuted }]}>{planNote}</Text>
         </View>
         {plan.badge ? (
           <View style={styles.planBadge}>
@@ -590,7 +586,7 @@ function PricingCard({
       <Text style={[styles.planPrice, { color: palette.text }]}>
         {loading ? 'Loading price...' : plan.price}
       </Text>
-      <Text style={[styles.planCadence, { color: palette.textMuted }]}>{plan.cadence}</Text>
+      <Text style={[styles.planCadence, { color: palette.textMuted }]}>{planCadence}</Text>
       {!plan.available && plan.unavailableReason ? (
         <Text style={[styles.planUnavailable, { color: palette.textMuted }]}>{plan.unavailableReason}</Text>
       ) : null}
@@ -658,6 +654,7 @@ function StickyCta({
   busy,
   isPremium,
   selectedPlan,
+  t,
   onPress,
   purchasesUnavailable,
 }: {
@@ -666,6 +663,7 @@ function StickyCta({
   busy: boolean;
   isPremium: boolean;
   selectedPlan: PremiumPlanDisplay;
+  t: ReturnType<typeof useI18n>['t'];
   onPress: () => void;
   purchasesUnavailable: boolean;
 }) {
@@ -682,12 +680,12 @@ function StickyCta({
     >
       <View style={styles.stickyCopy}>
         <Text style={[styles.stickyTitle, { color: palette.text }]}>
-          {isPremium ? 'Premium is active' : selectedPlan.bestValue ? 'Preserve the yearly archive' : 'Start private space'}
+          {isPremium ? 'Premium is active' : selectedPlan.bestValue ? t('premium.stickyYearly') : t('premium.stickyMonthly')}
         </Text>
-        <Text style={[styles.stickySub, { color: palette.textMuted }]}>{COPY.stickySubtitle}</Text>
+        <Text style={[styles.stickySub, { color: palette.textMuted }]}>{t('premium.stickySubtitle')}</Text>
       </View>
       <PrimaryButton
-        label={isPremium ? COPY.activeCta : COPY.heroCta}
+        label={isPremium ? t('premium.activeCta') : t('premium.cta')}
         busy={busy}
         onPress={onPress}
         compact

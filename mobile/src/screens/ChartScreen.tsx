@@ -18,14 +18,9 @@ import type { DailyHoroscope, NatalChart, PlanetPosition, ZodiacSign } from '@as
 import { useAppearance } from '../hooks/useAppearance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { currentSkySummary, strongestTransitCopy, whyThisReadingCopy } from '../components/home/homeContentUtils';
+import { useI18n } from '../i18n';
 
 type ChartTab = 'chart' | 'houses' | 'planets';
-
-const CHART_TABS: Array<{ key: ChartTab; label: string }> = [
-  { key: 'chart', label: 'Chart' },
-  { key: 'houses', label: 'Houses' },
-  { key: 'planets', label: 'Planets' },
-];
 
 const HOUSE_DESCRIPTIONS: Record<number, { title: string; description: string }> = {
   1: { title: 'Ego & self-image', description: 'How you show up and your first impression.' },
@@ -72,6 +67,7 @@ const SIGN_SYMBOLS: Record<ZodiacSign, string> = {
 
 export function ChartScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
+  const { t } = useI18n();
   const { palette, mode } = useAppearance();
   const isLight = mode === 'light';
   const insets = useSafeAreaInsets();
@@ -98,7 +94,7 @@ export function ChartScreen(): React.JSX.Element {
   const listFont = useMemo(() => bodyFontSize(width), [width]);
   const listLineHeight = useMemo(() => bodyLineHeight(width), [width]);
   const subtitle = useMemo(() => {
-    if (!birthProfile) return 'Add birth details to calculate the sky above your birthplace.';
+    if (!birthProfile) return t('chart.addBirth');
     const cityLine = [birthProfile.birthCity, birthProfile.birthCountry].filter(Boolean).join(', ');
     const timeLine = birthProfile.birthTime ? `${birthProfile.birthDate} at ${birthProfile.birthTime}` : birthProfile.birthDate;
     return `${timeLine}${cityLine ? ` · ${cityLine}` : ''}`;
@@ -119,7 +115,7 @@ export function ChartScreen(): React.JSX.Element {
 
       <SegmentedTabControl activeTab={activeTab} onChange={setActiveTab} palette={palette} />
 
-      {loading ? <LoadingBlock message="Calculating planetary positions..." /> : null}
+      {loading ? <LoadingBlock message={t('chart.loading')} /> : null}
       {error ? (
         <Text style={[styles.error, { color: '#d14f4f' }]} accessibilityRole="alert">
           {error}
@@ -131,7 +127,7 @@ export function ChartScreen(): React.JSX.Element {
           <View style={[styles.headerCard, glassCardStyle]}>
             <View style={styles.headerTextWrap}>
               <Text style={[styles.title, { fontSize: titleSize, color: palette.text }]} accessibilityRole="header">
-                Real-Sky Birth Chart
+                {t('chart.title')}
               </Text>
               <Text style={[styles.subtitle, { fontSize: listFont, lineHeight: listLineHeight, color: palette.textMuted }]}>
                 {subtitle}
@@ -140,7 +136,7 @@ export function ChartScreen(): React.JSX.Element {
             <Pressable
               style={({ pressed }) => [styles.shareBtn, pressed && styles.pressed]}
               accessibilityRole="button"
-              accessibilityLabel="Share chart"
+              accessibilityLabel={t('chart.share')}
             >
               <Text style={[styles.shareIcon, { color: palette.text }]}>↗</Text>
             </Pressable>
@@ -161,18 +157,18 @@ export function ChartScreen(): React.JSX.Element {
 
           {chart ? (
             <View style={styles.bigThreeRow}>
-              <BigThreeCard label="Sun" sign={chart.sunSign} glassCardStyle={glassCardStyle} palette={palette} />
-              <BigThreeCard label="Moon" sign={chart.moonSign} glassCardStyle={glassCardStyle} palette={palette} />
-              <BigThreeCard label="Rising" sign={chart.risingSign ?? null} glassCardStyle={glassCardStyle} palette={palette} />
+              <BigThreeCard label={t('chart.sun')} sign={chart.sunSign} glassCardStyle={glassCardStyle} palette={palette} />
+              <BigThreeCard label={t('chart.moon')} sign={chart.moonSign} glassCardStyle={glassCardStyle} palette={palette} />
+              <BigThreeCard label={t('chart.rising')} sign={chart.risingSign ?? null} glassCardStyle={glassCardStyle} palette={palette} />
             </View>
           ) : null}
 
           <Pressable
             style={({ pressed }) => [styles.cta, { backgroundColor: palette.accent }, pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityLabel="Explore your chart"
+            accessibilityLabel={t('chart.explore')}
           >
-            <Text style={styles.ctaText}>Explore Your Sky Map</Text>
+            <Text style={styles.ctaText}>{t('chart.explore')}</Text>
           </Pressable>
 
           <Pressable
@@ -180,11 +176,11 @@ export function ChartScreen(): React.JSX.Element {
             onPress={onRecompute}
             disabled={loading}
             accessibilityRole="button"
-            accessibilityLabel="Recompute sky chart"
+            accessibilityLabel={t('chart.recompute')}
             accessibilityState={{ disabled: loading }}
             hitSlop={hitSlopComfortable}
           >
-            <Text style={[styles.secondaryText, { color: palette.accent }]}>Recompute sky chart</Text>
+            <Text style={[styles.secondaryText, { color: palette.accent }]}>{t('chart.recompute')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -248,9 +244,19 @@ function SegmentedTabControl({
   onChange: (tab: ChartTab) => void;
   palette: { text: string; textMuted: string; accent: string };
 }): React.JSX.Element {
+  const { t } = useI18n();
+  const tabs = useMemo<Array<{ key: ChartTab; label: string }>>(
+    () => [
+      { key: 'chart', label: t('chart.tabs.chart') },
+      { key: 'houses', label: t('chart.tabs.houses') },
+      { key: 'planets', label: t('chart.tabs.planets') },
+    ],
+    [t],
+  );
+
   return (
     <View style={styles.segmentWrap}>
-      {CHART_TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = tab.key === activeTab;
         return (
           <Pressable
@@ -263,7 +269,7 @@ function SegmentedTabControl({
             onPress={() => onChange(tab.key)}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={`${tab.label} tab`}
+            accessibilityLabel={t('chart.tabA11y', { tab: tab.label })}
           >
             <Text style={[styles.segmentText, { color: active ? '#DDFBF3' : palette.textMuted }]}>{tab.label}</Text>
           </Pressable>

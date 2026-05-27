@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { __setLocaleForTests } from '../../i18n';
 import {
   buildAtmosphericNotificationCopy,
   isInsideQuietHours,
@@ -67,6 +68,7 @@ describe('atmospheric notification delivery', () => {
   beforeEach(() => {
     storage.clear();
     vi.clearAllMocks();
+    __setLocaleForTests('en');
     getPermissionsAsync.mockResolvedValue({ status: 'granted' });
   });
 

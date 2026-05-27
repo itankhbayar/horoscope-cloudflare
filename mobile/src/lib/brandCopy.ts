@@ -26,20 +26,20 @@ export const ONBOARDING_COPY = {
 } as const;
 
 export const PREMIUM_POSITIONING_COPY = {
-  heroBadge: 'Private Ritual Space',
-  heroTitle: 'Keep a private archive of your emotional sky.',
+  heroBadge: 'Premium Pattern Memory',
+  heroTitle: 'Turn daily astrology into a private pattern you can return to.',
   heroSubtitle:
-    'Premium turns nightly readings into emotional continuity: saved reflection moments, relationship atmosphere patterns, moon-phase resonance, and deeper natal timing when your chart data is complete.',
-  heroCta: 'Open private ritual space',
+    'Premium connects your real-sky readings, saved reflection moments, tarot, relationship atmosphere, and natal timing into one calm record of what keeps repeating.',
+  heroCta: 'Start Premium pattern memory',
   activeCta: 'Manage access',
   secondaryTrust: 'Secure checkout. Private by design. Cancel anytime.',
   secondaryTrustIos: 'Billed through your Apple ID. Private by design. Manage anytime in Subscriptions.',
-  valueTitle: 'What Premium protects and deepens',
-  compareTitle: 'Core ritual vs private continuity',
+  valueTitle: 'What becomes more valuable with Premium',
+  compareTitle: 'Free ritual vs Premium pattern memory',
   proofTitle: 'Trust before personalization',
-  pricingTitle: 'Choose your private space',
-  lockedTitle: 'Your private ritual archive can go deeper',
-  lockedCta: 'Open continuity layer',
-  stickySubtitle: 'Premium preserves your archive and deepens timing when you are ready.',
+  pricingTitle: 'Choose your Premium rhythm',
+  lockedTitle: 'Premium remembers the signals you keep coming back to.',
+  lockedCta: 'See your pattern layer',
+  stickySubtitle: 'Premium keeps your ritual history, deeper timing, tarot, and relationship patterns together.',
   calmLine: 'No diagnosis. No emotional surveillance. No selling birth data.',
 } as const;

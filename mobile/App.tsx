@@ -7,6 +7,7 @@ import { AuthProvider } from './src/hooks/useAuth';
 import { AppearanceProvider, useAppearance } from './src/hooks/useAppearance';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { initAnalytics, track } from './src/lib/analytics';
+import { I18nProvider } from './src/i18n';
 
 type AbortSignalCtor = typeof AbortSignal & { timeout?: (ms: number) => AbortSignal };
 
@@ -36,11 +37,13 @@ export default function App(): React.JSX.Element {
 
   const stripePk = readStripePublishableKey();
   const shell = (
-    <AppearanceProvider>
-      <AuthProvider>
-        <AppShell />
-      </AuthProvider>
-    </AppearanceProvider>
+    <I18nProvider>
+      <AppearanceProvider>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
+      </AppearanceProvider>
+    </I18nProvider>
   );
 
   return (

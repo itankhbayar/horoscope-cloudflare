@@ -1,3 +1,4 @@
+import { translate as t } from '../i18n';
 import { formatFreezeCapacity, formatFreezeSafeguard, longestStreakCopy } from './streakDisplay';
 
 export type RitualHistoryDay = {
@@ -18,7 +19,7 @@ export function profileStreakLines(input: {
   const freeze = formatFreezeSafeguard(freezes);
   const capacity = cap ? formatFreezeCapacity(freezes, cap) : freeze;
   return [
-    current > 0 ? `Current cosmic rhythm: ${current} days` : 'Current cosmic rhythm: ready to begin',
+    current > 0 ? t('profile.currentRhythmDays', { count: current }) : t('profile.currentRhythmReady'),
     longestStreakCopy(longest),
     ...(capacity ? [capacity] : []),
   ];

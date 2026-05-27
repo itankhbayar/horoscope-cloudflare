@@ -19,12 +19,14 @@ import type { RootStackParamList } from '../navigation/types';
 import { useAppearance } from '../hooks/useAppearance';
 import { track } from '../lib/analytics';
 import { CALM_RITUAL_PRESETS } from '../lib/calmRitualPresets';
+import { useI18n, type TranslationKey } from '../i18n';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
 export function ManageNotificationsScreen(): React.JSX.Element {
   const navigation = useNavigation<RootNav>();
   const { mode, palette } = useAppearance();
+  const { t } = useI18n();
   const {
     preferences,
     loading,
@@ -76,44 +78,44 @@ export function ManageNotificationsScreen(): React.JSX.Element {
     () => [
       {
         key: 'allEnabled' as const,
-        label: 'All notifications',
-        description: 'Allow Astralis to send calm reminders about your sky rituals.',
+        label: t('notifications.all'),
+        description: t('notifications.allDesc'),
         value: preferences?.allEnabled ?? false,
       },
       {
         key: 'dailyReminderEnabled' as const,
-        label: 'Nightly ritual reminder',
-        description: 'One calm invitation near your preferred ritual window.',
+        label: t('notifications.nightly'),
+        description: t('notifications.nightlyDesc'),
         value: preferences?.dailyReminderEnabled ?? true,
       },
       {
         key: 'horoscopesEnabled' as const,
-        label: 'Atmosphere alerts',
-        description: 'Soft notes when the sky has a distinct emotional tone.',
+        label: t('notifications.atmosphere'),
+        description: t('notifications.atmosphereDesc'),
         value: preferences?.horoscopesEnabled ?? false,
       },
       {
         key: 'transitsEnabled' as const,
-        label: 'Premium sky continuity',
-        description: 'Moon-phase and relationship atmosphere notes when deeper timing is available.',
+        label: t('notifications.premium'),
+        description: t('notifications.premiumDesc'),
         value: preferences?.transitsEnabled ?? false,
       },
       {
         key: 'quietHoursEnabled' as const,
-        label: 'No-notification quiet period',
-        description: `Hold notifications from ${preferences?.quietHoursStart ?? '21:00'} to ${preferences?.quietHoursEnd ?? '08:00'}.`,
+        label: t('notifications.quiet'),
+        description: t('notifications.quietDesc', { start: preferences?.quietHoursStart ?? '21:00', end: preferences?.quietHoursEnd ?? '08:00' }),
         value: preferences?.quietHoursEnabled ?? true,
       },
       {
         key: 'reEngagementEnabled' as const,
-        label: 'Quiet returns',
-        description: 'Occasional soft notes after time away. Never streak guilt.',
+        label: t('notifications.returns'),
+        description: t('notifications.returnsDesc'),
         value: preferences?.reEngagementEnabled ?? true,
       },
       {
         key: 'saleAlertsEnabled' as const,
-        label: 'Access notes',
-        description: 'Rare account or premium access updates. No urgency campaigns.',
+        label: t('notifications.access'),
+        description: t('notifications.accessDesc'),
         value: preferences?.saleAlertsEnabled ?? false,
       },
     ],
@@ -124,14 +126,14 @@ export function ManageNotificationsScreen(): React.JSX.Element {
     () => [
       {
         key: 'dailyReminderEnabled' as const,
-        label: 'Quiet nightly ritual',
-        description: 'One gentle invitation near your evening rhythm.',
+        label: t('notifications.nightly'),
+        description: t('notifications.nightlyDesc'),
         value: preferences?.dailyReminderEnabled ?? true,
       },
       {
         key: 'horoscopesEnabled' as const,
-        label: 'Atmospheric reminders',
-        description: 'Sky notes only when the tone is worth naming.',
+        label: t('notifications.atmosphere'),
+        description: t('notifications.atmosphereDesc'),
         value: preferences?.horoscopesEnabled ?? false,
       },
     ],
@@ -152,13 +154,13 @@ export function ManageNotificationsScreen(): React.JSX.Element {
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
         >
           <Text style={[styles.backChevron, { color: isLight ? '#2f3566' : '#d8d2ff' }]}>‹</Text>
         </Pressable>
 
-        <Text style={[styles.title, { color: palette.text }]}>Notification Rituals</Text>
-        <Text style={[styles.subtitle, { color: palette.textMuted }]}>Choose which sky notes feel useful.</Text>
+        <Text style={[styles.title, { color: palette.text }]}>{t('notifications.title')}</Text>
+        <Text style={[styles.subtitle, { color: palette.textMuted }]}>{t('notifications.subtitle')}</Text>
 
         {loading ? (
           <View style={styles.centered}>
@@ -181,12 +183,12 @@ export function ManageNotificationsScreen(): React.JSX.Element {
         {!loading ? (
           <View style={styles.list}>
             <View style={[styles.statePanel, { borderColor: palette.border, backgroundColor: palette.card }]}>
-              <Text style={[styles.stateLabel, { color: palette.textMuted }]}>Delivery state</Text>
+              <Text style={[styles.stateLabel, { color: palette.textMuted }]}>{t('notifications.deliveryState')}</Text>
               <Text style={[styles.stateTitle, { color: palette.text }]}>
-                {deliveryState?.statusText ?? 'Checking reminders'}
+                {deliveryState?.statusText ?? t('notifications.checking')}
               </Text>
               <Text style={[styles.panelText, { color: palette.textMuted }]}>
-                {deliveryState?.detailText ?? 'Astralis is checking whether a ritual reminder is scheduled.'}
+                {deliveryState?.detailText ?? t('notifications.checkingDetail')}
               </Text>
               {deliveryState?.quietHourMessage ? (
                 <Text style={[styles.panelText, { color: palette.textMuted }]}>{deliveryState.quietHourMessage}</Text>
@@ -214,7 +216,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                   accessibilityRole="button"
                   accessibilityLabel="Open system notification settings"
                 >
-                  <Text style={[styles.actionText, { color: palette.accent }]}>Open system settings</Text>
+                  <Text style={[styles.actionText, { color: palette.accent }]}>{t('notifications.systemSettings')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -225,9 +227,9 @@ export function ManageNotificationsScreen(): React.JSX.Element {
               </View>
             ) : null}
             <View style={[styles.panel, { borderColor: palette.border, backgroundColor: palette.card }]}>
-              <Text style={[styles.panelTitle, { color: palette.text }]}>Choose a rhythm</Text>
+              <Text style={[styles.panelTitle, { color: palette.text }]}>{t('notifications.rhythmTitle')}</Text>
               <Text style={[styles.panelText, { color: palette.textMuted }]}>
-                Presets keep the ritual simple while Astralis handles the details underneath.
+                {t('notifications.rhythmBody')}
               </Text>
               <View style={styles.presetGrid}>
                 {CALM_RITUAL_PRESETS.map((preset) => (
@@ -239,17 +241,17 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                       void applyRitualPreset(preset.id);
                     }}
                     accessibilityRole="button"
-                    accessibilityLabel={`Apply ${preset.title} preset`}
+                    accessibilityLabel={t(`notifications.preset.${preset.id}.title` as TranslationKey)}
                   >
-                    <Text style={[styles.presetTitle, { color: palette.text }]}>{preset.title}</Text>
-                    <Text style={[styles.presetSummary, { color: palette.textMuted }]}>{preset.summary}</Text>
+                    <Text style={[styles.presetTitle, { color: palette.text }]}>{t(`notifications.preset.${preset.id}.title` as TranslationKey)}</Text>
+                    <Text style={[styles.presetSummary, { color: palette.textMuted }]}>{t(`notifications.preset.${preset.id}.summary` as TranslationKey)}</Text>
                   </Pressable>
                 ))}
               </View>
             </View>
 
             <View style={[styles.panel, { borderColor: palette.border, backgroundColor: palette.card }]}>
-              <Text style={[styles.panelTitle, { color: palette.text }]}>Simple controls</Text>
+              <Text style={[styles.panelTitle, { color: palette.text }]}>{t('notifications.simpleControls')}</Text>
               {calmRows.map((row, index) => (
                 <View
                   key={row.key}
@@ -277,9 +279,9 @@ export function ManageNotificationsScreen(): React.JSX.Element {
               ))}
               <View style={[styles.row, styles.rowSpacing]}>
                 <View style={styles.textBlock}>
-                  <Text style={[styles.rowTitle, { color: palette.text }]}>Silent invitations</Text>
+                  <Text style={[styles.rowTitle, { color: palette.text }]}>{t('notifications.silent')}</Text>
                   <Text style={[styles.rowDescription, { color: palette.textMuted }]}>
-                    Keep the reminder available without sound.
+                    {t('notifications.silentDesc')}
                   </Text>
                 </View>
                 <Switch
@@ -308,7 +310,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                   accessibilityRole="button"
                   accessibilityLabel="Schedule nightly atmospheric reminder"
                 >
-                  <Text style={[styles.actionText, { color: palette.accent }]}>Schedule calmly</Text>
+                  <Text style={[styles.actionText, { color: palette.accent }]}>{t('notifications.schedule')}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.actionButton, { borderColor: palette.border }, pressed && styles.pressed]}
@@ -320,7 +322,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                   accessibilityLabel={deliveryState?.paused ? 'Resume reminders' : 'Pause reminders for seven days'}
                 >
                   <Text style={[styles.actionText, { color: palette.textMuted }]}>
-                    {deliveryState?.paused ? 'Resume' : 'Pause'}
+                    {deliveryState?.paused ? t('notifications.resume') : t('notifications.pause')}
                   </Text>
                 </Pressable>
               </View>
@@ -341,7 +343,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
               accessibilityLabel={advancedOpen ? 'Hide advanced delivery controls' : 'Show advanced delivery controls'}
             >
               <Text style={[styles.actionText, { color: palette.textMuted }]}>
-                {advancedOpen ? 'Hide advanced delivery details' : 'Advanced delivery details'}
+                {advancedOpen ? t('notifications.advancedHide') : t('notifications.advancedShow')}
               </Text>
             </Pressable>
 
@@ -393,9 +395,9 @@ export function ManageNotificationsScreen(): React.JSX.Element {
             {advancedOpen ? (
               <>
             <View style={[styles.panel, { borderColor: palette.border, backgroundColor: palette.card }]}>
-              <Text style={[styles.panelTitle, { color: palette.text }]}>Preferred ritual window</Text>
+              <Text style={[styles.panelTitle, { color: palette.text }]}>{t('notifications.windowTitle')}</Text>
               <Text style={[styles.panelText, { color: palette.textMuted }]}>
-                Astralis schedules one invitation near this hour and moves it away from quiet hours.
+                {t('notifications.windowBody')}
               </Text>
               <View style={styles.chipRow}>
                 {[19, 20, 21].map((hour) => (
@@ -444,9 +446,9 @@ export function ManageNotificationsScreen(): React.JSX.Element {
             <View style={[styles.panel, { borderColor: palette.border, backgroundColor: palette.card }]}>
               <View style={styles.row}>
                 <View style={styles.textBlock}>
-                  <Text style={[styles.rowTitle, { color: palette.text }]}>Silent invitation mode</Text>
+                  <Text style={[styles.rowTitle, { color: palette.text }]}>{t('notifications.silent')}</Text>
                   <Text style={[styles.rowDescription, { color: palette.textMuted }]}>
-                    Keep notifications visually quiet. No sound, no pressure.
+                    {t('notifications.silentDesc')}
                   </Text>
                 </View>
                 <Switch
@@ -474,7 +476,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                   accessibilityRole="button"
                   accessibilityLabel="Schedule nightly atmospheric reminder"
                 >
-                  <Text style={[styles.actionText, { color: palette.accent }]}>Schedule calmly</Text>
+                  <Text style={[styles.actionText, { color: palette.accent }]}>{t('notifications.schedule')}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.actionButton, { borderColor: palette.border }, pressed && styles.pressed]}
@@ -486,7 +488,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                   accessibilityLabel={deliveryState?.paused ? 'Resume reminders' : 'Pause reminders for seven days'}
                 >
                   <Text style={[styles.actionText, { color: palette.textMuted }]}>
-                    {deliveryState?.paused ? 'Resume' : 'Pause 7 days'}
+                    {deliveryState?.paused ? t('notifications.resume') : t('notifications.pause7')}
                   </Text>
                 </Pressable>
               </View>
@@ -500,7 +502,7 @@ export function ManageNotificationsScreen(): React.JSX.Element {
                 accessibilityRole="button"
                 accessibilityLabel="Reset notification personalization"
               >
-                <Text style={[styles.actionText, { color: palette.textMuted }]}>Reset notification personalization</Text>
+                <Text style={[styles.actionText, { color: palette.textMuted }]}>{t('notifications.reset')}</Text>
               </Pressable>
             </View>
               </>

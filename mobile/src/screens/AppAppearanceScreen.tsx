@@ -14,12 +14,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAppearance, type AppearanceMode } from '../hooks/useAppearance';
 import type { RootStackParamList } from '../navigation/types';
 import { MIN_TOUCH, spacing } from '../theme';
+import { useI18n } from '../i18n';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
 export function AppAppearanceScreen(): React.JSX.Element {
   const navigation = useNavigation<RootNav>();
   const { mode, setMode } = useAppearance();
+  const { locale, setLocale, t } = useI18n();
   const isLight = mode === 'light';
 
   return (
@@ -30,28 +32,45 @@ export function AppAppearanceScreen(): React.JSX.Element {
         style={({ pressed }) => [styles.backBtn, isLight && styles.backBtnLight, pressed && styles.pressed]}
         onPress={() => navigation.goBack()}
         accessibilityRole="button"
-        accessibilityLabel="Go back"
+        accessibilityLabel={t('common.back')}
       >
         <Text style={[styles.backText, isLight && styles.backTextLight]}>‹</Text>
       </Pressable>
 
       <View style={styles.content}>
-        <Text style={[styles.title, isLight && styles.titleLight]}>App Appearance</Text>
-        <Text style={[styles.subtitle, isLight && styles.subtitleLight]}>Configure your app appearance</Text>
+        <Text style={[styles.title, isLight && styles.titleLight]}>{t('appearance.title')}</Text>
+        <Text style={[styles.subtitle, isLight && styles.subtitleLight]}>{t('appearance.subtitle')}</Text>
 
         <ThemeOptionRow
-          title="Always Light"
-          description="Always use light appearance."
+          title={t('appearance.light')}
+          description={t('appearance.lightDesc')}
           selected={mode === 'light'}
           onPress={() => void setMode('light')}
           containerStyle={styles.rowSpacing}
           isLight={isLight}
         />
         <ThemeOptionRow
-          title="Always Dark"
-          description="Always use dark appearance."
+          title={t('appearance.dark')}
+          description={t('appearance.darkDesc')}
           selected={mode === 'dark'}
           onPress={() => void setMode('dark')}
+          isLight={isLight}
+        />
+        <Text style={[styles.sectionTitle, isLight && styles.titleLight]}>{t('appearance.languageTitle')}</Text>
+        <Text style={[styles.sectionDescription, isLight && styles.subtitleLight]}>{t('appearance.languageDesc')}</Text>
+        <ThemeOptionRow
+          title={t('appearance.mn')}
+          description={t('appearance.mnDesc')}
+          selected={locale === 'mn'}
+          onPress={() => void setLocale('mn')}
+          containerStyle={styles.rowSpacing}
+          isLight={isLight}
+        />
+        <ThemeOptionRow
+          title={t('appearance.en')}
+          description={t('appearance.enDesc')}
+          selected={locale === 'en'}
+          onPress={() => void setLocale('en')}
           isLight={isLight}
         />
       </View>
@@ -187,6 +206,20 @@ const styles = StyleSheet.create({
   },
   subtitleLight: {
     color: '#8f95a8',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: '800',
+    color: '#f3f4ff',
+    marginTop: spacing.xl,
+    marginBottom: spacing.xs,
+  },
+  sectionDescription: {
+    fontSize: 15,
+    lineHeight: 20,
+    color: 'rgba(220,224,250,0.88)',
+    marginBottom: spacing.md,
   },
   row: {
     borderRadius: 18,

@@ -22,9 +22,11 @@ import { shareableMilestoneFor } from '../lib/streakDisplay';
 import { shareStreakMilestoneCard } from '../lib/streakShare';
 import { getScreenPurpose } from '../lib/emotionalScreenHierarchy';
 import { track } from '../lib/analytics';
+import { useI18n } from '../i18n';
 
 export function ProfileScreen(): React.JSX.Element {
   const { mode, palette } = useAppearance();
+  const { t } = useI18n();
   const { profile, load, save, uploadAvatar, loading, avatarUploading, error } = useProfile();
   const { logout, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -93,7 +95,7 @@ export function ProfileScreen(): React.JSX.Element {
   const avatarSource = avatarPreviewUri || profile?.user.avatarUrl || null;
   const avatarInitial = (draft?.fullName?.trim().charAt(0) || profile?.user.fullName.charAt(0) || 'A').toUpperCase();
   const zodiacLabel = profile?.natalChart?.sunInfo?.name ?? profile?.natalChart?.sunSign ?? 'Unknown';
-  const birthDateLabel = profile?.birthProfile?.birthDate ?? 'Unknown birth date';
+  const birthDateLabel = profile?.birthProfile?.birthDate ?? t('profile.unknownBirthDate');
   const timezoneLabel = profile?.birthProfile ? `UTC${formatTimezone(profile.birthProfile.timezoneOffset)}` : null;
   const streakLines = profile
     ? profileStreakLines({
@@ -174,13 +176,13 @@ export function ProfileScreen(): React.JSX.Element {
     <ScreenScroll contentContainerStyle={styles.container}>
       {!isLight ? <View style={styles.backgroundGlowTop} pointerEvents="none" /> : null}
       {!isLight ? <View style={styles.backgroundGlowBottom} pointerEvents="none" /> : null}
-      {loading ? <LoadingBlock message="Calculating your sky..." /> : null}
+      {loading ? <LoadingBlock message={t('profile.loading')} /> : null}
       {error ? (
         <Text style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
-      {empty ? <Text style={styles.empty}>No profile found yet.</Text> : null}
+      {empty ? <Text style={styles.empty}>{t('profile.empty')}</Text> : null}
       {profile ? (
         <>
           <View style={[styles.headerWrap, isLight && styles.headerWrapLight]}>
@@ -188,11 +190,11 @@ export function ProfileScreen(): React.JSX.Element {
               <Image
                 source={{ uri: avatarSource }}
                 style={styles.avatarImage}
-                accessibilityLabel="Profile avatar"
+                accessibilityLabel={t('profile.avatar')}
                 onError={() => setAvatarLoadFailed(true)}
               />
             ) : (
-              <View style={styles.avatar} accessibilityLabel="Profile avatar placeholder">
+              <View style={styles.avatar} accessibilityLabel={t('profile.avatarPlaceholder')}>
                 <Text style={styles.avatarText}>{avatarInitial}</Text>
               </View>
             )}
@@ -215,7 +217,7 @@ export function ProfileScreen(): React.JSX.Element {
             </View>
             <View style={styles.streakSummary}>
               <Text style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
-                {ritualCompletedCount > 0 ? 'Your recent ritual rhythm is here.' : 'Your ritual memory is quiet for now.'}
+                {ritualCompletedCount > 0 ? t('profile.ritualHasHistory') : t('profile.ritualEmpty')}
               </Text>
               {ritualHistoryOpen ? (
                 <>
@@ -239,7 +241,7 @@ export function ProfileScreen(): React.JSX.Element {
                   accessibilityLabel={ritualHistoryOpen ? 'Hide ritual memory fragments' : 'Open ritual memory fragments'}
                 >
                   <Text style={[styles.historyToggleText, isLight && { color: palette.accent }]}>
-                    {ritualHistoryOpen ? 'Close memory fragments' : 'Open memory fragments'}
+                    {ritualHistoryOpen ? t('profile.closeMemory') : t('profile.openMemory')}
                   </Text>
                 </Pressable>
               ) : null}
@@ -257,7 +259,7 @@ export function ProfileScreen(): React.JSX.Element {
                   accessibilityLabel="Share ritual streak"
                   hitSlop={hitSlopComfortable}
                 >
-                  <Text style={styles.streakShareText}>Share ritual</Text>
+                  <Text style={styles.streakShareText}>{t('profile.shareRitual')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -266,50 +268,50 @@ export function ProfileScreen(): React.JSX.Element {
           {!isEditing ? (
             <>
               <SettingsGroup isLight={isLight}>
-                <SettingsItem icon="✎" label="Edit Profile" onPress={onStartEdit} />
-                <SettingsItem icon="↻" label="Account Settings" onPress={goToAccountSettings} />
-                <SettingsItem icon="🔔︎" label="Manage Notifications" onPress={goToManageNotifications} />
-                <SettingsItem icon="◐" label="App Appearance" onPress={goToAppAppearance} last />
+                <SettingsItem icon="✎" label={t('profile.edit')} onPress={onStartEdit} />
+                <SettingsItem icon="↻" label={t('profile.account')} onPress={goToAccountSettings} />
+                <SettingsItem icon="🔔︎" label={t('profile.notifications')} onPress={goToManageNotifications} />
+                <SettingsItem icon="◐" label={t('profile.appearance')} onPress={goToAppAppearance} last />
               </SettingsGroup>
               <PremiumAccessCard />
               <Pressable
                 style={({ pressed }) => [styles.logoutBtn, isLight && styles.logoutBtnLight, pressed && styles.pressed]}
                 onPress={() => void onLogout()}
                 accessibilityRole="button"
-                accessibilityLabel="Sign out"
+                accessibilityLabel={t('profile.logout')}
                 hitSlop={hitSlopComfortable}
               >
-                <Text style={[styles.logoutText, isLight && { color: palette.text }]}>Log out</Text>
+                <Text style={[styles.logoutText, isLight && { color: palette.text }]}>{t('profile.logout')}</Text>
               </Pressable>
             </>
           ) : draft ? (
-            <CosmicCard title="Edit profile" style={styles.editorCard}>
+            <CosmicCard title={t('profile.editTitle')} style={styles.editorCard}>
               <Field
-                label="Name"
+                label={t('profile.name')}
                 value={draft.fullName}
                 onChangeText={(v) => setDraft((prev) => (prev ? { ...prev, fullName: v } : prev))}
                 error={validation.fullName}
               />
-              <Field label="Email" value={draft.email} editable={false} />
+              <Field label={t('login.email')} value={draft.email} editable={false} />
               <Text style={styles.microcopy}>
-                Sun, moon, and rising signs are recalculated from your saved birth time and birthplace.
+                {t('profile.microcopy')}
               </Text>
               <Field
-                label="Birth date (YYYY-MM-DD)"
+                label={t('profile.birthDate')}
                 value={draft.birthDate}
                 onChangeText={(v) => setDraft((prev) => (prev ? { ...prev, birthDate: v } : prev))}
                 error={validation.birthDate}
                 autoCapitalize="none"
               />
               <Field
-                label="Birth time (HH:MM, optional)"
+                label={t('profile.birthTime')}
                 value={draft.birthTime}
                 onChangeText={(v) => setDraft((prev) => (prev ? { ...prev, birthTime: v } : prev))}
                 error={validation.birthTime}
                 autoCapitalize="none"
               />
               <CityPicker
-                label="Birth city"
+                label={t('profile.birthCity')}
                 query={draft.birthCity}
                 selectedCity={draft.selectedCity}
                 onQueryChange={onCityQueryChange}
@@ -328,7 +330,7 @@ export function ProfileScreen(): React.JSX.Element {
                 error={validation.birthCity}
               />
               <Field
-                label="Timezone (e.g. +8, -5)"
+                label={t('profile.timezone')}
                 value={draft.timezone}
                 onChangeText={(v) => setDraft((prev) => (prev ? { ...prev, timezone: v } : prev))}
                 error={validation.timezone}
@@ -339,13 +341,13 @@ export function ProfileScreen(): React.JSX.Element {
                   style={({ pressed }) => [styles.secondaryHalf, pressed && styles.pressed]}
                   onPress={onCancelEdit}
                 >
-                  <Text style={styles.secondaryText}>Cancel</Text>
+                  <Text style={styles.secondaryText}>{t('common.cancel')}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.primaryHalf, pressed && styles.pressed]}
                   onPress={() => void onSaveEdit()}
                 >
-                  <Text style={styles.primaryText}>Save</Text>
+                  <Text style={styles.primaryText}>{t('common.save')}</Text>
                 </Pressable>
               </View>
             </CosmicCard>

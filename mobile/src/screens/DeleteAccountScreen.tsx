@@ -8,6 +8,7 @@ import { spacing } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { resetToLogin } from '../navigation/navigationRef';
 import { useAppearance } from '../hooks/useAppearance';
+import { useI18n } from '../i18n';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -18,6 +19,7 @@ export function DeleteAccountScreen(): React.JSX.Element {
   const navigation = useNavigation<RootNav>();
   const { deleteAccount } = useAuth();
   const { mode, palette } = useAppearance();
+  const { t } = useI18n();
   const isLight = mode === 'light';
   const dangerBase = isLight ? '#b03052' : '#ef6181';
   const dangerCardBg = isLight ? '#fff2f6' : 'rgba(239, 97, 129, 0.14)';
@@ -31,10 +33,10 @@ export function DeleteAccountScreen(): React.JSX.Element {
     try {
       await deleteAccount();
       resetToLogin();
-      Alert.alert('Success', 'Your account has been deleted.');
+      Alert.alert(t('delete.successTitle'), t('delete.successBody'));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete account.';
-      Alert.alert('Delete failed', message);
+      const message = err instanceof Error ? err.message : t('delete.failedBody');
+      Alert.alert(t('delete.failedTitle'), message);
     } finally {
       setDeleting(false);
     }
@@ -42,11 +44,11 @@ export function DeleteAccountScreen(): React.JSX.Element {
 
   const onPressDelete = useCallback((): void => {
     Alert.alert(
-      'Delete Account',
-      'Are you sure you want to permanently delete your account? This action cannot be undone.',
+      t('delete.alertTitle'),
+      t('delete.alertBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => void runDelete() },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('delete.alertDelete'), style: 'destructive', onPress: () => void runDelete() },
       ],
     );
   }, [runDelete]);
@@ -66,20 +68,20 @@ export function DeleteAccountScreen(): React.JSX.Element {
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t('common.back')}
         >
           <Text style={[styles.backChevron, { color: isLight ? '#2f3566' : '#d8d2ff' }]}>‹</Text>
         </Pressable>
 
-        <Text style={[styles.title, { color: palette.text }]}>Delete Account</Text>
-        <Text style={[styles.subtitle, { color: palette.textMuted }]}>Delete your account from our servers</Text>
+        <Text style={[styles.title, { color: palette.text }]}>{t('delete.title')}</Text>
+        <Text style={[styles.subtitle, { color: palette.textMuted }]}>{t('delete.subtitle')}</Text>
 
         <WarningCard
-          title="This action is irreversible"
+          title={t('delete.warningTitle')}
           items={[
-            'Your account will be permanently deleted',
-            'All personal data will be removed',
-            'This action cannot be undone',
+            t('delete.warning1'),
+            t('delete.warning2'),
+            t('delete.warning3'),
           ]}
           titleColor={dangerBase}
           textColor={isLight ? '#8f3b56' : '#f0b7c5'}
@@ -96,25 +98,24 @@ export function DeleteAccountScreen(): React.JSX.Element {
             },
           ]}
         >
-          <Text style={[styles.infoHeading, { color: palette.text }]}>What will happen next</Text>
+          <Text style={[styles.infoHeading, { color: palette.text }]}>{t('delete.infoTitle')}</Text>
           <Text style={[styles.infoBlock, { color: palette.textMuted }]}>
-            {INFO_COPY}
+            {t('delete.info1')}
           </Text>
           <Text style={[styles.infoBlock, { color: palette.textMuted }]}>
-            You will be logged out immediately after deletion, and the app will return you to the sign-in flow.
+            {t('delete.info2')}
           </Text>
           <Text style={[styles.infoBlock, { color: palette.textMuted }]}>
-            If you have an active subscription, also cancel or manage it in Apple App Store or Google Play billing
-            settings. Account deletion does not always cancel store-managed subscriptions.
+            {t('delete.info3')}
           </Text>
         </View>
 
         <DangerButton
           onPress={onPressDelete}
-          label={deleting ? 'Deleting…' : 'Delete my account'}
+          label={deleting ? t('delete.deleting') : t('delete.button')}
           disabled={deleting}
           backgroundColor={dangerBase}
-          accessibilityLabel="Delete my account"
+          accessibilityLabel={t('delete.button')}
         />
         <Pressable
           onPress={() => navigation.goBack()}
@@ -127,9 +128,9 @@ export function DeleteAccountScreen(): React.JSX.Element {
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Keep my account"
+          accessibilityLabel={t('delete.keep')}
         >
-          <Text style={[styles.secondaryButtonText, { color: palette.text }]}>Keep my account</Text>
+          <Text style={[styles.secondaryButtonText, { color: palette.text }]}>{t('delete.keep')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>

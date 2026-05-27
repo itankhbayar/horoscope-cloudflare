@@ -11,6 +11,7 @@ import { ExploreScreen } from '../screens/ExploreScreen';
 import { useSanctuaryTheme } from '../components/home/sanctuaryTheme';
 import { MIN_TOUCH, spacing } from '../theme';
 import { useAppearance } from '../hooks/useAppearance';
+import { useI18n } from '../i18n';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -50,6 +51,7 @@ const iconProfile = tabIcon('\uD83D\uDC64');
 
 export function MainTabs(): ReactElement {
   const { palette, mode } = useAppearance();
+  const { t } = useI18n();
   const sanctuaryTheme = useSanctuaryTheme();
   const screenOptions = useMemo(
     () => ({
@@ -104,50 +106,50 @@ export function MainTabs(): ReactElement {
         component={HomeScreen}
         options={{
           headerShown: false,
-          title: 'Home',
-          tabBarLabel: 'Home',
+          title: t('tabs.home'),
+          tabBarLabel: t('tabs.home'),
           tabBarIcon: iconHome,
-          tabBarAccessibilityLabel: "Home, today's sky reading",
+          tabBarAccessibilityLabel: t('tabs.homeA11y'),
         }}
       />
       <Tab.Screen
         name="Compatibility"
         component={CompatibilityScreen}
         options={{
-          title: 'Compatibility',
-          tabBarLabel: 'Readings',
+          title: t('tabs.readings'),
+          tabBarLabel: t('tabs.readings'),
           tabBarIcon: iconReadings,
-          tabBarAccessibilityLabel: 'Readings, compatibility',
+          tabBarAccessibilityLabel: t('tabs.readingsA11y'),
         }}
       />
       <Tab.Screen
         name="Chart"
         component={ChartScreen}
         options={{
-          title: 'Chart',
-          tabBarLabel: 'Birth Chart',
+          title: t('tabs.chart'),
+          tabBarLabel: t('tabs.chart'),
           tabBarIcon: iconChart,
-          tabBarAccessibilityLabel: 'Birth chart',
+          tabBarAccessibilityLabel: t('tabs.chartA11y'),
         }}
       />
       <Tab.Screen
         name="Explore"
         component={ExploreScreen}
         options={{
-          title: 'Explore',
-          tabBarLabel: 'Explore',
+          title: t('tabs.explore'),
+          tabBarLabel: t('tabs.explore'),
           tabBarIcon: iconExplore,
-          tabBarAccessibilityLabel: 'Explore astrology content',
+          tabBarAccessibilityLabel: t('tabs.exploreA11y'),
         }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: 'Profile',
-          tabBarLabel: 'Profile',
+          title: t('tabs.profile'),
+          tabBarLabel: t('tabs.profile'),
           tabBarIcon: iconProfile,
-          tabBarAccessibilityLabel: 'Profile',
+          tabBarAccessibilityLabel: t('tabs.profile'),
         }}
       />
     </Tab.Navigator>

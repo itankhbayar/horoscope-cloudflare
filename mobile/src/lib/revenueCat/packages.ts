@@ -20,12 +20,12 @@ const PLAN_COPY: Record<RevenueCatPlanId, Pick<PremiumPlanDisplay, 'title' | 'ca
   monthly: {
     title: 'Monthly',
     cadence: 'per month',
-    note: 'Flexible access for your current season.',
+    note: 'Best when you want to test a month of deeper timing and pattern memory.',
   },
   yearly: {
     title: 'Yearly',
     cadence: 'per year',
-    note: 'Best for a full year of daily guidance.',
+    note: 'Best for building a full archive of daily sky, tarot, and relationship patterns.',
     badge: 'Best value',
     bestValue: true,
   },

@@ -7,9 +7,11 @@ import { usePremiumCheckout } from '../hooks/usePremiumCheckout';
 import { usesRevenueCatBilling } from '../lib/billing/platform';
 import { goToPremium } from '../navigation/navigationRef';
 import { track } from '../lib/analytics';
+import { useI18n } from '../i18n';
 
 export function PremiumAccessCard(): React.JSX.Element {
   const { width } = useWindowDimensions();
+  const { t } = useI18n();
   const { palette } = useAppearance();
   const { busy, isPremium, message, upgrade, manageBilling, refreshStatus, purchasesConfigured } =
     usePremiumCheckout();
@@ -26,23 +28,23 @@ export function PremiumAccessCard(): React.JSX.Element {
   const onRefreshStatus = useCallback(() => void refreshStatus(), [refreshStatus]);
 
   const bodyCopy = purchasesUnavailable
-    ? 'Purchases are not configured yet. The private ritual archive will unlock after Apple in-app purchase setup is complete.'
+    ? t('premium.cardUnavailable')
     : isIosIap
-      ? 'Keep a private sky archive with your Apple ID, manage in App Store Subscriptions, or restore purchases on a new device.'
-      : 'Keep a private sky archive with secure checkout, manage billing, or restore your entitlement from the server.';
+      ? t('premium.cardIos')
+      : t('premium.cardStripe');
 
   const upgradeLabel = purchasesUnavailable
-    ? 'Purchases not configured'
+    ? t('premium.cardPurchasesNotConfigured')
     : isPremium
       ? isIosIap
-        ? 'Manage in App Store'
-        : 'Extend or update payment'
+        ? t('premium.cardManageAppStore')
+        : t('premium.cardUpdatePayment')
       : isIosIap
-        ? 'Subscribe with Apple'
-        : 'Upgrade with Stripe';
+        ? t('premium.cardSubscribeApple')
+        : t('premium.cardUpgradeStripe');
 
   return (
-    <CosmicCard title="Astralis Sky Intelligence">
+    <CosmicCard title={t('premium.cardTitle')}>
       <View
         style={[
           styles.planStatus,
@@ -50,8 +52,8 @@ export function PremiumAccessCard(): React.JSX.Element {
           { borderColor: palette.border },
         ]}
       >
-        <Text style={[styles.statusLabel, { color: palette.textMuted }]}>Current plan</Text>
-        <Text style={[styles.statusValue, { color: palette.text }]}>{isPremium ? 'Private ritual space active' : 'Core sky ritual'}</Text>
+        <Text style={[styles.statusLabel, { color: palette.textMuted }]}>{t('premium.currentPlan')}</Text>
+        <Text style={[styles.statusValue, { color: palette.text }]}>{isPremium ? t('premium.planActive') : t('premium.planFree')}</Text>
       </View>
       <Text style={[styles.body, { fontSize: bodySize, lineHeight, color: palette.textMuted }]}>{bodyCopy}</Text>
 
@@ -65,7 +67,7 @@ export function PremiumAccessCard(): React.JSX.Element {
         onPress={onUpgrade}
         disabled={busy || purchasesUnavailable}
         accessibilityRole="button"
-        accessibilityLabel={isIosIap ? 'Subscribe to premium with Apple' : 'Upgrade to premium with Stripe'}
+        accessibilityLabel={isIosIap ? t('premium.cardSubscribeAppleA11y') : t('premium.cardUpgradeStripeA11y')}
         accessibilityState={{ disabled: busy }}
         hitSlop={hitSlopComfortable}
       >
@@ -87,12 +89,12 @@ export function PremiumAccessCard(): React.JSX.Element {
         disabled={busy}
         accessibilityRole="button"
         accessibilityLabel={
-          isIosIap ? 'How to manage subscription in the App Store' : 'Manage subscription in Stripe customer portal'
+          isIosIap ? t('premium.cardManageAppStoreA11y') : t('premium.cardManagePortalA11y')
         }
         hitSlop={hitSlopComfortable}
       >
         <Text style={[styles.secondaryText, { color: palette.accent }]}>
-          {isIosIap ? 'Manage subscription (App Store)' : 'Manage billing (portal)'}
+          {isIosIap ? t('premium.cardManageAppStoreButton') : t('premium.cardManagePortalButton')}
         </Text>
       </Pressable>
       <Pressable
@@ -105,11 +107,11 @@ export function PremiumAccessCard(): React.JSX.Element {
         onPress={onRefreshStatus}
         disabled={busy}
         accessibilityRole="button"
-        accessibilityLabel={isIosIap ? 'Restore App Store purchases' : 'Refresh premium status from server'}
+        accessibilityLabel={isIosIap ? t('premium.cardRestoreAppleA11y') : t('premium.cardRefreshStatusA11y')}
         hitSlop={hitSlopComfortable}
       >
         <Text style={[styles.secondaryText, { color: palette.accent }]}>
-          {isIosIap ? 'Restore purchases' : 'Restore / refresh status'}
+          {isIosIap ? t('premium.cardRestoreApple') : t('premium.cardRefreshStatus')}
         </Text>
       </Pressable>
 

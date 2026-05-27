@@ -26,13 +26,14 @@ import {
 } from '../theme';
 import { getApiBaseUrl } from '@astralis/lib/apiClient';
 import { useAppearance } from '../hooks/useAppearance';
-import { BRAND_COPY } from '../lib/brandCopy';
+import { useI18n } from '../i18n';
 
 export function LoginScreen(): React.JSX.Element {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width } = useWindowDimensions();
   const { login, loading } = useAuth();
   const { palette, mode } = useAppearance();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -42,7 +43,7 @@ export function LoginScreen(): React.JSX.Element {
     try {
       await login({ email: email.trim(), password });
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Sign in failed');
+      setErrorMsg(e instanceof Error ? e.message : t('login.failed'));
     }
   }, [email, login, password]);
 
@@ -81,10 +82,10 @@ export function LoginScreen(): React.JSX.Element {
             accessibilityRole="header"
             accessibilityLabel="Astralis"
           >
-            {BRAND_COPY.mark}
+            Astralis
           </Text>
-          <Text style={[styles.originLine, { color: palette.textMuted }]}>{BRAND_COPY.preciseAstrology}</Text>
-          <CosmicCard title="Return to your sky">
+          <Text style={[styles.originLine, { color: palette.textMuted }]}>{t('brand.preciseAstrology')}</Text>
+          <CosmicCard title={t('login.title')}>
             {errorMsg ? (
               <Text style={styles.error} accessibilityRole="alert">
                 {errorMsg}
@@ -92,20 +93,16 @@ export function LoginScreen(): React.JSX.Element {
             ) : null}
             {showLoopbackHint ? (
               <Text style={[styles.hint, { color: palette.textMuted }]}>
-                {
-                  "On a real phone, 127.0.0.1 is the phone itself. Put your PC's LAN URL in mobile/.env as EXPO_PUBLIC_API_BASE_URL (e.g. http://192.168.x.x:8787), restart Expo with -c, and keep Wrangler running (npm run dev in backend listens on all interfaces)."
-                }
+                {t('login.loopbackHint')}
               </Text>
             ) : null}
             {showLanTimeoutHint ? (
               <Text style={[styles.hint, { color: palette.textMuted }]}>
-                {
-                  "Timeout = phone cannot reach your PC. (1) Safari → same http://IP:8787/ — expect JSON. (2) Windows: run backend/scripts/allow-wrangler-dev-firewall.ps1 as Admin (or npm run allow-firewall from backend); Wi‑Fi on Public profile needs this rule on all profiles. (3) ipconfig IPv4 must match .env. (4) Router AP isolation → try another Wi‑Fi or use https://…workers.dev in .env."
-                }
+                {t('login.timeoutHint')}
               </Text>
             ) : null}
             <Text style={[styles.label, { color: palette.textMuted }]} nativeID="login-email-label">
-              Email
+              {t('login.email')}
             </Text>
             <TextInput
               style={[
@@ -124,12 +121,12 @@ export function LoginScreen(): React.JSX.Element {
               onChangeText={setEmail}
               placeholder="you@example.com"
               placeholderTextColor={palette.textMuted}
-              accessibilityLabel="Email"
+              accessibilityLabel={t('login.email')}
               accessibilityLabelledBy="login-email-label"
               returnKeyType="next"
             />
             <Text style={[styles.label, { color: palette.textMuted }]} nativeID="login-password-label">
-              Password
+              {t('login.password')}
             </Text>
             <TextInput
               style={[
@@ -147,7 +144,7 @@ export function LoginScreen(): React.JSX.Element {
               onChangeText={setPassword}
               placeholder="••••••••"
               placeholderTextColor={palette.textMuted}
-              accessibilityLabel="Password"
+              accessibilityLabel={t('login.password')}
               accessibilityLabelledBy="login-password-label"
               returnKeyType="go"
               onSubmitEditing={() => void onSubmit()}
@@ -161,20 +158,20 @@ export function LoginScreen(): React.JSX.Element {
               onPress={() => void onSubmit()}
               disabled={loading}
               accessibilityRole="button"
-              accessibilityLabel={loading ? 'Signing in' : 'Sign in'}
+              accessibilityLabel={loading ? t('login.loading') : t('common.signIn')}
               accessibilityState={{ disabled: loading }}
               hitSlop={hitSlopComfortable}
             >
-              <Text style={styles.buttonText}>{loading ? 'Mapping sky...' : 'Sign in'}</Text>
+              <Text style={styles.buttonText}>{loading ? t('login.loading') : t('common.signIn')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.link, pressed && styles.pressed]}
               onPress={goRegister}
               accessibilityRole="button"
-              accessibilityLabel="Create an account"
+              accessibilityLabel={t('login.createA11y')}
               hitSlop={hitSlopComfortable}
             >
-              <Text style={[styles.linkText, { color: palette.accent }]}>New here? Map your birth sky</Text>
+              <Text style={[styles.linkText, { color: palette.accent }]}>{t('login.newHere')}</Text>
             </Pressable>
             <LegalLinks compact />
           </CosmicCard>

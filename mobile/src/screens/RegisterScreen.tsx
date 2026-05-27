@@ -29,10 +29,10 @@ import {
 } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 import { useAppearance } from '../hooks/useAppearance';
-import { BRAND_COPY } from '../lib/brandCopy';
 import { track } from '../lib/analytics';
 import { updateGuestOnboardingState } from '../lib/progressiveOnboarding';
 import { skyMappingStep, whyBirthplaceMatters } from '../lib/onboardingReveal';
+import { useI18n } from '../i18n';
 import {
   deviceTimezoneLabel,
   initialTimezoneOffset,
@@ -43,29 +43,12 @@ import {
 
 type Step = 0 | 1 | 2;
 
-const STEP_COPY: Record<Step, { eyebrow: string; title: string; body: string }> = {
-  0: {
-    eyebrow: 'Step 1 of 3',
-    title: 'Start with your birthday',
-    body: 'Your birth date gives Astralis a first solar anchor. No account is created yet.',
-  },
-  1: {
-    eyebrow: 'Step 2 of 3',
-    title: 'Improve chart accuracy',
-    body: 'Birthplace anchors the local horizon. Birth time is optional, and unlocks rising sign precision when you have it.',
-  },
-  2: {
-    eyebrow: 'Step 3 of 3',
-    title: 'Save your personalized sky',
-    body: 'Create an account only when you are ready to save readings, sync devices, and keep streak history.',
-  },
-};
-
 export function RegisterScreen(): React.JSX.Element {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { width } = useWindowDimensions();
   const { register, loading } = useAuth();
   const { palette, mode } = useAppearance();
+  const { t } = useI18n();
   const [step, setStep] = useState<Step>(0);
   const [draft, setDraft] = useState<RegisterDraft>({
     fullName: '',
@@ -86,7 +69,11 @@ export function RegisterScreen(): React.JSX.Element {
   const hp = horizontalScreenPadding(width);
   const brandSize = useMemo(() => brandTitleSize(width), [width]);
   const isLight = mode === 'light';
-  const copy = STEP_COPY[step];
+  const copy = useMemo(() => {
+    if (step === 0) return { eyebrow: t('register.step1Eyebrow'), title: t('register.step1Title'), body: t('register.step1Body') };
+    if (step === 1) return { eyebrow: t('register.step2Eyebrow'), title: t('register.step2Title'), body: t('register.step2Body') };
+    return { eyebrow: t('register.step3Eyebrow'), title: t('register.step3Title'), body: t('register.step3Body') };
+  }, [step, t]);
   const mappingCopy = skyMappingStep(mappingStep);
 
   useEffect(() => {
@@ -185,7 +172,7 @@ export function RegisterScreen(): React.JSX.Element {
       });
       void track('activation_completion', { source: 'guest', hasBirthProfile: true });
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Registration failed');
+      setErrorMsg(e instanceof Error ? e.message : t('register.failed'));
     }
   }, [draft, register]);
 
@@ -205,10 +192,10 @@ export function RegisterScreen(): React.JSX.Element {
             style={[styles.brand, { fontSize: brandSize, color: isLight ? palette.accent : colors.gold }]}
             accessibilityRole="header"
           >
-            {BRAND_COPY.mark}
+            Astralis
           </Text>
-          <Text style={[styles.originLine, { color: palette.textMuted }]}>{BRAND_COPY.originLine}</Text>
-          <View style={styles.progressRow} accessibilityLabel={`Registration ${copy.eyebrow}`}>
+          <Text style={[styles.originLine, { color: palette.textMuted }]}>{t('brand.originLine')}</Text>
+          <View style={styles.progressRow} accessibilityLabel={t('register.progressA11y', { step: copy.eyebrow })}>
             {[0, 1, 2].map((i) => (
               <View
                 key={i}
@@ -233,7 +220,7 @@ export function RegisterScreen(): React.JSX.Element {
             {step === 0 ? (
               <>
                 <Field
-                  label="Birth date (YYYY-MM-DD)"
+                  label={t('register.birthDate')}
                   labelNativeId="reg-birthdate-label"
                   value={draft.birthDate}
                   onChangeText={(birthDate) => patchDraft({ birthDate })}
@@ -243,7 +230,7 @@ export function RegisterScreen(): React.JSX.Element {
                   isLight={isLight}
                 />
                 <Text style={[styles.microcopy, { color: palette.textMuted }]}>
-                  This gives us your Sun sign and a first layer of sky-aware personalization.
+                  {t('register.birthDateHint')}
                 </Text>
               </>
             ) : null}
@@ -251,7 +238,7 @@ export function RegisterScreen(): React.JSX.Element {
             {step === 1 ? (
               <>
                 <CityPicker
-                  label="Search birth city"
+                  label={t('register.birthCity')}
                   query={draft.birthCity}
                   selectedCity={draft.selectedCity}
                   onQueryChange={onCityQueryChange}
@@ -266,7 +253,7 @@ export function RegisterScreen(): React.JSX.Element {
                   labelNativeId="reg-birthcity-label"
                 />
                 <Field
-                  label="Birth time (optional, HH:MM)"
+                  label={t('register.birthTime')}
                   labelNativeId="reg-birthtime-label"
                   value={draft.birthTime}
                   onChangeText={(birthTime) => patchDraft({ birthTime })}
@@ -276,7 +263,7 @@ export function RegisterScreen(): React.JSX.Element {
                   isLight={isLight}
                 />
                 <Text style={[styles.microcopy, { color: palette.textMuted }]}>
-                  Birth time is for rising sign precision and house accuracy. You can leave it blank and add it later.
+                  {t('register.birthTimeHint')}
                 </Text>
               </>
             ) : null}
@@ -285,7 +272,7 @@ export function RegisterScreen(): React.JSX.Element {
               <>
                 {loading ? (
                   <View style={[styles.mappingPanel, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
-                    <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>Real sky mapping</Text>
+                    <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>{t('register.realSkyMapping')}</Text>
                     <Text style={[styles.mappingTitle, { color: palette.text }]}>{mappingCopy}</Text>
                     <Text style={[styles.mappingBody, { color: palette.textMuted }]}>
                       {whyBirthplaceMatters(draft.selectedCity?.name ?? draft.birthCity)}
@@ -293,11 +280,11 @@ export function RegisterScreen(): React.JSX.Element {
                   </View>
                 ) : null}
                 <View style={[styles.timezoneBox, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
-                  <Text style={[styles.timezoneLabel, { color: palette.textMuted }]}>Device timezone</Text>
+                  <Text style={[styles.timezoneLabel, { color: palette.textMuted }]}>{t('register.deviceTimezone')}</Text>
                   <Text style={[styles.timezoneValue, { color: palette.text }]}>{deviceTimezoneLabel()}</Text>
                 </View>
                 <Field
-                  label="Full name"
+                  label={t('register.fullName')}
                   labelNativeId="reg-fullname-label"
                   value={draft.fullName}
                   onChangeText={(fullName) => patchDraft({ fullName })}
@@ -308,7 +295,7 @@ export function RegisterScreen(): React.JSX.Element {
                   isLight={isLight}
                 />
                 <Field
-                  label="Email"
+                  label={t('login.email')}
                   labelNativeId="reg-email-label"
                   value={draft.email}
                   onChangeText={(email) => patchDraft({ email })}
@@ -320,7 +307,7 @@ export function RegisterScreen(): React.JSX.Element {
                   isLight={isLight}
                 />
                 <Field
-                  label="Password"
+                  label={t('register.password')}
                   labelNativeId="reg-password-label"
                   value={draft.password}
                   onChangeText={(password) => patchDraft({ password })}
@@ -333,7 +320,7 @@ export function RegisterScreen(): React.JSX.Element {
                   isLight={isLight}
                 />
                 <Field
-                  label="UTC offset"
+                  label={t('register.utcOffset')}
                   labelNativeId="reg-timezone-label"
                   value={draft.timezoneOffset}
                   onChangeText={(timezoneOffset) => patchDraft({ timezoneOffset })}
@@ -350,11 +337,11 @@ export function RegisterScreen(): React.JSX.Element {
                     thumbColor="#ffffff"
                     ios_backgroundColor={isLight ? '#d2d6e7' : 'rgba(154, 160, 194, 0.45)'}
                     accessibilityRole="switch"
-                    accessibilityLabel="Allow Astralis to process birth data"
+                    accessibilityLabel={t('register.birthConsent')}
                     accessibilityState={{ checked: draft.birthDataConsent }}
                   />
                   <Text style={[styles.consentText, { color: palette.text }]}>
-                    I agree to Astralis processing my birth details to calculate my chart and sky-based readings.
+                    {t('register.birthConsent')}
                   </Text>
                 </View>
                 {validation.birthDataConsent ? <Text style={styles.error}>{validation.birthDataConsent}</Text> : null}
@@ -371,10 +358,10 @@ export function RegisterScreen(): React.JSX.Element {
                 ]}
                 onPress={onBack}
                 accessibilityRole="button"
-                accessibilityLabel={step === 0 ? 'Back to guest preview' : 'Back'}
+                accessibilityLabel={step === 0 ? t('register.preview') : t('common.back')}
                 hitSlop={hitSlopComfortable}
               >
-                <Text style={[styles.secondaryText, { color: palette.accent }]}>{step === 0 ? 'Preview' : 'Back'}</Text>
+                <Text style={[styles.secondaryText, { color: palette.accent }]}>{step === 0 ? t('register.preview') : t('common.back')}</Text>
               </Pressable>
               <Pressable
                 style={({ pressed }: { pressed: boolean }) => [
@@ -385,11 +372,11 @@ export function RegisterScreen(): React.JSX.Element {
                 onPress={step === 2 ? () => void onSubmit() : onNext}
                 disabled={loading}
                 accessibilityRole="button"
-                accessibilityLabel={step === 2 ? 'Create account' : 'Continue'}
+                accessibilityLabel={step === 2 ? t('common.createAccount') : t('common.continue')}
                 accessibilityState={{ disabled: loading }}
                 hitSlop={hitSlopComfortable}
               >
-                <Text style={styles.buttonText}>{loading ? mappingCopy : step === 2 ? 'Create account' : 'Continue'}</Text>
+                <Text style={styles.buttonText}>{loading ? mappingCopy : step === 2 ? t('common.createAccount') : t('common.continue')}</Text>
               </Pressable>
             </View>
           </CosmicCard>

@@ -226,19 +226,19 @@
     "highlights": "Highlights"
   },
   "premium": {
-    "badge": "Astralis Sky Intelligence",
-    "title": "Premium astrology for the actual sky",
-    "subtitle": "Deeper chart intelligence, live sky interpretation, and calm premium rituals built on real planetary positions and your birthplace.",
+    "badge": "Premium Pattern Memory",
+    "title": "Turn daily astrology into a private pattern.",
+    "subtitle": "Premium keeps your real-sky readings, tarot, saved reflection moments, compatibility, and deeper natal timing together so the guidance compounds over time.",
     "comingSoon": "Coming soon",
     "comingSoonBody": "Premium features are in development. Sign up for early access notifications.",
     "notifyMe": "Notify me when available",
-    "goPremium": "Open deeper sky layers",
+    "goPremium": "Start Premium pattern memory",
     "checkoutLoading": "Redirecting to secure checkout…",
     "checkoutFailed": "Checkout could not be started. Please try again.",
-    "upgradeTitle": "Go deeper without the noise",
-    "upgradeBody": "Open premium chart, transit, and compatibility layers grounded in your calculated sky map.",
-    "premiumActiveTitle": "Deeper sky layers are active",
-    "premiumActiveBody": "Your account has access to Astralis Sky Intelligence.",
+    "upgradeTitle": "Remember what keeps repeating",
+    "upgradeBody": "Use Premium for deeper timing, daily tarot, compatibility, and a private archive of the readings and reflections that actually stay with you.",
+    "premiumActiveTitle": "Premium pattern memory is active",
+    "premiumActiveBody": "Your account can keep deeper timing, tarot, compatibility, and saved ritual history together.",
     "successTitle": "Payment successful",
     "successBody": "Premium is now active on your account.",
     "syncing": "Syncing your account…",
@@ -251,16 +251,16 @@
     "unlock": "Unlock Premium",
     "features": {
       "ai": {
-        "title": "Chart intelligence",
-        "description": "Explore interpretations grounded in your calculated birth chart, houses, planetary patterns, and birthplace."
+        "title": "Deeper natal timing",
+        "description": "Use your calculated chart, houses, rising sign, Moon, Venus, and Mars context when your birth data is complete."
       },
       "tarot": {
-        "title": "Live sky context",
-        "description": "Read timing through the moving sky and your natal placements, without claiming astrology is science."
+        "title": "Tarot inside the same ritual",
+        "description": "Keep symbolic daily tarot beside the sky reading instead of treating it as a separate one-off draw."
       },
       "personal": {
-        "title": "Chart overlays",
-        "description": "See compatibility through chart overlays and relationship dynamics rather than generic sign matching."
+        "title": "Compatibility and relationship patterns",
+        "description": "Return to relationship atmosphere and compatibility prompts as part of a private long-term pattern."
       }
     }
   },

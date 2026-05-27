@@ -23,12 +23,14 @@ import { getOrCreateGuestOnboardingState, linkGuestToAuthenticatedUser } from '.
 import { track } from '../lib/analytics';
 import { installNotificationAnalyticsListeners } from '../lib/notifications/analyticsListeners';
 import { reconcileAtmosphericReminderState } from '../lib/notifications/deliveryState';
+import { useI18n } from '../i18n';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator(): React.JSX.Element {
   const { user, initialized } = useAuth();
   const { palette } = useAppearance();
+  const { ready: localeReady, t } = useI18n();
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
 
@@ -80,10 +82,10 @@ export function RootNavigator(): React.JSX.Element {
     setOnboardingComplete(true);
   }, [user]);
 
-  if (!initialized || !onboardingReady) {
+  if (!initialized || !onboardingReady || !localeReady) {
     return (
       <SafeAreaView style={styles.boot} edges={['left', 'right', 'top', 'bottom']}>
-        <ActivityIndicator size="large" color={colors.accent} accessibilityLabel="Loading session" />
+        <ActivityIndicator size="large" color={colors.accent} accessibilityLabel={t('common.loadingSession')} />
       </SafeAreaView>
     );
   }

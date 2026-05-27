@@ -1,12 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { __setLocaleForTests } from '../i18n';
 import { normalizeRitualHistory, profileStreakLines, ritualHistoryCompletedCount } from './streakProfile';
 
 describe('profile streak lines', () => {
+  beforeEach(() => {
+    __setLocaleForTests('en');
+  });
+
   it('includes longest streak display and freeze capacity', () => {
     expect(profileStreakLines({ streakCount: 7, longestStreakCount: 21, streakFreezes: 1, streakFreezeCap: 3 })).toEqual([
       'Current cosmic rhythm: 7 days',
-      'Your longest cosmic rhythm: 21 days \u2728',
-      '1 / 3 cosmic safeguards',
+      'Longest rhythm: 21 days',
+      '1 / 3 safeguards',
     ]);
   });
 

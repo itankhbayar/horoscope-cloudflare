@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import type { GlobalSkyToday } from '@astralis/lib/types';
 import type { EmotionalPatternSummary } from '../emotionalPatternMemory';
+import { translate as t } from '../../i18n';
 
 export type AtmosphericNotificationCopy = {
   title: string;
@@ -96,49 +97,49 @@ export function buildAtmosphericNotificationCopy(
 ): AtmosphericNotificationCopy {
   if (memory?.ritualNights && memory.ritualNights >= 3 && memory.strongestSignal) {
     return {
-      title: 'Tonight may feel familiar',
-      body: `The emotional tone resembles the ${memory.strongestSignal.replace(/[A-Z]/g, (m) => ` ${m.toLowerCase()}`)} you have lingered with recently.`,
+      title: t('notifications.copy.familiarTitle'),
+      body: t('notifications.copy.familiarBody', { signal: memory.strongestSignal.replace(/[A-Z]/g, (m) => ` ${m.toLowerCase()}`) }),
       reason: 'familiar',
     };
   }
   if (!sky) {
     return {
-      title: 'A quiet sky ritual is available',
-      body: 'One small check-in may be enough tonight.',
+      title: t('notifications.copy.defaultTitle'),
+      body: t('notifications.copy.defaultBody'),
       reason: 'reflection',
     };
   }
   if (sky.atmosphere.tension >= 64) {
     return {
-      title: 'Tonight feels emotionally direct',
-      body: 'The atmosphere favors honesty over overthinking.',
+      title: t('notifications.copy.tensionTitle'),
+      body: t('notifications.copy.tensionBody'),
       reason: 'tension',
     };
   }
   if (sky.atmosphere.intimacy >= 64) {
     return {
-      title: 'Tonight feels closer than usual',
-      body: 'Small shifts in tone may carry more meaning.',
+      title: t('notifications.copy.intimacyTitle'),
+      body: t('notifications.copy.intimacyBody'),
       reason: 'intimacy',
     };
   }
   if (sky.atmosphere.clarity >= 64) {
     return {
-      title: 'The sky feels unusually readable',
-      body: 'A calm ritual may help the day settle into language.',
+      title: t('notifications.copy.clarityTitle'),
+      body: t('notifications.copy.clarityBody'),
       reason: 'clarity',
     };
   }
   if (sky.atmosphere.socialOpenness >= 60) {
     return {
-      title: 'Tonight opens softly',
-      body: 'Connection may feel easier when nothing is forced.',
+      title: t('notifications.copy.socialTitle'),
+      body: t('notifications.copy.socialBody'),
       reason: 'socialOpenness',
     };
   }
   return {
-    title: "Tonight's atmosphere is quieter",
-    body: 'A small ritual may be enough.',
+    title: t('notifications.copy.quietTitle'),
+    body: t('notifications.copy.quietBody'),
     reason: 'reflection',
   };
 }
@@ -257,8 +258,8 @@ export async function scheduleAtmosphericReminder({
   const scheduledHHMM = resolveReminderHHMM(prefs);
   const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
-      title: prefs.silentModeEnabled ? 'A quiet sky ritual is available' : copy.title,
-      body: prefs.silentModeEnabled ? 'Open Astralis when the night feels ready.' : copy.body,
+      title: prefs.silentModeEnabled ? t('notifications.copy.defaultTitle') : copy.title,
+      body: prefs.silentModeEnabled ? t('notifications.copy.silentBody') : copy.body,
       sound: prefs.silentModeEnabled ? false : undefined,
       data: {
         kind: 'atmospheric_ritual',

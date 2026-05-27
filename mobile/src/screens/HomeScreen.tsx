@@ -39,6 +39,7 @@ import { shouldCompressExplanations } from '../lib/emotionalScreenHierarchy';
 import { goToPremium } from '../navigation/navigationRef';
 import { spacing } from '../theme';
 import type { DailyRitualCompletion } from '@astralis/lib/types';
+import { useI18n } from '../i18n';
 
 const TAROT_GLYPH = '\u2728';
 const CRYSTAL_GLYPH = '\u2726';
@@ -48,6 +49,7 @@ const AFFIRM_GLYPH = '\u2600';
 
 export function HomeScreen(): ReactElement {
   const theme = useSanctuaryTheme();
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { profile, load: loadProfile, loading: profileLoading, error: profileError } = useProfile();
@@ -295,7 +297,7 @@ export function HomeScreen(): ReactElement {
         <View style={[styles.orb, styles.orbB, { backgroundColor: theme.lavender }]} />
       </View>
 
-      {showProfileSpinner ? <LoadingBlock message="Gathering your cosmos…" /> : null}
+      {showProfileSpinner ? <LoadingBlock message={t('home.gathering')} /> : null}
       {profileError ? (
         <Text style={styles.alert} accessibilityRole="alert">
           {profileError}
@@ -365,10 +367,10 @@ export function HomeScreen(): ReactElement {
               style={({ pressed }) => [styles.dailyShareButton, pressed && styles.pressed]}
               onPress={onShareTodayReading}
               accessibilityRole="button"
-              accessibilityLabel="Share today's reading"
+              accessibilityLabel={t('home.shareToday')}
             >
               <Text style={styles.dailyShareIcon}>{'\u2197'}</Text>
-              <Text style={styles.dailyShareText}>Share today's reading</Text>
+              <Text style={styles.dailyShareText}>{t('home.shareToday')}</Text>
             </Pressable>
           ) : null}
         </Animated.View>
@@ -381,7 +383,7 @@ export function HomeScreen(): ReactElement {
       ) : null}
 
       {sun && initialHoroscopePending ? (
-        <LoadingBlock message="Reading the stars…" />
+        <LoadingBlock message={t('home.loadingSky')} />
       ) : null}
 
       {horoscope ? (
@@ -652,19 +654,20 @@ function EnergySequenceMoment({
 }
 
 function PremiumContinuationMoment({ onPress }: { onPress: () => void }): ReactElement {
+  const { t } = useI18n();
   return (
     <View style={styles.premiumContinuation}>
-      <Text style={styles.premiumContinuationTitle}>Continue deeper into tonight's rhythm.</Text>
+      <Text style={styles.premiumContinuationTitle}>{t('home.premiumTitle')}</Text>
       <Text style={styles.premiumContinuationBody}>
-        Premium extends the ritual into private continuity, not more noise.
+        {t('home.premiumBody')}
       </Text>
       <Pressable
         style={({ pressed }) => [styles.premiumContinuationButton, pressed && styles.pressed]}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel="Continue deeper with Premium"
+        accessibilityLabel={t('home.premiumButton')}
       >
-        <Text style={styles.premiumContinuationButtonText}>Open private continuation</Text>
+        <Text style={styles.premiumContinuationButtonText}>{t('home.premiumButton')}</Text>
       </Pressable>
     </View>
   );

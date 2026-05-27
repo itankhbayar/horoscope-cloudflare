@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { __setLocaleForTests } from '../i18n';
 import {
   formatFreezeSafeguard,
   formatStreakRitual,
@@ -19,11 +20,15 @@ import {
 } from './streakDisplay';
 
 describe('streak display copy', () => {
+  beforeEach(() => {
+    __setLocaleForTests('en');
+  });
+
   it('formats the home streak chip with soft ritual copy', () => {
     expect(formatStreakRitual(0)).toBeNull();
-    expect(formatStreakRitual(1)).toBe('Ritual begun');
-    expect(formatStreakRitual(3)).toBe('3 nights aligned');
-    expect(formatStreakRitual(7)).toBe('7-day ritual');
+    expect(formatStreakRitual(1)).toBe("Read today's ritual when you are ready to begin.");
+    expect(formatStreakRitual(3)).toBe('3 nights');
+    expect(formatStreakRitual(7)).toBe('7 nights');
   });
 
   it('falls back safely when older API responses omit streak fields', () => {
