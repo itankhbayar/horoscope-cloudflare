@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildHoroscopeShareCardPayload, generateHoroscopeShareCardSvg } from './horoscopeShareCard';
+import {
+  buildHoroscopeShareCardPayload,
+  buildHoroscopeShareText,
+  generateHoroscopeShareCardSvg,
+  horoscopeShareCardFilename,
+} from './horoscopeShareCard';
 import type { DailyHoroscope } from './types';
 
 const horoscope = {
@@ -41,5 +46,19 @@ describe('horoscope share card payload', () => {
     expect(payload.cosmicWeather).toContain('Waxing Gibbous');
     expect(payload.cosmicWeather).toContain('Moon in Scorpio');
     expect(generateHoroscopeShareCardSvg(payload)).toContain('Get your sky-aware reading');
+  });
+});
+
+describe('horoscope share helpers', () => {
+  it('builds share text with reading link', () => {
+    const payload = buildHoroscopeShareCardPayload(horoscope);
+    const text = buildHoroscopeShareText(payload, 'https://astralis.app');
+    expect(text).toContain(payload.energyLine);
+    expect(text).toContain('https://astralis.app/horoscope/scorpio/today');
+  });
+
+  it('uses a stable png filename', () => {
+    const payload = buildHoroscopeShareCardPayload(horoscope, { locale: 'en-US' });
+    expect(horoscopeShareCardFilename(payload, 'png')).toMatch(/^astralis-scorpio-.+-daily-card\.png$/);
   });
 });

@@ -21,6 +21,7 @@ import { PremiumScreen } from '../screens/PremiumScreen';
 import { hasCompletedOnboarding, markOnboardingComplete } from '../lib/onboardingStorage';
 import { getOrCreateGuestOnboardingState, linkGuestToAuthenticatedUser } from '../lib/progressiveOnboarding';
 import { track } from '../lib/analytics';
+import { subscribeCompatibilityDeepLinks } from '../lib/compatibilityDeepLink';
 import { installNotificationAnalyticsListeners } from '../lib/notifications/analyticsListeners';
 import { reconcileAtmosphericReminderState } from '../lib/notifications/deliveryState';
 import { useI18n } from '../i18n';
@@ -35,6 +36,11 @@ export function RootNavigator(): React.JSX.Element {
   const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   useEffect(() => installNotificationAnalyticsListeners(), []);
+
+  useEffect(() => {
+    const appReady = (): boolean => Boolean(user && onboardingComplete && onboardingReady);
+    return subscribeCompatibilityDeepLinks(appReady);
+  }, [user, onboardingComplete, onboardingReady]);
 
   useEffect(() => {
     void reconcileAtmosphericReminderState().then((state) => {

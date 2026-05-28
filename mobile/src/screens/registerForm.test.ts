@@ -35,7 +35,7 @@ describe('validateRegisterDraft', () => {
     });
 
     expect(errors.timezoneOffset).toBe('UTC offset must be between -14 and +14.');
-    expect(errors.birthDataConsent).toBe('Birth data consent is required to calculate sky-based readings.');
+    expect(errors.birthDataConsent).toBe('Please allow Astralis to use your birth details for this reading. You can delete them later.');
   });
 
   it('allows birth time to be omitted but validates malformed values', () => {

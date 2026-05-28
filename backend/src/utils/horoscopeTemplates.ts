@@ -535,9 +535,19 @@ export interface DailyHoroscopeContent {
   love: string;
   career: string;
   health: string;
+  finance?: string;
+  advice?: string;
   luckyNumber: number;
   luckyColor: string;
   skyContext?: DailySkyContext;
+  blocks?: HoroscopeContentBlock[];
+}
+
+export interface HoroscopeContentBlock {
+  id: 'overall' | 'love' | 'career' | 'health' | 'finance' | 'advice' | 'lucky';
+  title: string;
+  paragraphs: string[];
+  emphasis?: string;
 }
 
 export interface DailySkyContext {
@@ -570,6 +580,19 @@ export interface PersonalizedChartContext {
   aspects: NatalChartData['aspects'] | Aspect[];
 }
 
+function debugContentShape(label: string, payload: DailyHoroscopeContent, meta: Record<string, unknown> = {}): void {
+  // Temporary runtime diagnostics for MN depth investigation.
+  // eslint-disable-next-line no-console
+  console.log(`[horoscope-template-${label}]`, {
+    ...meta,
+    keys: Object.keys(payload),
+    hasBlocks: Array.isArray(payload.blocks),
+    blockCount: Array.isArray(payload.blocks) ? payload.blocks.length : 0,
+    financeLength: typeof payload.finance === 'string' ? payload.finance.length : 0,
+    adviceLength: typeof payload.advice === 'string' ? payload.advice.length : 0,
+  });
+}
+
 export function generateDailyHoroscope(
   sign: ZodiacSign,
   dateISO: string,
@@ -587,8 +610,10 @@ export function generateDailyHoroscope(
     luckyNumber: (seed % 99) + 1,
     luckyColor: pick(bundle.colors, seed >> 8),
   };
-  if (!options.sky || lang !== 'en') return fallback;
-  return buildAstronomyAwareReading(sign, dateISO, fallback, options);
+  if (!options.sky) return applyPeriodAwareFrame(fallback, lang, dateISO, seed);
+  if (lang === 'en') return applyPeriodAwareFrame(buildAstronomyAwareReadingEn(sign, dateISO, fallback, options), lang, dateISO, seed);
+  if (lang === 'mn') return applyPeriodAwareFrame(buildAstronomyAwareReadingMn(sign, dateISO, fallback, options), lang, dateISO, seed);
+  return applyPeriodAwareFrame(fallback, lang, dateISO, seed);
 }
 
 export function enrichDailyHoroscope(
@@ -598,11 +623,28 @@ export function enrichDailyHoroscope(
   lang: Lang,
   options: DailyHoroscopeGenerationOptions,
 ): DailyHoroscopeContent {
-  if (!options.sky || lang !== 'en') return content;
-  return buildAstronomyAwareReading(sign, dateISO, content, options);
+  debugContentShape('enrich-input', content, { sign, dateISO, lang, hasSky: !!options.sky });
+  if (!options.sky) {
+    const framed = applyPeriodAwareFrame(content, lang, dateISO, seedFromSignAndDate(sign, dateISO));
+    debugContentShape('enrich-return-no-sky', framed, { sign, dateISO, lang, branch: 'no-sky' });
+    return framed;
+  }
+  if (lang === 'en') {
+    const framed = applyPeriodAwareFrame(buildAstronomyAwareReadingEn(sign, dateISO, content, options), lang, dateISO, seedFromSignAndDate(sign, dateISO));
+    debugContentShape('enrich-return-en', framed, { sign, dateISO, lang, branch: 'en' });
+    return framed;
+  }
+  if (lang === 'mn') {
+    const framed = applyPeriodAwareFrame(buildAstronomyAwareReadingMn(sign, dateISO, content, options), lang, dateISO, seedFromSignAndDate(sign, dateISO));
+    debugContentShape('enrich-return-mn', framed, { sign, dateISO, lang, branch: 'mn' });
+    return framed;
+  }
+  const framed = applyPeriodAwareFrame(content, lang, dateISO, seedFromSignAndDate(sign, dateISO));
+  debugContentShape('enrich-return-fallback-lang', framed, { sign, dateISO, lang, branch: 'fallback-lang' });
+  return framed;
 }
 
-function buildAstronomyAwareReading(
+function buildAstronomyAwareReadingEn(
   sign: ZodiacSign,
   dateISO: string,
   base: DailyHoroscopeContent,
@@ -655,6 +697,149 @@ function buildAstronomyAwareReading(
     career: `${workSignal(sun.sign, mercury?.sign ?? sun.sign, seed)} ${mercuryName ? `Mercury in ${mercuryName} affects how fast people understand the point.` : `The point needs a cleaner shape before it needs more force.`} Precision matters more than urgency.`,
     health: `The ${phase} phase favors ${moonPhaseCare(sky.moonPhase.name)}. Let ${moonName} set the pace: ${bodyCueForMoon(moon.sign)} is enough of a ritual for today.`,
   };
+}
+
+const MN_SIGN_NAMES: Record<ZodiacSign, string> = {
+  aries: 'Хонь',
+  taurus: 'Үхэр',
+  gemini: 'Ихэр',
+  cancer: 'Мэлхий',
+  leo: 'Арслан',
+  virgo: 'Охин',
+  libra: 'Жинлүүр',
+  scorpio: 'Хилэнц',
+  sagittarius: 'Нум',
+  capricorn: 'Матар',
+  aquarius: 'Хумх',
+  pisces: 'Загас',
+};
+
+function buildAstronomyAwareReadingMn(
+  sign: ZodiacSign,
+  dateISO: string,
+  base: DailyHoroscopeContent,
+  options: DailyHoroscopeGenerationOptions,
+): DailyHoroscopeContent {
+  const sky = options.sky;
+  if (!sky) {
+    debugContentShape('mn-build-return-base-no-sky', base, { sign, dateISO });
+    return base;
+  }
+  const sun = sky.planets.find((p) => p.name === 'Sun');
+  const moon = sky.planets.find((p) => p.name === 'Moon');
+  const mercury = sky.planets.find((p) => p.name === 'Mercury');
+  const venus = sky.planets.find((p) => p.name === 'Venus');
+  if (!sun || !moon) {
+    debugContentShape('mn-build-return-base-missing-sun-moon', base, {
+      sign,
+      dateISO,
+      hasSun: !!sun,
+      hasMoon: !!moon,
+      planetNames: sky.planets.map((p) => p.name),
+    });
+    return base;
+  }
+
+  const seed = seedFromSignAndDate(sign, dateISO);
+  const skySeed = seedFromSkyState(sky);
+  const dynamicSeed = seed ^ skySeed;
+  const focusTransit = selectFocusTransit(options.transitAspects ?? []);
+  const moonHouse = options.natalChart ? findNatalHouse(moon.longitude, options.natalChart.houses) : undefined;
+  const socialHouse = focusTransit?.natalHouse ?? moonHouse;
+  const majorAspect = selectMajorSkyAspect(sky.planets);
+
+  const moonPhase = mnMoonPhaseLabel(sky.moonPhase.name);
+  const transitLine = focusTransit
+    ? mnTransitMeaning(focusTransit, socialHouse, dynamicSeed >> 2)
+    : pick([
+      'Төрөх зурагтай хүчтэй шүргэлцэх дохио цөөн өдөр тул өөрийнхөө хэмнэлийг барих нь хамгийн том давуу тал болно.',
+      'Өнөөдөр тэнгэр тайван талдаа тул бусдын шахалтаар бус өөрийн бодсон дарааллаар явбал илүү амар.',
+      'Хэт огцом эргэлтгүй өдөр: жижиг шийдвэрүүдээ нягт хийвэл орой илүү хөнгөн мэдрэгдэнэ.',
+    ], dynamicSeed >> 2);
+  const aspectLine = majorAspect
+    ? mnMajorAspectMeaning(majorAspect, dynamicSeed >> 3)
+    : pick([
+      'Өнөөдөр хурц мөргөлдөөн багатай тул яарах биш, цэгцтэй байх нь танд илүү ажиллана.',
+      'Том савлагаа бага өдөр: зөв хуваарилсан эрч хүч илүү тогтвортой үр дүн өгнө.',
+      'Тэнгэр зөөлөн учраас жижиг дохио, жижиг сонголт тань өдөр бүхнийг чиглүүлнэ.',
+    ], dynamicSeed >> 3);
+
+  const financeCue = mnFinanceCue(sun.sign, moon.sign, dynamicSeed >> 4);
+  const adviceCue = mnAdviceCue(moon.sign, dynamicSeed >> 5);
+  const colorCue = mnLuckyColorCue(base.luckyColor, sun.sign, dynamicSeed >> 6);
+  const relationHouseCue = socialHouse ? `Энэ дохио ${mnHouseCue(socialHouse)} дээр илүү тод мэдрэгдэнэ.` : '';
+  const emotionalFocus = mnMoonExperience(moon.sign, dynamicSeed >> 11);
+  const connectionFocus = mnVenusExperience(venus?.sign ?? moon.sign, dynamicSeed >> 12);
+  const communicationFocus = mnMercuryExperience(mercury?.sign ?? sun.sign, dynamicSeed >> 13);
+  const workFocus = mnSunWorkExperience(sun.sign, dynamicSeed >> 14);
+  const natalLead = options.natalChart
+    ? pick([
+      'Таны суурь зан төлөвтэй өнөөдрийн хэмнэл огтлолцож байгаа тул дотоод мэдрэмж илүү хурдан хариу өгч магадгүй.',
+      'Өмнө нь үл тоосон дотоод дохио өнөөдөр илүү тод сонсогдоно.',
+      'Өөрийн хэв маягтайгаа нийцүүлж алхмаа сонговол өдөр илүү зөөлөн урагшилна.',
+    ], dynamicSeed >> 1)
+    : pick([
+      'Өнөөдрийн дотоод хэмнэл нэлээд мэдрэмтгий байна.',
+      'Өдөр эхлэхэд дотоод анхаарал нэг гол сэдэв рүү татагдана.',
+      'Өнөөдөр хэт их зүйл зэрэг амжуулах гэж яарахгүй байх нь зөв.',
+    ], dynamicSeed >> 1);
+
+  const overallParagraphs = mnOverallParagraphs({
+    sign,
+    moonSign: moon.sign,
+    moonPhase: sky.moonPhase.name,
+    natalLead,
+    emotionalFocus,
+    aspectLine,
+    transitLine,
+    seed: dynamicSeed,
+  });
+  const loveParagraphs = mnLoveParagraphs({
+    moonSign: moon.sign,
+    venusSign: venus?.sign ?? moon.sign,
+    relationHouseCue,
+    connectionFocus,
+    seed: dynamicSeed,
+  });
+  const careerParagraphs = mnCareerParagraphs({
+    sunSign: sun.sign,
+    mercurySign: mercury?.sign ?? sun.sign,
+    workFocus,
+    communicationFocus,
+    financeCue,
+    seed: dynamicSeed,
+  });
+  const healthParagraphs = mnHealthParagraphs({
+    moonSign: moon.sign,
+    moonPhase: sky.moonPhase.name,
+    adviceCue,
+    colorCue,
+    seed: dynamicSeed,
+  });
+  const financeParagraphs = mnFinanceParagraphs(financeCue, dynamicSeed);
+  const adviceParagraphs = mnAdviceParagraphs(adviceCue, dynamicSeed);
+  const blocks = mnBuildBlocks(base, {
+    overall: overallParagraphs,
+    love: loveParagraphs,
+    career: careerParagraphs,
+    health: healthParagraphs,
+    finance: financeParagraphs,
+    advice: adviceParagraphs,
+  });
+
+  const result = {
+    ...base,
+    skyContext: buildSkyContext(sun.sign, moon.sign, sky.moonPhase.name, focusTransit),
+    overall: overallParagraphs.join('\n\n'),
+    love: loveParagraphs.join('\n\n'),
+    career: careerParagraphs.join('\n\n'),
+    health: healthParagraphs.join('\n\n'),
+    finance: financeParagraphs.join('\n\n'),
+    advice: adviceParagraphs.join('\n\n'),
+    blocks,
+  };
+  debugContentShape('mn-build-return-rich', result, { sign, dateISO, planetCount: sky.planets.length });
+  return result;
 }
 
 function publicOpening(signName: string, seed: number): string {
@@ -1031,4 +1216,639 @@ function moonPhaseCare(phase: string): string {
   if (phase.includes('Full')) return 'letting the truth be visible without dramatizing it';
   if (phase.includes('Waning')) return 'editing, releasing, and returning to what matters';
   return 'moving with the sky instead of against it';
+}
+
+function parseIsoDate(iso: string): Date | null {
+  const d = new Date(`${iso}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isWeeklyAnchorDate(iso: string): boolean {
+  const d = parseIsoDate(iso);
+  if (!d) return false;
+  return d.getUTCDay() === 1;
+}
+
+function isMonthlyAnchorDate(iso: string): boolean {
+  const d = parseIsoDate(iso);
+  if (!d) return false;
+  return d.getUTCDate() === 1;
+}
+
+function applyPeriodAwareFrame(content: DailyHoroscopeContent, lang: Lang, dateISO: string, seed: number): DailyHoroscopeContent {
+  if (isMonthlyAnchorDate(dateISO)) return monthlyFrame(content, lang, seed);
+  if (isWeeklyAnchorDate(dateISO)) return weeklyFrame(content, lang, seed);
+  return content;
+}
+
+function weeklyFrame(content: DailyHoroscopeContent, lang: Lang, seed: number): DailyHoroscopeContent {
+  if (lang === 'mn') {
+    return {
+      ...content,
+      overall: `Энэ долоо хоногт гол нь хэмнэлээ зөв барих. ${pick([
+        'Эхний өдрүүдэд чиглэлээ тодруулж, дунд үедээ ачааллаа тэнцвэржүүл, сүүл рүүгээ дуусаагүй ажлаа цэгцэл.',
+        'Долоо хоногийн эхэнд эхлүүлсэн жижиг сахилга сарын зорилгод шууд нөлөөлнө. Нэг дор олон зүйл биш, хоёр чухал зүйлээ хамгаал.',
+        'Энэ долоо хоногт хурд бус дараалал ялна: эхлэлээ тайван тавьж, дунд үедээ засвар хийж, төгсгөлд нь үр дүнгээ баталгаажуул.',
+      ], seed >> 7)} ${extractCoreWeeklySignal(content.overall)}`,
+      love: `Харилцаанд энэ долоо хоногт тогтвортой анхаарал чухал. ${extractCoreWeeklySignal(content.love)}`,
+      career: `Ажил дээр энэ долоо хоногт шийдвэрээ үе шаттай гарга. ${extractCoreWeeklySignal(content.career)}`,
+      health: `Бие, сэтгэлийн хувьд энэ долоо хоногт давтагдах энгийн дэг хамгийн үр дүнтэй. ${extractCoreWeeklySignal(content.health)}`,
+    };
+  }
+  return {
+    ...content,
+    overall: `Weekly outlook: ${content.overall}`,
+    love: `Relationship focus this week: ${content.love}`,
+    career: `Career direction this week: ${content.career}`,
+    health: `Weekly wellbeing rhythm: ${content.health}`,
+  };
+}
+
+function monthlyFrame(content: DailyHoroscopeContent, lang: Lang, seed: number): DailyHoroscopeContent {
+  if (lang === 'mn') {
+    return {
+      ...content,
+      overall: `Энэ сарын зураг урт амьсгал шаардсан үе байна. ${pick([
+        'Сарын эхэнд тавьсан зарчим тань дунд үед соригдож, сүүл рүүгээ үр дүн нь тодорно.',
+        'Энэ сар "их зүйл эхлүүлэх" сар биш, харин зөв зүйлээ тууштай барих сар болно.',
+        'Сарын турш ачааллаа шаталж зохицуулбал сүүл үедээ ядаргаагүй ч ахицтай үлдэнэ.',
+      ], seed >> 8)} ${extractCoreMonthlySignal(content.overall)}`,
+      love: `Энэ сарын харилцааны гол сэдэв нь итгэл ба тогтвортой анхаарал. ${extractCoreMonthlySignal(content.love)}`,
+      career: `Энэ сард карьер, санхүүд хурдан үсрэлтээс илүү тогтвортой алхам ашигтай. ${extractCoreMonthlySignal(content.career)}`,
+      health: `Энэ сард бие, сэтгэлд урт хугацаанд даах дэглэм сонго. ${extractCoreMonthlySignal(content.health)}`,
+    };
+  }
+  return {
+    ...content,
+    overall: `Monthly outlook: ${content.overall}`,
+    love: `Relationship theme this month: ${content.love}`,
+    career: `Career and money theme this month: ${content.career}`,
+    health: `Monthly wellbeing cadence: ${content.health}`,
+  };
+}
+
+function mnSignName(sign: ZodiacSign): string {
+  return MN_SIGN_NAMES[sign];
+}
+
+function mnMoonPhaseLabel(phase: string): string {
+  const labels: Record<string, string> = {
+    'New Moon': 'шин сарны',
+    'Waxing Crescent': 'саравчлан дүүрэх',
+    'First Quarter': 'тал сарны',
+    'Waxing Gibbous': 'бараг дүүрэх',
+    'Full Moon': 'тэргэл сарны',
+    'Waning Gibbous': 'дүүрснээс буурах',
+    'Last Quarter': 'хорогдох тал сарны',
+    'Waning Crescent': 'битүүрэхийн өмнөх',
+  };
+  return labels[phase] ?? phase;
+}
+
+function seedFromSkyState(sky: DailySkySnapshot): number {
+  const sig = `${sky.date}:${sky.moonPhase.name}:${sky.planets.map((p) => `${p.name}-${p.sign}`).join('|')}`;
+  let h = 0;
+  for (let i = 0; i < sig.length; i += 1) h = (h * 33 + sig.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function mnMajorAspectMeaning(aspect: Aspect, seed: number): string {
+  const type = aspect.type;
+  if (type === 'conjunction') {
+    return pick([
+      'Өнөөдрийн тэнгэр нэг чиг рүү хүч төвлөрүүлж байна. Тарамдсан ажлаа нэг цэгт аваачвал хамгийн хурдан ахина.',
+      'Энерги нэг сувгаар хүчтэй урсаж байгаа өдөр. Нэг шийдвэр дээр төвлөрвөл эргэлзээ багасна.',
+    ], seed);
+  }
+  if (type === 'opposition') {
+    return pick([
+      'Тэнгэр хоёр талын хэрэгцээг зэрэг мэдрүүлж байна. "Нэгийг нь сонгох" биш, тэнцвэрийн шинэ дүрэм гаргах өдөр.',
+      'Дотоод ба гадаад шахалт зэрэг ирж болно. Шууд эсэргүүцэхээс илүү хэлэлцэх байрлалд орвол ашигтай.',
+    ], seed);
+  }
+  if (type === 'square') {
+    return pick([
+      'Тэнгэр багахан шахалт өгч байгаа тул асуудлыг тойрох биш, төвөөс нь барьж шийдэх хэрэгтэй.',
+      'Эсэргүүцэл мэдрэгдэх өдөр ч зөв дараалал баримталбал энэ даралт ахиц болж хувирна.',
+    ], seed);
+  }
+  if (type === 'trine') {
+    return pick([
+      'Тэнгэрийн урсгал дэмжиж байгаа өдөр. Амархан бүтэж буй ажлаа ашиглаж нөөц хүчээ хуримтлуул.',
+      'Зөөлөн дэмжлэг мэдрэгдэх тул сайн явж буй чиглэлээ улам бататгахад тохиромжтой.',
+    ], seed);
+  }
+  return pick([
+    'Өнөөдөр боломж нээгдэх цонх гарч байна. Жижигхэн санаачилга их хаалга нээж чадна.',
+    'Эвтэй урсгалтай өдөр тул нэг алхам урагшлахад хэт их хүч шаардахгүй.',
+  ], seed);
+}
+
+function mnTransitMeaning(focusTransit: TransitToNatalAspect, house: number | undefined, seed: number): string {
+  const body = focusTransit.transitBody;
+  const natalBody = focusTransit.natalBody;
+  const type = focusTransit.type;
+  const houseCue = house ? `Нөлөө нь ${mnHouseCue(house)} дээр илүү тод мэдрэгдэнэ.` : '';
+  if (body === 'Moon' || natalBody === 'Moon') {
+    return pick([
+      `Өнөөдрийн сэдэв сэтгэлээ яаж удирдах вэ гэдэгт төвлөрнө. ${houseCue}`,
+      `Сэтгэл хөдлөл хурдан солигдож мэдэх өдөр тул хариу өгөхөөсөө өмнө зай авч бодоорой. ${houseCue}`,
+    ], seed);
+  }
+  if (body === 'Mercury' || natalBody === 'Mercury') {
+    return pick([
+      `Яриа, тохиролцоо, бичиг баримтын сэдэвт анхаарал өндөр байна. Үг сонголтоо энгийн байлгах тусам ашигтай. ${houseCue}`,
+      `Буруу ойлголцлоос сэргийлэх өдөр: товч, тод хэллэг таны хамгийн том хамгаалалт болно. ${houseCue}`,
+    ], seed);
+  }
+  if (body === 'Venus' || natalBody === 'Venus') {
+    return pick([
+      `Харилцаа ба үнэ цэнийн сэдэв идэвхтэй. Халамжийг бодит үйлдлээр үзүүлэхэд холбоо чангарна. ${houseCue}`,
+      `Эв найрамдлын суваг нээгдэж байна. Эелдэг, үнэн харилцаа өнөөдөр илүү хүчтэй нөлөөтэй. ${houseCue}`,
+    ], seed);
+  }
+  if (type === 'square' || type === 'opposition') {
+    return pick([
+      `Өнөөдөр дотоод эсэргүүцэл мэдрэгдэж болох ч түүнээ нэрлэж чадвал дараагийн алхам тод болно. ${houseCue}`,
+      `Хөндлөн даралт байгаа өдөр тул бүхнийг зэрэг шийдэхгүй, нэг гол зангилааг л тайлаарай. ${houseCue}`,
+    ], seed);
+  }
+  return pick([
+    `Төрөх зурхайтай зөөлөн дэмжлэгтэй өдрүүдийн нэг. Жижиг хөдөлгөөнөө тогтвортой үргэлжлүүлэхэд хангалттай. ${houseCue}`,
+    `Өнөөдрийн нөлөө танд чиглэлээ зөв барихад тусална. Хэт яарахгүй, гэхдээ буцахгүй урагшил. ${houseCue}`,
+  ], seed);
+}
+
+function extractCoreWeeklySignal(text: string): string {
+  if (text.includes('.')) return `${text.split('.')[0]!.trim()}.`;
+  return text;
+}
+
+function extractCoreMonthlySignal(text: string): string {
+  if (text.includes('.')) return `${text.split('.')[0]!.trim()}.`;
+  return text;
+}
+
+function mnOverallOpening(natalLead: string, moonPhase: string, emotionalFocus: string, seed: number): string {
+  return pick([
+    `${natalLead} ${moonPhase} үеийн хэмнэлтэй давхацсанаар сэтгэлийн нарийн дохио илүү хүчтэй мэдрэгдэнэ. ${emotionalFocus}`,
+    `Өнөөдөр ${moonPhase} үеэр дотоод хариу үйлдэл хурдан болох хандлагатай. ${natalLead} ${emotionalFocus}`,
+    `${natalLead} Өнөөдөр сэтгэлээ хүчээр дарж явахаас илүү зөв нэрлэж таних нь өдөр бүхнийг хөнгөвчилнө. ${emotionalFocus}`,
+  ], seed);
+}
+
+function mnLoveOpening(seed: number): string {
+  return pick([
+    'Харилцаанд жижиг өнгө аяс ч тод анзаарагдаж магадгүй өдөр.',
+    'Өнөөдөр дотно холбоонд хүлээлт ба бодит үйлдлийн зөрүү амархан мэдрэгдэнэ.',
+    'Хайрын харилцаанд илэн далангүй байдал богино хугацаанд илүү үр дүн өгнө.',
+  ], seed);
+}
+
+function mnCareerOpening(seed: number): string {
+  return pick([
+    'Ажил дээр тогтсон чиглэлтэй, шат дараатай ажил илүү үр дүнтэй явна.',
+    'Өнөөдөр олон зүйл зэрэг эхлүүлэхээс илүү нэг гол шийдвэрээ дуусгах нь зөв.',
+    'Ажлын орчинд хурд бус цэгцтэй дараалал ахиц илүү тодруулна.',
+  ], seed);
+}
+
+function mnMoonExperience(sign: ZodiacSign, seed: number): string {
+  switch (sign) {
+    case 'cancer':
+      return pick([
+        'Гэр бүл, дотны хүмүүсийн асуудал анхаарлын төвд орж магадгүй.',
+        'Аюулгүй, дулаан орчин хэрэгтэй мэдрэмж илүү тод мэдэгдэнэ.',
+      ], seed);
+    case 'libra':
+      return pick([
+        'Хоёр талын хэрэгцээг тэнцвэртэй харах шаардлага нэмэгдэнэ.',
+        'Харилцаанд шударга тэнцвэрийг хадгалах нь сэтгэл амраана.',
+      ], seed);
+    case 'scorpio':
+      return pick([
+        'Мэдрэмж гүнзгийрч, дотоод эргэцүүлэл хүчтэй явагдаж магадгүй.',
+        'Гаднаа тайван харагдавч дотроо илүү гүн асуулттай үлдэж болно.',
+      ], seed);
+    default: {
+      const el = getZodiacInfo(sign).element;
+      if (el === 'fire') return pick(['Шуурхай хариулах хүсэл нэмэгдэх ч түр азнах нь илүү ухаалаг.', 'Сэтгэлийн импульс хурдан өсөх тул анхны хариугаа багахан удаашруул.'], seed);
+      if (el === 'earth') return pick(['Тодорхой, баригдах зүйл хүсэх мэдрэмж нэмэгдэнэ.', 'Тогтвортой дэглэмд буцах хүсэл сэтгэлийг тайвшруулна.'], seed);
+      if (el === 'air') return pick(['Бодол ихсэх хандлагатай тул мэдрэмжээ товч нэрлэж тэмдэглээрэй.', 'Мэдрэмжээ хэт задлан шинжлэхээс илүү гол цөмийг нь барих нь зөв.'], seed);
+      return pick(['Эмзэг мэдрэмж илүү ойрхон мэдрэгдэнэ.', 'Дотоод дохио илүү хурдан мэдрэгдэж магадгүй тул өөртөө зай гаргаарай.'], seed);
+    }
+  }
+}
+
+function mnVenusExperience(sign: ZodiacSign, seed: number): string {
+  const el = getZodiacInfo(sign).element;
+  if (el === 'fire') {
+    return pick([
+      'Дотно байдалд татагдалт хурдан асах тул өнгө аясаа зөөлөн хадгалах нь чухал.',
+      'Сэтгэл татах хүч өндөр байгаа өдөр тул эелдэг илэрхийлэл харилцааг илүү удаан тогтооно.',
+    ], seed);
+  }
+  if (el === 'earth') {
+    return pick([
+      'Анхаарал, халамжийг бодит үйлдлээр харуулахад итгэл хурдан өснө.',
+      'Үгнээс илүү тогтвортой үйлдэл харилцаанд үнэ цэн нэмнэ.',
+    ], seed);
+  }
+  if (el === 'air') {
+    return pick([
+      'Харилцаанд сонсох чадвар, ойлгомжтой ярилцах орчин илүү чухалдана.',
+      'Нээлттэй ярилцлага татагдлыг зөв чиглэлд барьж өгнө.',
+    ], seed);
+  }
+  return pick([
+    'Эмзэг сэдэвт зөөлөн хандах тусам холбоо гүнзгийрнэ.',
+    'Хайр халамжийг ил тод илэрхийлэх нь өнөөдөр илүү сайн хүрнэ.',
+  ], seed);
+}
+
+function mnMercuryExperience(sign: ZodiacSign, seed: number): string {
+  const el = getZodiacInfo(sign).element;
+  if (el === 'fire') return pick(['Хэлэлцээ хурдан эргэх хандлагатай тул гол санаагаа товч бариарай.', 'Түргэн шийдэх яриа ихсэж болох тул баримтаа урьдчилж бэлдэх нь тустай.'], seed);
+  if (el === 'earth') return pick(['Төлөвлөлт, хугацаа, хариуцлагаа тод болгох нь үл ойлголцлыг бууруулна.', 'Тодорхой төлөвлөгөөтэй ярилцлага хамгийн үр дүнтэй явна.'], seed);
+  if (el === 'air') return pick(['Олон мэдээллээс гол цөмийг ялгаж хэлбэл хүмүүс хурдан ойлгоно.', 'Хэлэлцээ, төлөвлөлт, тохиролцоо хийхэд өнөөдөр боломж сайн.'], seed);
+  return pick(['Ярианы цаадах сэтгэлзүйн өнгө анзаарагдах тул үгээ зөөлөн сонгоорой.', 'Эмпати шингэсэн тайлбар хэлэлцээг илүү бүтээлч болгоно.'], seed);
+}
+
+function mnSunWorkExperience(sign: ZodiacSign, seed: number): string {
+  const el = getZodiacInfo(sign).element;
+  if (el === 'fire') return pick(['Идэвхтэй эхлүүлэх эрч сайн байгаа ч хэт тарамдахгүй байх нь чухал.', 'Шийдэмгий алхам хэрэгтэй ч нэг гол зорилтоо л хамгаал.'], seed);
+  if (el === 'earth') return pick(['Тогтвортой ахиц шаардсан ажлууд өнөөдөр илүү үр дүнтэй байна.', 'Суурь бэхжүүлэх ажилд цаг өгөх тусам өгөөж өндөр гарна.'], seed);
+  if (el === 'air') return pick(['Санаагаа нэгтгэж, бүтэцжүүлэх ажил өнөөдөр амархан урагшилна.', 'Тайлбар, зохион байгуулалт шаардсан ажилд анхаарал сайн төвлөрнө.'], seed);
+  return pick(['Багийн уур амьсгал, хамтын ажиллагаанд мэдрэмжтэй хандвал үр дүн сайжирна.', 'Хүмүүстэй уялдах ажлууд дээр уян хатан байдал тань давуу тал болно.'], seed);
+}
+
+function mnOverallParagraphs(input: {
+  sign: ZodiacSign;
+  moonSign: ZodiacSign;
+  moonPhase: string;
+  natalLead: string;
+  emotionalFocus: string;
+  aspectLine: string;
+  transitLine: string;
+  seed: number;
+}): string[] {
+  return [
+    `${mnOverallOpening(input.natalLead, mnMoonPhaseLabel(input.moonPhase), input.emotionalFocus, input.seed)} ${mnOverallCue(input.sign, input.moonSign, input.seed)}`,
+    `${pick([
+      'Өнөөдрийн боломж нь анхаарлаа тарамдуулахгүйгээр нэг гол сэдвээ гүнзгийрүүлэхэд байна.',
+      'Та зөв хэмнэлээ олж чадвал жижиг шийдвэрүүд хуримтлагдаж том ахиц болж хувирна.',
+      'Өдөр дундаас хойш илүү тодорхой байдал мэдрэгдэх тул чухал яриа, шийдвэрээ тэр цагт төвлөрүүлээрэй.',
+    ], input.seed >> 21)} ${input.aspectLine}`,
+    `${pick([
+      'Анзаарах эрсдэл нь: бусдын яаралтай мэдрэмжийг өөрийн зорилготой андуурах.',
+      'Анзаарах эрсдэл нь: сэтгэлээ дотроо барьсаар бодит хэрэгцээгээ хойшлуулах.',
+      'Анзаарах эрсдэл нь: хэт их тайлбарлаж шийдвэрийн мөчийг алдах.',
+    ], input.seed >> 22)} ${input.transitLine}`,
+    pick([
+      'Сэтгэлзүйн уур амьсгалын хувьд өнөөдөр хамгаалах хариу үйлдэл хурдан гарч магадгүй ч та үүнийг анзаараад удаашруулж чадвал шийдвэрийн чанар мэдэгдэхүйц сайжирна. Хэн нэгний өнгө аяс таны дотоод мэдрэмжийг өдөөснөөр бүхэл өдрийн утга өөрчлөгдөх тул анхны сэтгэгдлээ шууд үнэн гэж батлахгүй байх нь зөв.',
+      'Өнөөдрийн дотоод цаг агаар нь нэг мөчид тайван, нөгөө мөчид эмзэг болж савлах шинжтэй. Ийм үед өөрийгөө буруутгахын оронд "би яг одоо юу мэдэрч байна, надад яг юу хэрэгтэй байна" гэдгээ товч нэрлэх арга хамгийн их тус болдог.',
+      'Өнөөдөр таны хувьд хамгийн том үнэ цэнэ нь гаднах хурдаа бус дотоод тогтвортой байдлаа хадгалах явдал. Хэрэв нэг яриа эсвэл нэг мэдээ таныг сэтгэлээр хүчтэй хөдөлгөвөл тухайн мөчийг асуудал биш мэдээлэл гэж харж чадвал өдөр илүү удирдлагатай болно.',
+    ], input.seed >> 34),
+    pick([
+      'Практик зөвлөмж: өнөөдрийн төгсгөлд гурван зүйлээ тэмдэглэ - юу мэдэрсэн, юу ойлгосон, маргааш юу үргэлжлүүлэхээ.',
+      'Практик зөвлөмж: өөрийгөө шахахаас илүү ажлын дарааллаa цэгцлэхэд 15 минут зарцуулаарай.',
+      'Практик зөвлөмж: нэг чухал шийдвэрийнхээ өмнө богино завсарлага авч, хариу үйлдэл биш сонголтоо хий.',
+    ], input.seed >> 23),
+  ];
+}
+
+function mnLoveParagraphs(input: {
+  moonSign: ZodiacSign;
+  venusSign: ZodiacSign;
+  relationHouseCue: string;
+  connectionFocus: string;
+  seed: number;
+}): string[] {
+  return [
+    `${mnLoveOpening(input.seed)} ${mnLoveCue(input.moonSign, input.venusSign, input.seed)}`,
+    `${pick([
+      'Харилцааны динамик дээр өнөөдөр хэлээгүй зүйлс хүртэл мэдрэгдэж магадгүй.',
+      'Хосын хооронд жижиг хандлага том утга агуулж байгаа мэт санагдаж болно.',
+      'Хүлээлт, бодит байдал зөрөх мөч гарвал хамгаалах биш тайлбарлах хандлага илүү үр дүнтэй.',
+    ], input.seed >> 24)} ${input.connectionFocus}`,
+    `${pick([
+      'Ганц бие хүмүүсийн хувьд: танилцахдаа төгс харагдах гэж оролдохоос илүү үнэн өнгөөрөө байх нь илүү татна.',
+      'Ганц бие хүмүүсийн хувьд: сонирхол төрсөн хүнтэйгээ хурдлахгүй, тогтвортой харилцааны өнгө барь.',
+      'Ганц бие хүмүүсийн хувьд: эхний ярианд өөрийн хил хязгаарыг зөөлөн тодорхой хэлэх нь итгэл төрүүлнэ.',
+    ], input.seed >> 25)} ${pick([
+      'Хостой хүмүүсийн хувьд: "чи яагаад" гэж эхлэхийн оронд "би ингэж мэдэрлээ" гэж эхлэх нь ойртуулна.',
+      'Хостой хүмүүсийн хувьд: шийдэхийн өмнө сонсох 10 минут харилцааны уур амьсгалыг өөрчилнө.',
+      'Хостой хүмүүсийн хувьд: өнөөдөр том яриаг жижиг, ойлгомжтой хэсэгт хувааж ярилц.',
+    ], input.seed >> 26)}`,
+    pick([
+      'Хайрын талбарт өнөөдөр хэн зөв, хэн буруу гэдгээс илүү хэн нь илүү үнэн, илүү ойлгомжтой байж чадсан нь чухал өдөр. Та хэт таамаглаж дотроо дүгнэхээсээ өмнө нэг тодруулга асуух нь үл ойлголцлын мөчлөгийг шууд тасалж чадна.',
+      'Харилцаанд өнөөдөр "намайг ойлгооч" гэх дуу хоолой дотроос хүчтэй сонсогдож магадгүй. Үүнийг гомдол хэлбэрээр гаргахын оронд хэрэгцээгээ энгийн хэлбэрээр нэрлэвэл хариу илүү хурдан, илүү зөөлөн ирнэ.',
+      'Хайрын эрчим өнөөдөр жижиг зүйлээс том мэдрэмж рүү хурдан өсөх хандлагатай. Ийм үед өнгөрсөн асуудлыг давтан сөхөхөөс илүү яг өнөөдрийн бодит хэрэгцээндээ төвлөрөх нь харилцааг хамгаална.',
+    ], input.seed >> 35),
+    `${input.relationHouseCue} ${pick(['Таамаглахаас илүү тод асуух нь ойртуулна.', 'Сэтгэлээ зөв таахыг хүлээхээс илүү тайван хэлэх нь илүү үр дүнтэй.', 'Хэт тайлбарлахын оронд гол мэдрэмжээ нэг өгүүлбэрээр хэлээрэй.'], input.seed >> 27)}`,
+  ];
+}
+
+function mnCareerParagraphs(input: {
+  sunSign: ZodiacSign;
+  mercurySign: ZodiacSign;
+  workFocus: string;
+  communicationFocus: string;
+  financeCue: string;
+  seed: number;
+}): string[] {
+  return [
+    `${mnCareerOpening(input.seed)} ${mnCareerCue(input.sunSign, input.mercurySign, input.seed)}`,
+    `${input.workFocus} ${pick([
+      'Өнөөдрийн шийдвэр гаргалтад "яаралтай" ба "чухал"-аа салгаж харах нь үр дүнг өсгөнө.',
+      'Өнөөдөр дуусгах чадвар эхлүүлэхээс илүү үнэ цэнтэй байх өдөр.',
+      'Нэг удаагийн өндөр ачааллаас илүү тогтвортой ахиц таны нэр хүндэд тустай.',
+    ], input.seed >> 28)}`,
+    `${input.communicationFocus} ${pick([
+      'Хамтын ажиллагаанд таны тодорхойлсон дараалал бусдад итгэл өгнө.',
+      'Багийн түвшинд үүрэг, хугацаа, хүлээлт гурваа нэг мөр болгож бичээрэй.',
+      'Хэлэлцээ хийхдээ эхлээд зорилгоо, дараа нь нөхцлөө, эцэст нь хугацаагаа хэл.',
+    ], input.seed >> 29)}`,
+    pick([
+      'Карьерын орчинд өнөөдөр дуугүй хөдөлмөрийг тань хүмүүс анзаарахгүй өнгөрөх магадлалтай тул хийсэн ажлынхаа хүрээ, үр дүн, дараагийн алхмаа богино хэлбэрээр өөрөө ил тод болгож өгөөрэй. Энэ нь өөрийгөө магтах биш мэргэжлийн тодорхой байдал бий болгох алхам юм.',
+      'Өнөөдөр ажлын эрч хурдан солигдох үед жижиг төлөвлөгөө хамгийн сайн хамгаалалт болно: юу заавал дуусгах, юу хойшлуулах, хэнтэй зөвшилцөх гэсэн гурван жагсаалт хийж эхэлбэл стресс буурна.',
+      'Ажлын талбар дээр өнөөдөр бусдын яаралтай хүсэлтийг бүгдийг нь өөр дээрээ авах эрсдэлтэй. Таныг өсгөх ажил болон таныг зүгээр л ядраах ажлыг ялгах нэг жижиг шалгуур тавибал урт хугацааны ахицад тустай.',
+    ], input.seed >> 36),
+    `${pick([
+      'Өсөлтийн боломж: хойшлуулж явсан нэг чадвараа өнөөдрөөс жижиг алхмаар эхлүүл.',
+      'Өсөлтийн боломж: зөвхөн танд үлдээд байсан ажлын процессыг багтайгаа хуваалцах.',
+      'Өсөлтийн боломж: хяналт шаардсан ажлуудаа автоматчлах жижиг шийдэл турших.',
+    ], input.seed >> 30)} ${input.financeCue}`,
+  ];
+}
+
+function mnHealthParagraphs(input: {
+  moonSign: ZodiacSign;
+  moonPhase: string;
+  adviceCue: string;
+  colorCue: string;
+  seed: number;
+}): string[] {
+  return [
+    mnHealthCue(input.moonSign, input.moonPhase, input.seed),
+    pick([
+      'Сэтгэлзүйн хувьд: мэдрэмжээ дотроо хадгалах тусам ядралт хурдан нэмэгдэж магадгүй.',
+      'Сэтгэлийн хувьд: өнөөдөр мэдрэлийн ачаалал хуримтлагдах хандлагатай тул мэдээллийн урсгалаа багасга.',
+      'Сэтгэлзүйн хувьд: богино ч гэсэн чимээгүй хугацаа төвлөрлийг мэдэгдэхүйц сэргээнэ.',
+    ], input.seed >> 31),
+    pick([
+      'Биеийн түвшинд өнөөдөр өндөр ачаалалтай дасгалаас илүү хэмнэлтэй, давтагдах хөдөлгөөн танд илүү тохирно. Нойрны өмнө дэлгэцийн хэрэглээг 30 минут багасгах жижиг өөрчлөлт ч маргаашийн төвлөрөлд мэдэгдэхүйц нөлөөлнө.',
+      'Өнөөдрийн сэргэлтийн чанар "их зүйл хийх"-ээс биш, "тасралтгүй жижиг арчилгаа"-аас гарна. Ус, амьсгал, сунгалт, богино алхалт гэсэн дөрвийг өдөртөө тарааж хийвэл ядаргааны түвшин тогтвортой буурна.',
+      'Эрүүл мэндийн хувьд өнөөдөр дохиогоо хэтэрхий орой сонсох эрсдэл бий. Толгой манарах, уур савлах, анхаарал сарних зэрэг жижиг шинжүүдийг эрт анзаараад богино завсарлага авах нь өдрийн сүүлийн хэсгийг авардаг.',
+    ], input.seed >> 37),
+    `${input.adviceCue} ${input.colorCue}`,
+  ];
+}
+
+function mnFinanceParagraphs(financeCue: string, seed: number): string[] {
+  return [
+    financeCue,
+    pick([
+      'Зардлын талд: таашаал авах худалдан авалт ба хэрэгцээний худалдан авалтаа тусад нь тэмдэглэвэл удирдлага сайжирна.',
+      'Хадгаламжийн талд: жижиг дүнгээр ч тогтмол хийх хандлага өнөөдрөөс эхэлбэл сарын төгсгөлд өөрчлөлт харагдана.',
+      'Эрсдэлийн талд: сэтгэл хөөрөл дээр суурилсан санхүүгийн шийдвэрийг нэг шөнө амрааж байж баталгаажуул.',
+    ], seed >> 32),
+    pick([
+      'Өнөөдрийн санхүүгийн практик алхам: орлого, тогтмол зардал, хувьсах зардлын гурван мөртэй богино хүснэгт гарга. Энэ жижиг зураглал нь шийдвэр бүрийн дарамтыг бууруулж, танд сонголтын эрх мэдэл байгаа мэдрэмжийг буцааж өгдөг.',
+      'Мөнгөний асуудалд өнөөдөр хэт өөдрөг эсвэл хэт болгоомжтой хоёр туйл руу савлах боломжтой. Аль алинаас сэргийлэхийн тулд 24 цагийн дүрэм (том худалдан авалтыг маргааш батлах) ба дээд хязгаарын дүрэм (төсөвт дүн тогтоох)-ийг зэрэг хэрэглээрэй.',
+      'Санхүүд өнөөдрийн гол зорилго том ашиг биш, хяналт сэргээх явдал байна. Өчигдрийн нэг хэрэггүй зардлаа тодорхойлж, оронд нь юунд зарцуулах байсан бэ гэдгээ тэмдэглэхэд таны мөнгөний шийдвэрийн чанар хурдан сайжирна.',
+    ], seed >> 38),
+  ];
+}
+
+function mnAdviceParagraphs(adviceCue: string, seed: number): string[] {
+  return [
+    adviceCue,
+    pick([
+      'Өнөөдрийн нэг санаа: хурднаас илүү хэмнэлээ хамгаал.',
+      'Өнөөдрийн нэг санаа: өөрийгөө шахахаас илүү зорилгоо цэгцэл.',
+      'Өнөөдрийн нэг санаа: зөв цагт хэлсэн нэг үнэн үг олон тайлбараас хүчтэй.',
+    ], seed >> 33),
+    pick([
+      'Санах өгүүлбэр: өөртөө өгсөн жижиг амлалт ч биелэх тусам таны дотоод итгэлийг хамгийн хурдан нэмдэг.',
+      'Санах өгүүлбэр: өнөөдөр төгс хийхээсээ илүү маргааш ч үргэлжлүүлж чадах хэмнэл сонго.',
+      'Санах өгүүлбэр: таны тайван байдал бол идэвхгүй байдал биш, энэ бол илүү чанартай шийдвэр гаргах стратеги.',
+    ], seed >> 39),
+  ];
+}
+
+function mnBuildBlocks(
+  base: DailyHoroscopeContent,
+  sections: { overall: string[]; love: string[]; career: string[]; health: string[]; finance: string[]; advice: string[] },
+): HoroscopeContentBlock[] {
+  return [
+    { id: 'overall', title: 'Ерөнхий', paragraphs: sections.overall, emphasis: 'Өдрийн гол сэдэв' },
+    { id: 'love', title: 'Хайр', paragraphs: sections.love, emphasis: 'Харилцааны динамик' },
+    { id: 'career', title: 'Ажил', paragraphs: sections.career, emphasis: 'Ажлын энерги' },
+    { id: 'health', title: 'Эрүүл мэнд', paragraphs: sections.health, emphasis: 'Сэргэлт ба тэнцвэр' },
+    { id: 'finance', title: 'Санхүү', paragraphs: sections.finance, emphasis: 'Зардал ба эрсдэл' },
+    { id: 'advice', title: 'Зөвлөгөө', paragraphs: sections.advice, emphasis: 'Өнөөдрийн гол санаа' },
+    { id: 'lucky', title: 'Азын тоо / өнгө', paragraphs: [`${base.luckyNumber} / ${base.luckyColor}`] },
+  ];
+}
+
+function mnOverallCue(sign: ZodiacSign, moonSign: ZodiacSign, seed: number): string {
+  const signCue = pick([
+    'Өнөөдөр өөрийгөө хэт шахахгүй атлаа чиглэлээ алдахгүй байх нь хамгийн зөв.',
+    'Эхлээд дотоод хэмнэлээ тогтоож, дараа нь алхмаа сонговол алдаа багасна.',
+    'Хурднаас илүү ямар зүйлд хүчээ өгөхөө зөв ялгах нь үр дүнг тодруулна.',
+  ], seed);
+  const moonElement = getZodiacInfo(moonSign).element;
+  const emotionalCue = moonElement === 'water'
+    ? 'Сэтгэл хөдлөлийн өнгө гүн тул хариу өгөхөөс өмнө мэдрэмжээ нэрлэвэл зөрчил багасна.'
+    : moonElement === 'fire'
+      ? 'Шийдвэр хурдан гаргах хүсэл нэмэгдэнэ, гэхдээ түр зогсож шалгах нэг мөч таныг алдааас хамгаална.'
+      : moonElement === 'earth'
+        ? 'Тогтвортой байдал хүсэх тул хоосон амлалтаас илүү бодит үйлдэлд тулгуурлаарай.'
+        : 'Яриа, мессежийн өнгө амархан буруу ойлгогдож болох тул гол санаагаа энгийн өгүүл.';
+  return `${signCue} ${emotionalCue}`;
+}
+
+function mnLoveCue(moonSign: ZodiacSign, venusSign: ZodiacSign, seed: number): string {
+  const moonElement = getZodiacInfo(moonSign).element;
+  const venusElement = getZodiacInfo(venusSign).element;
+  const base = moonElement === 'water'
+    ? 'Хайр дээр хамгийн түрүүнд аюулгүй мэдрэмж чухалдана.'
+    : moonElement === 'fire'
+      ? 'Хайр дээр шууд илэрхийлэл таталтыг нэмэгдүүлнэ, гэхдээ өнгө аяс огцом бол ойлголцол удааширч магадгүй.'
+      : moonElement === 'earth'
+        ? 'Хайр дээр жижиг боловч давтагдах халамж хамгийн их итгэл төрүүлнэ.'
+        : 'Хайр дээр сонсох зай гаргаж, зөв цагтаа хариу өгөх нь үгнээс илүү нөлөөтэй.';
+  const venusText = venusElement === 'air'
+    ? 'Романтик холбоонд сонсох, зөв ойлгох чанар шууд нөлөөлнө.'
+    : venusElement === 'earth'
+      ? 'Дотно байдалд найдвартай байдал хамгийн хүчтэй дохио болно.'
+      : venusElement === 'fire'
+        ? 'Хүсэл тэмүүлэл амархан асах тул зөөлөн илэрхийлэл харилцааг урт амьсгалтай болгоно.'
+        : 'Эмзэг мэдрэмжээ нуухгүй хэлэхэд харилцаа гүнзгийрнэ.';
+  return `${pick([base, `${base} ${venusText}`, venusText], seed)}`;
+}
+
+function mnCareerCue(sunSign: ZodiacSign, mercurySign: ZodiacSign, seed: number): string {
+  const sunElement = getZodiacInfo(sunSign).element;
+  const mercuryElement = getZodiacInfo(mercurySign).element;
+  const direction = sunElement === 'fire'
+    ? 'Ажил дээр эхлүүлэх импульс хүчтэй байна, гэхдээ багийн хэмнэлтэй уялдуулах нь илүү ухаалаг.'
+    : sunElement === 'earth'
+      ? 'Ажил дээр хэмжигдэх зорилт тавивал нэр хүнд аажмаар бат бөх өснө.'
+      : sunElement === 'air'
+        ? 'Ажил дээр мэдээлэл эмхлэх, ойлгомжтой болгох чадвар тань гол давуу тал болж өгнө.'
+        : 'Ажил дээр хүний хандлага, уур амьсгалыг зөв унших чадвар хэлэлцээний түлхүүр болно.';
+  const execution = mercuryElement === 'fire'
+    ? 'Товч, шийдэмгий өгүүлбэр шийдвэр хурдлуулна.'
+    : mercuryElement === 'earth'
+      ? 'Тоон баримт, хугацаа, хариуцлага тодорхой байвал маргаан багасна.'
+      : mercuryElement === 'air'
+        ? 'Санаагаа бүтэцтэй дарааллаар илэрхийлбэл эсэргүүцэл хурдан багасна.'
+        : 'Эмпати шингэсэн харилцаа багийн итгэлийг нэмэгдүүлнэ.';
+  return pick([`${direction} ${execution}`, direction, execution], seed);
+}
+
+function mnHealthCue(moonSign: ZodiacSign, phase: string, seed: number): string {
+  const moonElement = getZodiacInfo(moonSign).element;
+  const bodyLine = moonElement === 'fire'
+    ? 'Бие эрчээ гаргах хүсэл өндөр байна: богино, тогтмол хөдөлгөөн хамгийн зохимжтой.'
+    : moonElement === 'earth'
+      ? 'Бие тогтвортой дэг хүсэж байна: хоол, нойр, ус гурваа тогтмол байлга.'
+      : moonElement === 'air'
+        ? 'Мэдрэлийн ачаалал өсөж магадгүй тул амьсгал, дэлгэцийн завсарлага илүү чухал.'
+        : 'Сэтгэл, бие хоёулаа зөөлөн арчилгаа хүсэж байна: ус, дулаан, нам гүм орчин тусална.';
+  const phaseLine = phase.includes('Full')
+    ? 'Тэргэл үеэр мэдрэмж хурцрах хандлагатай тул оройн хэмнэлээ санаатайгаар удаашруулаарай.'
+    : phase.includes('New')
+      ? 'Шин сарны үед шинэ дэг эхлүүлэхэд тохиромжтой: жижиг, давтагдах алхмаас эхэл.'
+      : phase.includes('Waning')
+        ? 'Хорогдох үед илүүдэл ачааллаас цэгцлэн хасах шийдэл илүү үр дүнтэй.'
+        : 'Өсөх үед сайн дадлаа бага багаар нэмбэл биед амархан сууж өгнө.';
+  return pick([`${bodyLine} ${phaseLine}`, bodyLine, phaseLine], seed);
+}
+
+function mnFinanceCue(sunSign: ZodiacSign, moonSign: ZodiacSign, seed: number): string {
+  const hasEarth = getZodiacInfo(sunSign).element === 'earth' || getZodiacInfo(moonSign).element === 'earth';
+  return hasEarth
+    ? pick([
+      'Санхүүд өнөөдөр хамгаалах тактик илүү ашигтай: импульс худалдан авалтаа 24 цаг хойшлуул.',
+      'Мөнгөний урсгалаа жижиг ангиллаар нь харвал илүүдэл зардал өөрөө тодорно.',
+      'Хурдан ашиг хайхаас илүү тогтвортой төлөвлөгөө таны сэтгэлд илүү амар тайван өгнө.',
+    ], seed)
+    : pick([
+      'Санхүү дээр сэтгэл хөөрлөөр бус, урьдчилан тохирсон дүрмээр шийдвэр гаргавал алдаа багасна.',
+      'Өнөөдөр мөнгөний тухай яриаг хойшлуулахгүй хийх нь дарамтыг багасгана.',
+      'Нэг том шийдвэрээс илүү хоёр жижиг, бодит алхам таны төсөвт илүү үр дүнтэй.',
+    ], seed);
+}
+
+function mnAdviceCue(moonSign: ZodiacSign, seed: number): string {
+  const element = getZodiacInfo(moonSign).element;
+  if (element === 'water') {
+    return pick([
+      'Зөвлөгөө: оройн цагаар 20 минут өөртөө зориулсан чимээгүй хугацаа гарга.',
+      'Зөвлөгөө: өнөөдрийн хамгийн хүчтэй мэдрэмжээ ганц өгүүлбэрээр тэмдэглэ.',
+      'Зөвлөгөө: хэт ачаалал мэдрэгдвэл хариу өгөхөө түр азнаж, эхлээд амьсгалаа жигдэл.',
+    ], seed);
+  }
+  if (element === 'fire') {
+    return pick([
+      'Зөвлөгөө: эхлэх ажлаа нэгээр хязгаарлаж, дуусгах хүртлээ анхаарлаа тараахгүй бай.',
+      'Зөвлөгөө: огцом шийдвэрийн өмнө 10 минутын завсарлага авбал хараа илүү тэлнэ.',
+      'Зөвлөгөө: эрчээ бусдад тулгахын оронд зорилгоо тод үгээр хэл.',
+    ], seed);
+  }
+  if (element === 'earth') {
+    return pick([
+      'Зөвлөгөө: өнөөдрийн гурван чухал ажлаа цагтай нь бичиж, илүүг нь хасаарай.',
+      'Зөвлөгөө: биеэ сонсох богино завсарлага өдрийн үр бүтээмжийг авардаг.',
+      'Зөвлөгөө: тогтвортой байдал хэрэгтэй үед жижиг зан үйл хамгийн найдвартай тулгуур болдог.',
+    ], seed);
+  }
+  return pick([
+    'Зөвлөгөө: олон сувгийн мэдээллээ багасгаж, нэг асуудал дээр төвлөр.',
+    'Зөвлөгөө: буруу ойлголцлоос сэргийлж гол санаагаа богино, энгийн хэлбэрээр давтаж баталгаажуул.',
+    'Зөвлөгөө: яарах үедээ ч хариуг биш, асуултаа сайжруулахад нэг мөч зарцуул.',
+  ], seed);
+}
+
+function mnLuckyColorCue(color: string, sunSign: ZodiacSign, seed: number): string {
+  const element = getZodiacInfo(sunSign).element;
+  const lines = element === 'fire'
+    ? [
+      `Өнөөдрийн өнгө ${color} — өөртөө итгэх дохиог зөөлөн атлаа тод гаргахад тусална.`,
+      `${color} өнгө танд "эхлүүлэх эрч"-ийг тогтуун барихад дэмжлэг болно.`,
+      `${color} өнгөний акцент таны шийдэмгий байдлыг хэт ширүүн бус, цэгцтэй мэдрүүлнэ.`,
+    ]
+    : element === 'earth'
+      ? [
+        `Өнөөдрийн өнгө ${color} — найдвартай, төвтэй мэдрэмжийг нэмэгдүүлнэ.`,
+        `${color} өнгө танд төвлөрөл, бодит алхам хийх хандлагыг дэмжинэ.`,
+        `${color} өнгийн жижиг деталь хүртэл өнөөдрийн хэмнэлийг илүү тайван болгоно.`,
+      ]
+      : element === 'air'
+        ? [
+          `Өнөөдрийн өнгө ${color} — харилцаанд илүү цэвэр, нээлттэй өнгө аяс нэмнэ.`,
+          `${color} өнгө нь санаагаа эмхтэй илэрхийлэх уур амьсгалыг дэмжинэ.`,
+          `${color} өнгөний сонголт өнөөдрийн оюуны хэт ачааллыг зөөллөнө.`,
+        ]
+        : [
+          `Өнөөдрийн өнгө ${color} — сэтгэлийн эмзэг хэмнэлийг зөөлөн хамгаална.`,
+          `${color} өнгө өнөөдөр дотоод амар тайвныг сэргээх жижиг түшиг болно.`,
+          `${color} өнгийн орчин таны сэтгэл хөдлөлийг илүү зөөлөн зохицуулна.`,
+        ];
+  return pick(lines, seed);
+}
+
+function mnHouseCue(house: number): string {
+  switch (house) {
+    case 1: return 'өөрийн дүр төрх, итгэл';
+    case 2: return 'мөнгө, үнэ цэн';
+    case 3: return 'яриа, мессеж, ойрын холбоо';
+    case 4: return 'гэр, гэр бүл, дотоод тайван';
+    case 5: return 'дурлал, бүтээлч байдал';
+    case 6: return 'өдрийн дэг, ажил-эрүүл мэнд';
+    case 7: return 'хамтын харилцаа, түншлэл';
+    case 8: return 'итгэл, гүн сэтгэл, хамтын санхүү';
+    case 9: return 'алсын хараа, суралцахуй, аялал';
+    case 10: return 'нэр хүнд, карьер';
+    case 11: return 'найз нөхөд, баг, олон нийт';
+    case 12: return 'дотоод айдас, чимээгүй эдгэрэл';
+    default: return 'амьдралын эмзэг сэдэв';
+  }
+}
+
+function selectMajorSkyAspect(planets: PlanetPosition[]): Aspect | undefined {
+  const major: Array<{ type: Aspect['type']; angle: number; orb: number }> = [
+    { type: 'conjunction', angle: 0, orb: 6 },
+    { type: 'opposition', angle: 180, orb: 6 },
+    { type: 'trine', angle: 120, orb: 5.5 },
+    { type: 'square', angle: 90, orb: 5.5 },
+    { type: 'sextile', angle: 60, orb: 4.5 },
+  ];
+  let best: Aspect | undefined;
+  for (let i = 0; i < planets.length; i += 1) {
+    for (let j = i + 1; j < planets.length; j += 1) {
+      const a = planets[i];
+      const b = planets[j];
+      let diff = Math.abs(a.longitude - b.longitude);
+      if (diff > 180) diff = 360 - diff;
+      for (const def of major) {
+        const orb = Math.abs(diff - def.angle);
+        if (orb <= def.orb) {
+          const candidate: Aspect = {
+            body1: a.name,
+            body2: b.name,
+            type: def.type,
+            orb: Math.round(orb * 100) / 100,
+            exactDegrees: def.angle,
+          };
+          if (!best || candidate.orb < best.orb) best = candidate;
+          break;
+        }
+      }
+    }
+  }
+  return best;
 }

@@ -111,6 +111,7 @@ export function HomeHeader({
         freezeCount={streakFreezes}
         freezeCap={streakFreezeCap}
         nextMilestone={resolvedNextMilestone}
+        streakLastDate={streakLastDate}
         completedToday={completedToday}
         progress={milestoneProgress(streakCount, resolvedNextMilestone)}
         awardText={freezeAwardCopy(streakFreezeAwarded)}
@@ -131,6 +132,44 @@ export function HomeHeader({
   );
 }
 
+function RecentRhythmDots({
+  streakCount,
+  completedToday,
+  theme: t,
+}: {
+  streakCount: number;
+  completedToday: boolean;
+  theme: SanctuaryPalette;
+}): ReactElement {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const daysAgo = 6 - i;
+    if (daysAgo === 0) return completedToday ? 'done' : 'today';
+    return daysAgo < streakCount ? 'done' : 'missed';
+  });
+  return (
+    <View style={styles.rhythmRow} accessibilityLabel={`Last 7 days rhythm`}>
+      {days.map((status, i) => (
+        <View
+          key={i}
+          style={[
+            styles.rhythmDot,
+            {
+              backgroundColor:
+                status === 'done'
+                  ? t.mint
+                  : status === 'today'
+                  ? 'transparent'
+                  : 'rgba(255,255,255,0.07)',
+              borderWidth: status === 'today' ? 1.5 : 0,
+              borderColor: status === 'today' ? t.lavender : 'transparent',
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 function StreakStatusCard({
   theme: t,
   streakCount,
@@ -138,6 +177,7 @@ function StreakStatusCard({
   freezeCount,
   freezeCap,
   nextMilestone,
+  streakLastDate,
   completedToday,
   progress,
   awardText,
@@ -155,6 +195,7 @@ function StreakStatusCard({
   freezeCount: number;
   freezeCap: number;
   nextMilestone: StreakMilestone | null;
+  streakLastDate?: string | null;
   completedToday: boolean;
   progress: number;
   awardText: string | null;
@@ -167,6 +208,7 @@ function StreakStatusCard({
   celebration: StreakCelebration;
 }): ReactElement {
   const { t: tr } = useI18n();
+  void streakLastDate;
   const progressPercent = `${Math.round(progress * 100)}%` as `${number}%`;
   return (
     <View
@@ -184,27 +226,58 @@ function StreakStatusCard({
       <View style={[styles.gradientWash, { backgroundColor: t.lavender }]} pointerEvents="none" />
       <View style={[styles.gradientWashAlt, { backgroundColor: t.mint }]} pointerEvents="none" />
       <View style={styles.streakTopRow}>
-        <View>
+        <View style={styles.streakNumberBlock}>
           <Text style={[styles.streakEyebrow, { color: t.textMuted }]}>{tr('streak.eyebrow')}</Text>
-          <Text style={[styles.streakNumber, { color: t.text }]}>{streakCount}</Text>
+          <View style={styles.streakNumberRow}>
+            <Text style={[styles.streakNumber, { color: t.text }]}>{streakCount}</Text>
+            <View
+              style={[
+                styles.streakLiveDot,
+                { backgroundColor: completedToday ? t.mint : 'rgba(255,255,255,0.18)' },
+              ]}
+            />
+          </View>
+          <Text style={[styles.streakUnit, { color: t.textMuted }]}>өдөр</Text>
         </View>
         <View style={styles.streakMetricStack}>
           <Metric label={tr('streak.longest')} value={longestStreakCopy(longestStreakCount).replace('Longest rhythm: ', '')} theme={t} />
           <Metric label={tr('streak.safeguards')} value={formatFreezeCapacity(freezeCount, freezeCap)} theme={t} />
         </View>
       </View>
-      <Text style={[styles.streakStatus, { color: t.textSoft }]}>
-        {keepStreakAliveCopy(completedToday, streakCount)}
-      </Text>
-      <View style={styles.progressHeader}>
-        <Text style={[styles.progressLabel, { color: t.textMuted }]}>{tr('streak.nextMilestone')}</Text>
-        <Text style={[styles.progressValue, { color: t.text }]}>
-          {nextMilestone ? tr('streak.nights', { count: nextMilestone }) : tr('streak.complete')}
+      <RecentRhythmDots streakCount={streakCount} completedToday={completedToday} theme={t} />
+      <View
+        style={[
+          styles.streakStatusPill,
+          {
+            backgroundColor: completedToday
+              ? 'rgba(167, 228, 196, 0.15)'
+              : 'rgba(255,255,255,0.07)',
+            borderColor: completedToday
+              ? 'rgba(167, 228, 196, 0.38)'
+              : 'rgba(255,255,255,0.12)',
+          },
+        ]}
+      >
+        <Text style={[styles.streakStatusPillText, { color: completedToday ? t.mint : t.textSoft }]}>
+          {completedToday ? '✓  ' : ''}{keepStreakAliveCopy(completedToday, streakCount)}
         </Text>
       </View>
-      <View style={[styles.progressTrack, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
-        <View style={[styles.progressFill, { width: progressPercent, backgroundColor: t.lavender }]} />
+      <View style={styles.progressHeader}>
+        <Text style={[styles.progressLabel, { color: t.textMuted }]}>{tr('streak.nextMilestone')}</Text>
+        <Text style={[styles.progressValue, { color: t.lavender }]}>
+          {nextMilestone
+            ? `${nextMilestone - streakCount} өдөр үлдлээ`
+            : tr('streak.complete')}
+        </Text>
       </View>
+      <View style={[styles.progressTrack, { backgroundColor: 'rgba(255,255,255,0.10)' }]}>
+        <View style={[styles.progressFill, { width: progressPercent, backgroundColor: t.lavender }]}>
+          <View style={styles.progressShimmer} />
+        </View>
+      </View>
+      <Text style={[styles.progressSub, { color: t.textMuted }]}>
+        {nextMilestone ? `${streakCount} / ${nextMilestone}` : ''}
+      </Text>
       {milestoneTitle ? <Text style={[styles.milestoneTitle, { color: t.text }]}>{milestoneTitle}</Text> : null}
       {awardText ? <Text style={[styles.milestoneText, { color: t.textSoft }]}>{awardText}</Text> : null}
       {streakPreservedByFreeze ? (
@@ -359,6 +432,7 @@ const styles = StyleSheet.create({
   streakTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: spacing.md,
   },
   streakEyebrow: {
@@ -368,9 +442,31 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   streakNumber: {
-    fontSize: 56,
-    lineHeight: 62,
+    fontSize: 52,
+    lineHeight: 56,
     fontWeight: '900',
+    letterSpacing: -1,
+  },
+  streakNumberBlock: {
+    flexDirection: 'column',
+  },
+  streakNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  streakLiveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  streakUnit: {
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 2,
   },
   streakMetricStack: {
     flex: 1,
@@ -380,24 +476,51 @@ const styles = StyleSheet.create({
   },
   metric: {
     alignItems: 'flex-end',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 80,
   },
   metricLabel: {
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 9,
+    lineHeight: 13,
     fontWeight: '900',
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   metricValue: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '800',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '900',
     textAlign: 'right',
   },
   streakStatus: {
+    display: 'none',
+  },
+  streakStatusPill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: spacing.md,
+  },
+  streakStatusPillText: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  rhythmRow: {
+    flexDirection: 'row',
+    gap: 6,
     marginTop: spacing.sm,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
+    marginBottom: spacing.md,
+  },
+  rhythmDot: {
+    flex: 1,
+    height: 26,
+    borderRadius: 8,
   },
   progressHeader: {
     flexDirection: 'row',
@@ -417,7 +540,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   progressTrack: {
-    height: 8,
+    height: 12,
     borderRadius: 999,
     overflow: 'hidden',
     marginTop: spacing.xs,
@@ -425,6 +548,18 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressShimmer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 999,
+  },
+  progressSub: {
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 4,
+    letterSpacing: 0.4,
   },
   milestoneTitle: {
     marginTop: spacing.md,

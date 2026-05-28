@@ -83,6 +83,36 @@ describe('mobile analytics', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it('tracks value-before-account onboarding events without sensitive birth fields', async () => {
+    await setAnalyticsConsent(true);
+
+    await track('birth_data_completed', { hasBirthTime: false, cityCountry: 'Mongolia' });
+    await track('first_value_shown', {
+      surface: 'register',
+      valueType: 'personal_sky_preview',
+      hasBirthTime: false,
+    });
+    await track('account_creation_prompt_shown', {
+      surface: 'register',
+      valueType: 'personal_sky_preview',
+    });
+    await track('account_created_after_value', { method: 'email', hasBirthProfile: true });
+    await track('preview_viewed', { surface: 'register', sign: 'taurus', hasBirthTime: false });
+    await track('preview_cta_clicked', { surface: 'register', cta: 'save_reading' });
+    await track('preview_account_created', { method: 'email', hasBirthProfile: true });
+
+    expect(capturedEvents().map((event) => event.event)).toEqual([
+      'birth_data_completed',
+      'first_value_shown',
+      'account_creation_prompt_shown',
+      'account_created_after_value',
+      'preview_viewed',
+      'preview_cta_clicked',
+      'preview_account_created',
+    ]);
+    expect(JSON.stringify(capturedEvents())).not.toMatch(/birthDate|birthCity|latitude|longitude|mira@example\.com/i);
+  });
+
   it('gates premium continuity analytics behind consent', async () => {
     await track('premium_paywall_triggered', { source: 'saved_reflection' });
     await track('private_archive_view_depth', { archiveCount: 2, ritualNights: 3 });

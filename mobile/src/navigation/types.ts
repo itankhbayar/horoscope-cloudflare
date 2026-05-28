@@ -1,12 +1,14 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { ZodiacSign } from '@astralis/lib/types';
 
 export type RootStackParamList = {
   GuestWelcome: undefined;
   Login: undefined;
   Register: undefined;
   Onboarding: undefined;
-  Main: undefined;
+  Main: NavigatorScreenParams<MainTabParamList> | undefined;
   AccountSettings: undefined;
   AppAppearance: undefined;
   ManageNotifications: undefined;
@@ -26,7 +28,14 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  Compatibility: undefined;
+  Compatibility:
+    | {
+        sign1?: ZodiacSign;
+        sign2?: ZodiacSign;
+        recipientSign?: ZodiacSign | null;
+        fromShare?: boolean;
+      }
+    | undefined;
   Chart: undefined;
   Profile: undefined;
   Explore: undefined;

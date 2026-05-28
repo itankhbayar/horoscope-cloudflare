@@ -15,6 +15,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as horoscopeService from '@astralis/lib/horoscopeService';
+import type { PersonalSkyLayer } from '@astralis/lib/types';
+import { buildOnboardingPreview } from '@astralis/lib/onboardingPreview';
 import { useAuth } from '../hooks/useAuth';
 import { CityPicker } from '../components/CityPicker';
 import { CosmicCard } from '../components/CosmicCard';
@@ -64,7 +67,12 @@ export function RegisterScreen(): React.JSX.Element {
   const [validation, setValidation] = useState<RegisterValidation>({});
   const [errorMsg, setErrorMsg] = useState('');
   const [mappingStep, setMappingStep] = useState(0);
+  const [preview, setPreview] = useState<PersonalSkyLayer | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const trackedBirthTimeSkip = useRef(false);
+  const trackedAccountPrompt = useRef(false);
+  const completedOnboarding = useRef(false);
+  const abandonmentState = useRef({ step: 'birth_data', hasSeenValue: false });
 
   const hp = horizontalScreenPadding(width);
   const brandSize = useMemo(() => brandTitleSize(width), [width]);
@@ -75,6 +83,35 @@ export function RegisterScreen(): React.JSX.Element {
     return { eyebrow: t('register.step3Eyebrow'), title: t('register.step3Title'), body: t('register.step3Body') };
   }, [step, t]);
   const mappingCopy = skyMappingStep(mappingStep);
+  const previewModel = useMemo(
+    () => preview
+      ? buildOnboardingPreview(preview, {
+        hasBirthTime: Boolean(draft.birthTime.trim()),
+        cityName: draft.selectedCity?.name,
+        locale: 'mn',
+      })
+      : null,
+    [draft.birthTime, draft.selectedCity?.name, preview],
+  );
+
+  useEffect(() => {
+    abandonmentState.current = {
+      step: step === 0 ? 'birth_data' : step === 1 ? 'first_value' : 'account_prompt',
+      hasSeenValue: Boolean(preview),
+    };
+  }, [preview, step]);
+
+  useEffect(() => {
+    void track('onboarding_started', { surface: 'register', step: 'birth_data' });
+    return () => {
+      if (completedOnboarding.current) return;
+      void track('onboarding_abandoned', {
+        surface: 'register',
+        step: abandonmentState.current.step,
+        hasSeenValue: abandonmentState.current.hasSeenValue,
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (!loading) {
@@ -99,13 +136,9 @@ export function RegisterScreen(): React.JSX.Element {
   const stepErrors = useCallback(
     (targetStep: Step): RegisterValidation => {
       const errors = validateRegisterDraft(draft);
-      if (targetStep === 0) {
-        return pick(errors, ['birthDate']);
-      }
-      if (targetStep === 1) {
-        return pick(errors, ['birthCity', 'birthTime']);
-      }
-      return pick(errors, ['fullName', 'email', 'password', 'timezoneOffset', 'birthDataConsent']);
+      if (targetStep === 0) return pick(errors, ['birthDate', 'birthCity', 'birthTime']);
+      if (targetStep === 1) return {};
+      return pick(errors, ['fullName', 'email', 'password', 'birthDataConsent']);
     },
     [draft],
   );
@@ -114,17 +147,17 @@ export function RegisterScreen(): React.JSX.Element {
     const errors = stepErrors(step);
     setValidation(errors);
     if (Object.keys(errors).length > 0) {
-      if (step === 1 && errors.birthCity) {
+      if (step === 0 && errors.birthCity) {
         void track('birth_city_abandonment', { source: 'register' });
       }
       return;
     }
-    void track('onboarding_step_completed', { step: step === 0 ? 'birth_date' : 'birth_city', guest: true });
     if (step === 0) {
+      void track('birth_data_completed', {
+        hasBirthTime: Boolean(draft.birthTime.trim()),
+        cityCountry: draft.selectedCity?.country,
+      });
       void updateGuestOnboardingState({ birthDate: draft.birthDate.trim(), stage: 'birth_date_collected' });
-      void track('personalized_preview_completed', { method: 'birth_date' });
-    }
-    if (step === 1) {
       if (!draft.birthTime.trim() && !trackedBirthTimeSkip.current) {
         trackedBirthTimeSkip.current = true;
         void track('birth_time_abandonment', { source: 'register' });
@@ -132,12 +165,44 @@ export function RegisterScreen(): React.JSX.Element {
       } else {
         if (draft.birthTime.trim()) {
           void track('delayed_birth_time_completed', { source: 'post_reading' });
+          void track('preview_birth_time_added', { surface: 'register' });
         }
         void updateGuestOnboardingState({ stage: 'birth_time_prompted' });
       }
+      setPreviewLoading(true);
+      setErrorMsg('');
+      void horoscopeService
+        .fetchPersonalSkyLayer({ birthDate: draft.birthDate.trim() })
+        .then((layer) => {
+          setPreview(layer);
+          void track('personalized_preview_completed', { method: 'birth_date' });
+          void track('first_value_shown', {
+            surface: 'register',
+            valueType: 'personal_sky_preview',
+            hasBirthTime: Boolean(draft.birthTime.trim()),
+          });
+          void track('preview_viewed', {
+            surface: 'register',
+            sign: layer.sign,
+            hasBirthTime: Boolean(draft.birthTime.trim()),
+          });
+          setStep(1);
+        })
+        .catch((e) => {
+          setErrorMsg(e instanceof Error ? e.message : t('register.previewFailed'));
+        })
+        .finally(() => setPreviewLoading(false));
+      return;
     }
-    setStep((prev) => (prev === 0 ? 1 : 2));
-  }, [draft.birthDate, draft.birthTime, step, stepErrors]);
+    if (step === 1) {
+      if (!trackedAccountPrompt.current) {
+        trackedAccountPrompt.current = true;
+        void track('preview_cta_clicked', { surface: 'register', cta: 'save_reading' });
+        void track('account_creation_prompt_shown', { surface: 'register', valueType: 'personal_sky_preview' });
+      }
+      setStep(2);
+    }
+  }, [draft.birthDate, draft.birthTime, draft.selectedCity?.country, step, stepErrors, t]);
 
   const onBack = useCallback((): void => {
     if (step === 0) {
@@ -156,7 +221,6 @@ export function RegisterScreen(): React.JSX.Element {
     if (Object.keys(errors).length > 0) return;
     if (!draft.selectedCity) return;
     try {
-      void track('onboarding_step_completed', { step: 'account_created_after_value', guest: true });
       await register({
         fullName: draft.fullName.trim(),
         email: draft.email.trim(),
@@ -170,6 +234,9 @@ export function RegisterScreen(): React.JSX.Element {
         timezoneOffset: draft.selectedCity.timezoneOffset,
         birthDataConsent: true,
       });
+      completedOnboarding.current = true;
+      void track('account_created_after_value', { method: 'email', hasBirthProfile: true });
+      void track('preview_account_created', { method: 'email', hasBirthProfile: true });
       void track('activation_completion', { source: 'guest', hasBirthProfile: true });
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : t('register.failed'));
@@ -232,11 +299,6 @@ export function RegisterScreen(): React.JSX.Element {
                 <Text style={[styles.microcopy, { color: palette.textMuted }]}>
                   {t('register.birthDateHint')}
                 </Text>
-              </>
-            ) : null}
-
-            {step === 1 ? (
-              <>
                 <CityPicker
                   label={t('register.birthCity')}
                   query={draft.birthCity}
@@ -268,8 +330,53 @@ export function RegisterScreen(): React.JSX.Element {
               </>
             ) : null}
 
+            {step === 1 ? (
+              <View style={[styles.previewPanel, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
+                <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>Identity</Text>
+                <Text style={[styles.previewTitle, { color: palette.text }]}>{previewModel?.identityTitle ?? t('register.previewReady')}</Text>
+                <Text style={[styles.previewBody, { color: palette.text }]}>{previewModel?.identityBody}</Text>
+                <View style={styles.identityTags}>
+                  <Text style={[styles.identityTag, { borderColor: palette.border, color: colors.gold }]}>{previewModel?.element}</Text>
+                  <Text style={[styles.identityTag, { borderColor: palette.border, color: colors.gold }]}>{previewModel?.modality}</Text>
+                </View>
+
+                <View style={[styles.previewSection, { borderColor: palette.border }]}>
+                  <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>Today's sky</Text>
+                  <Text style={[styles.previewBody, { color: palette.text }]}>{previewModel?.todayTheme}</Text>
+                  <Text style={[styles.previewBody, { color: palette.textMuted }]}>{previewModel?.transitTitle}</Text>
+                  <Text style={[styles.previewBody, { color: palette.textMuted }]}>{previewModel?.transitBody}</Text>
+                </View>
+
+                <View style={[styles.previewSection, { borderColor: palette.border }]}>
+                  <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>What you're missing</Text>
+                  <Text style={[styles.previewBody, { color: palette.text }]}>{previewModel?.missingTitle}</Text>
+                  {previewModel?.missingItems.map((item) => (
+                    <Text key={item} style={[styles.previewBody, { color: palette.textMuted }]}>- {item}</Text>
+                  ))}
+                  <Text style={[styles.previewBody, { color: palette.textMuted }]}>{previewModel?.missingBody}</Text>
+                </View>
+
+                <View style={[styles.previewSection, { borderColor: palette.border }]}>
+                  <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>Future value</Text>
+                  <Text style={[styles.previewBody, { color: palette.text }]}>{previewModel?.futureTitle}</Text>
+                  <Text style={[styles.previewBody, { color: palette.textMuted }]}>{previewModel?.futureBody}</Text>
+                </View>
+              </View>
+            ) : null}
+
             {step === 2 ? (
               <>
+                <View style={[styles.accountPrompt, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
+                  <Text style={[styles.previewTitle, { color: palette.text }]}>{previewModel?.saveTitle ?? t('register.saveReadingTitle')}</Text>
+                  <Text style={[styles.previewBody, { color: palette.textMuted }]}>{previewModel?.saveBody ?? t('register.saveReadingBody')}</Text>
+                  <Pressable style={[styles.socialButton, styles.socialDisabled]} disabled accessibilityRole="button">
+                    <Text style={[styles.socialText, { color: palette.textMuted }]}>{t('register.continueGoogle')}</Text>
+                  </Pressable>
+                  <Pressable style={[styles.socialButton, styles.socialDisabled]} disabled accessibilityRole="button">
+                    <Text style={[styles.socialText, { color: palette.textMuted }]}>{t('register.continueApple')}</Text>
+                  </Pressable>
+                  <Text style={[styles.microcopy, { color: palette.textMuted }]}>{t('register.socialUnavailable')}</Text>
+                </View>
                 {loading ? (
                   <View style={[styles.mappingPanel, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
                     <Text style={[styles.mappingEyebrow, { color: colors.gold }]}>{t('register.realSkyMapping')}</Text>
@@ -319,16 +426,6 @@ export function RegisterScreen(): React.JSX.Element {
                   palette={palette}
                   isLight={isLight}
                 />
-                <Field
-                  label={t('register.utcOffset')}
-                  labelNativeId="reg-timezone-label"
-                  value={draft.timezoneOffset}
-                  onChangeText={(timezoneOffset) => patchDraft({ timezoneOffset })}
-                  keyboardType="numbers-and-punctuation"
-                  error={validation.timezoneOffset}
-                  palette={palette}
-                  isLight={isLight}
-                />
                 <View style={styles.consentRow}>
                   <Switch
                     value={draft.birthDataConsent}
@@ -370,13 +467,15 @@ export function RegisterScreen(): React.JSX.Element {
                   pressed && styles.pressed,
                 ]}
                 onPress={step === 2 ? () => void onSubmit() : onNext}
-                disabled={loading}
+                disabled={loading || previewLoading}
                 accessibilityRole="button"
                 accessibilityLabel={step === 2 ? t('common.createAccount') : t('common.continue')}
-                accessibilityState={{ disabled: loading }}
+                accessibilityState={{ disabled: loading || previewLoading }}
                 hitSlop={hitSlopComfortable}
               >
-                <Text style={styles.buttonText}>{loading ? mappingCopy : step === 2 ? t('common.createAccount') : t('common.continue')}</Text>
+                <Text style={styles.buttonText}>
+                  {loading ? mappingCopy : previewLoading ? t('register.generatingPreview') : step === 2 ? t('register.continueEmail') : t('common.continue')}
+                </Text>
               </Pressable>
             </View>
           </CosmicCard>
@@ -520,6 +619,53 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
+  previewPanel: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  previewTitle: { fontSize: 18, lineHeight: 24, fontWeight: '900' },
+  previewBody: { fontSize: 14, lineHeight: 21, fontWeight: '700' },
+  previewSection: {
+    borderTopWidth: 1,
+    paddingTop: spacing.sm,
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  identityTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  identityTag: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '900',
+  },
+  accountPrompt: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  socialButton: {
+    minHeight: MIN_TOUCH,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  socialDisabled: { opacity: 0.58 },
+  socialText: { fontSize: 14, lineHeight: 19, fontWeight: '800' },
   mappingEyebrow: {
     fontSize: 11,
     lineHeight: 15,

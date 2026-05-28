@@ -1,10 +1,40 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useI18n } from 'vue-i18n';
 import { useConsentStore } from '../stores/consent';
 
 const consent = useConsentStore();
 const { expanded, hasChoice } = storeToRefs(consent);
+const { locale } = useI18n();
+
+const isMn = computed(() => locale.value.startsWith('mn'));
+const copy = computed(() =>
+  isMn.value
+    ? {
+        label: 'Нууцлалын сонголт',
+        title: 'Нууцлалын сонголт',
+        body:
+          'Astralis нь аппын хэрэглээ, зурхай, нийцэл болон төлбөрийн урсгалыг сайжруулахын тулд зөвхөн таны зөвшөөрсөн үед нэмэлт аналитик ашиглана. Бид төрсөн цаг, төрсөн газар, чартын байрлал, нууц үг, төлбөрийн мэдээллийг аналитик руу илгээдэггүй.',
+        link: 'Нууцлалын бодлогыг унших',
+        decline: 'Аналитикаас татгалзах',
+        allow: 'Аналитик зөвшөөрөх',
+        update: 'Нууцлалын сонголтоо өөрчлөх',
+        pill: 'Нууцлал',
+      }
+    : {
+        label: 'Privacy preferences',
+        title: 'Privacy preferences',
+        body:
+          'Astralis uses optional analytics to understand app usage and improve horoscope, compatibility, and billing flows. We do not send birth time, birth location, chart placements, passwords, or payment details to analytics.',
+        link: 'Read the Privacy Policy',
+        decline: 'Decline analytics',
+        allow: 'Allow analytics',
+        update: 'Update privacy preferences',
+        pill: 'Privacy',
+      },
+);
 
 onMounted(consent.hydrate);
 </script>
@@ -15,20 +45,18 @@ onMounted(consent.hydrate);
     class="privacy-banner"
     role="dialog"
     aria-live="polite"
-    aria-label="Privacy preferences"
+    :aria-label="copy.label"
   >
     <div>
-      <p class="privacy-title">Privacy preferences</p>
+      <p class="privacy-title">{{ copy.title }}</p>
       <p class="privacy-copy">
-        Astralis uses optional analytics to understand app usage and improve horoscope, compatibility,
-        and billing flows. We do not send birth time, birth location, chart placements, passwords, or
-        payment details to analytics.
-        <router-link to="/privacy">Read the Privacy Policy</router-link>.
+        {{ copy.body }}
+        <router-link to="/privacy">{{ copy.link }}</router-link>.
       </p>
     </div>
     <div class="privacy-actions">
-      <button type="button" class="secondary" @click="consent.declineAnalytics">Decline analytics</button>
-      <button type="button" class="primary" @click="consent.acceptAnalytics">Allow analytics</button>
+      <button type="button" class="secondary" @click="consent.declineAnalytics">{{ copy.decline }}</button>
+      <button type="button" class="primary" @click="consent.acceptAnalytics">{{ copy.allow }}</button>
     </div>
   </aside>
 
@@ -36,10 +64,10 @@ onMounted(consent.hydrate);
     v-else-if="hasChoice"
     type="button"
     class="privacy-pill"
-    aria-label="Update privacy preferences"
+    :aria-label="copy.update"
     @click="consent.openPreferences"
   >
-    Privacy
+    {{ copy.pill }}
   </button>
 </template>
 

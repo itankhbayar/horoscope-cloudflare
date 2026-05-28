@@ -49,7 +49,7 @@ export function validateRegisterDraft(draft: RegisterDraft): RegisterValidation 
     errors.timezoneOffset = 'UTC offset must be between -14 and +14.';
   }
   if (!draft.birthDataConsent) {
-    errors.birthDataConsent = 'Birth data consent is required to calculate sky-based readings.';
+    errors.birthDataConsent = 'Please allow Astralis to use your birth details for this reading. You can delete them later.';
   }
   return errors;
 }

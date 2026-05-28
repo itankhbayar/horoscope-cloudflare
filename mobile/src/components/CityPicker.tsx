@@ -17,6 +17,12 @@ type Props = {
 };
 
 const MIN_QUERY_LENGTH = 2;
+const FALLBACK_CITIES: City[] = [
+  { name: 'Ulaanbaatar', country: 'Mongolia', latitude: 47.9212, longitude: 106.9186, timezoneOffset: 8 },
+  { name: 'Erdenet', country: 'Mongolia', latitude: 49.0276, longitude: 104.0444, timezoneOffset: 8 },
+  { name: 'Darkhan', country: 'Mongolia', latitude: 49.4867, longitude: 105.9228, timezoneOffset: 8 },
+  { name: 'Khovd', country: 'Mongolia', latitude: 48.0056, longitude: 91.6419, timezoneOffset: 7 },
+];
 
 export function CityPicker({
   label,
@@ -78,7 +84,7 @@ export function CityPicker({
     if (loading) return 'Searching cities...';
     if (searchError) return searchError;
     if (trimmed.length >= MIN_QUERY_LENGTH && results.length === 0) {
-      return 'No exact match yet. Try a nearby larger city, another spelling, or the regional capital you identify with most.';
+      return 'No exact match yet. Try a nearby larger city such as Ulaanbaatar, Erdenet, Darkhan, Khovd, or the regional capital you identify with most.';
     }
     return null;
   }, [isResolved, loading, results.length, searchError, selectedCity, trimmed.length]);
@@ -142,6 +148,23 @@ export function CityPicker({
           <Text style={[styles.fallbackText, { color: palette.textMuted }]}>
             Exact small-town matching is still expanding. Choosing the nearest larger city keeps the chart usable, and you can refine it later.
           </Text>
+          <View style={styles.fallbackCityRow}>
+            {FALLBACK_CITIES.map((city) => (
+              <Pressable
+                key={city.name}
+                style={({ pressed }: { pressed: boolean }) => [
+                  styles.fallbackCityButton,
+                  { borderColor: palette.border },
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => onSelectCity(toSelectedCity(city))}
+                accessibilityRole="button"
+                accessibilityLabel={`Use nearby larger city ${city.name}`}
+              >
+                <Text style={[styles.fallbackCityText, { color: palette.text }]}>{city.name}</Text>
+              </Pressable>
+            ))}
+          </View>
           <Pressable
             onPress={() => void reportMissingCity()}
             accessibilityRole="button"
@@ -208,6 +231,20 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   fallbackText: { fontSize: 12, lineHeight: 17 },
+  fallbackCityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  fallbackCityButton: {
+    minHeight: 34,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fallbackCityText: { fontSize: 12, lineHeight: 16, fontWeight: '800' },
   reportLink: { fontSize: 13, lineHeight: 18, fontWeight: '800' },
   results: {
     borderWidth: 1,

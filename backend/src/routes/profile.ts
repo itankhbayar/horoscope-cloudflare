@@ -26,7 +26,9 @@ router.get('/', async (c) => {
     const profile = await getFullProfile(db, userId);
     return ok(c, profile);
   } catch (err) {
-    return fail(c, 404, 'NOT_FOUND', (err as Error).message);
+    logFromContext(c, 'error', 'profile_fetch_failed', { error: err, userId });
+    captureException(err, { route: { path: '/api/profile', method: 'GET' }, user: { id: userId } });
+    return fail(c, 500, 'INTERNAL_ERROR', 'Failed to load profile');
   }
 });
 

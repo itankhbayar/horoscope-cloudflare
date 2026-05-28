@@ -62,11 +62,46 @@ type LegacyReadingRevealedProperties = {
   surface: 'tarot' | 'crystal' | 'transit' | 'moon' | 'affirmation';
 } & AnalyticsMigrationMetadata;
 
+type CompatibilityAnalyticsDimensions = {
+  locale?: 'en' | 'mn';
+  pair_key?: string;
+  score_band?: 'below_55' | '55_69' | '70_84' | '85_plus';
+  shared_score?: number;
+  share_ref?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+};
+
+type CompatibilityShareAnalyticsPayload = {
+  surface: 'compatibility';
+  sign1: string;
+  sign2: string;
+  score: number;
+} & CompatibilityAnalyticsDimensions;
+
+type CompatibilityLandingAnalyticsPayload = {
+  sign1: string;
+  sign2: string;
+  source: 'share_card' | 'unknown';
+  shared_score: number;
+  url_score: number | null;
+} & CompatibilityAnalyticsDimensions;
+
 export type AnalyticsEventMap = {
   app_open: { source?: 'cold_start' | 'resume' };
   daily_active: { date: string; hasBirthProfile: boolean; isPremium: boolean };
-  onboarding_started: { hasBirthProfile: boolean };
+  onboarding_started: { hasBirthProfile?: boolean; surface?: 'register' | 'post_register'; step?: string };
   onboarding_completed: { hasBirthProfile: boolean };
+  birth_data_completed: { hasBirthTime: boolean; cityCountry?: string };
+  first_value_shown: { surface: 'register'; valueType: 'personal_sky_preview'; hasBirthTime: boolean };
+  account_creation_prompt_shown: { surface: 'register'; valueType: 'personal_sky_preview' };
+  account_created_after_value: { method: 'email' | 'google' | 'apple'; hasBirthProfile: boolean };
+  onboarding_abandoned: { surface: 'register'; step: string; hasSeenValue: boolean };
+  preview_viewed: { surface: 'register'; sign: string; hasBirthTime: boolean };
+  preview_cta_clicked: { surface: 'register'; cta: 'save_reading' };
+  preview_birth_time_added: { surface: 'register' };
+  preview_account_created: { method: 'email' | 'google' | 'apple'; hasBirthProfile: boolean };
   first_reading_viewed: { source: 'guest' | 'authenticated'; sign: string; date: string };
   onboarding_step_completed: { step: string; guest: boolean };
   guest_to_signup_conversion: { stage: string };
@@ -115,8 +150,8 @@ export type AnalyticsEventMap = {
   birth_time_abandonment: { source: 'register' | 'guest_personalization' };
   share_interaction: { source: 'guest_preview' | 'home'; sign: string; date: string };
   activation_completion: { source: 'guest' | 'authenticated'; hasBirthProfile: boolean };
-  signup_started: { step?: string };
-  signup_completed: { hasBirthProfile: boolean };
+  signup_started: { step?: string; signup_source?: string | null; share_ref?: string | null };
+  signup_completed: { hasBirthProfile: boolean; signup_source?: string | null; share_ref?: string | null };
   paywall_viewed: LegacyPaywallProperties;
   checkout_started: { plan?: 'monthly' | 'yearly'; provider: 'revenuecat' | 'stripe' };
   premium_purchased: { provider: 'revenuecat' | 'stripe'; source: 'purchase_sync' | 'restore_sync' };
@@ -189,6 +224,31 @@ export type AnalyticsEventMap = {
     method: 'native' | 'message_fallback';
   };
   horoscope_share_card_failed: { source: 'home' | 'guest_preview'; sign: string; date: string; reason: string };
+  compatibility_viewed: { mode: 'signs' | 'users'; sign1?: string; sign2?: string };
+  compatibility_share_card_viewed: CompatibilityShareAnalyticsPayload;
+  compatibility_share_cta_clicked: CompatibilityShareAnalyticsPayload;
+  compatibility_share_link_created: CompatibilityShareAnalyticsPayload;
+  compatibility_share_completed: CompatibilityShareAnalyticsPayload & {
+    method: 'native' | 'clipboard' | 'download';
+    share_ref: string;
+  };
+  compatibility_share_cancelled: CompatibilityShareAnalyticsPayload & { share_ref: string };
+  compatibility_share_failed: CompatibilityShareAnalyticsPayload & { reason: string; share_ref?: string };
+  compatibility_share_landing_viewed: CompatibilityLandingAnalyticsPayload & { share_ref: string | null };
+  compatibility_landing_score_displayed: CompatibilityLandingAnalyticsPayload;
+  compatibility_landing_sign_selected: CompatibilityLandingAnalyticsPayload & {
+    recipient_sign: string;
+    compare_with: string;
+  };
+  compatibility_guest_compare_completed: CompatibilityLandingAnalyticsPayload & {
+    recipient_sign: string;
+    compare_with: string;
+    score: number;
+  };
+  compatibility_landing_cta_clicked: CompatibilityLandingAnalyticsPayload & {
+    cta: string;
+    compare_with?: string;
+  };
   locked_content_tapped: LegacyLockedContentProperties;
   reading_revealed: LegacyReadingRevealedProperties;
   streak_started: { streakCount: number };
@@ -210,6 +270,9 @@ export type AnalyticsEventMap = {
     shouldCelebrate: boolean;
     milestone?: number | null;
   };
+  daily_reading_reveal_clicked: { source: 'home'; date: string };
+  daily_reading_revealed: { source: 'home'; date: string; currentStreak?: number };
+  daily_reading_already_revealed: { source: 'home'; date: string; currentStreak?: number };
   streak_completion_celebrated: { streakCount: number; milestone?: number | null; freezeAwarded: boolean };
   streak_milestone_reached: { streakCount: number; milestone: number; freezeAwarded: boolean };
   daily_ritual_completion_replayed_blocked: { completedDate: string; source: 'home' };

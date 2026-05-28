@@ -147,8 +147,16 @@ export interface DailyHoroscope {
   love: string;
   career: string;
   health: string;
+  finance?: string;
+  advice?: string;
   luckyNumber: number;
   luckyColor: string;
+  blocks?: Array<{
+    id: 'overall' | 'love' | 'career' | 'health' | 'finance' | 'advice' | 'lucky';
+    title: string;
+    paragraphs: string[];
+    emphasis?: string;
+  }>;
   skyContext?: {
     sunSign: ZodiacSign;
     moonSign: ZodiacSign;

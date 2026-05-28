@@ -7,12 +7,13 @@ import React, {
   useState,
 } from 'react';
 import { setStorage } from '@astralis/lib/storage';
-import { configureApi, setApiLocale } from '@astralis/lib/apiClient';
+import { configureApi } from '@astralis/lib/apiClient';
 import * as authService from '@astralis/lib/authService';
 import type { AuthUser, LoginPayload, RegisterPayload } from '@astralis/lib/types';
 import { asyncStorageAdapter } from '../lib/storageAdapter';
 import { configureRevenueCat, logOutRevenueCat } from '../lib/revenueCat/revenueCatService';
 import { isRevenueCatConfigured } from '../lib/revenueCat/config';
+import { initializeApiLocaleFromPreferences } from './apiLocaleInit';
 
 const ME_TIMEOUT_MS = 8000;
 
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       configureApi({
         baseUrl: raw.length > 0 ? raw : 'http://127.0.0.1:8787',
       });
-      setApiLocale('en');
+      await initializeApiLocaleFromPreferences();
 
       try {
         const hasToken = await authService.isAuthenticated();

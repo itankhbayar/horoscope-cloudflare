@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import * as compatibilityService from '@astralis/lib/compatibilityService';
 import type { CompatibilityResult, ZodiacSign } from '@astralis/lib/types';
+import { track } from '../lib/analytics';
 
 export function useCompatibility(): {
   result: CompatibilityResult | null;
@@ -19,6 +20,7 @@ export function useCompatibility(): {
     try {
       const data = await compatibilityService.compareSigns(sign1, sign2);
       setResult(data);
+      void track('compatibility_viewed', { mode: 'signs', sign1, sign2 });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Compatibility failed');
     } finally {

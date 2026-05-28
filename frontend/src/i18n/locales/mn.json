@@ -156,9 +156,13 @@
     "luckyNumber": "Азын тоо",
     "luckyColor": "Азын өнгө",
     "sunSuffix": "нарны орд",
-    "shareTodayReading": "Share today's reading",
-    "sharePreparing": "Preparing card...",
-    "shareError": "Could not prepare the share card. Please try again."
+    "streakLabel": "🔥 {count} өдрийн дараалал",
+    "readingReady": "Өнөөдрийн уншлага бэлэн байна.",
+    "revealReading": "Өнөөдрийн уншлагаа нээх",
+    "ritualComplete": "Өнөөдрийн зан үйл бүрэн боллоо.",
+    "shareTodayReading": "Өнөөдрийн уншлагаа хуваалцах",
+    "sharePreparing": "Карт бэлдэж байна...",
+    "shareError": "Хуваалцах карт бэлдэхэд алдаа гарлаа. Дахин оролдоно уу."
   },
   "profile": {
     "castingChart": "Төрсний зургийг тооцоолж байна…",
@@ -223,7 +227,29 @@
     "love": "Хайр",
     "friendship": "Нөхөрлөл",
     "communication": "Харилцаа",
-    "highlights": "Онцлох зүйлс"
+    "highlights": "Онцлох зүйлс",
+    "shareScoreLabel": "зохицлын оноо",
+    "shareEyebrow": "Хуваалцах карт",
+    "shareTitle": "Бодож байгаа хүн рүүгээ илгээгээрэй.",
+    "shareBody": "Энэ карт story болон чатад зориулсан: энгийн оноо, харилцааны гол өнгө, Astralis руу буцах холбоостой.",
+    "shareButton": "Зохицлын картаа хуваалцах",
+    "shareDone": "Хуваалцах цонх нээгдлээ.",
+    "shareCopied": "Хуваалцах текст хуулагдлаа.",
+    "shareFailed": "Одоогоор хуваалцаж чадсангүй. Дахин оролдоно уу."
+  },
+  "compatibilityLanding": {
+    "seoTitle": "{sign1} + {sign2} = {score}% зохицол | Astralis",
+    "seoDescription": "{sign1} ба {sign2} Astralis дээр {score}% зохицож байна — {theme}. Өөрийн ордоо сонгоод таны талыг шууд хараарай.",
+    "sharedKicker": "Хэн нэгэн чамтай зохицлоо хуваалцсан",
+    "matchLabel": "зохицлын хувь",
+    "metricLine": "Хайр {love}% · Нөхөрлөл {friendship}% · Харилцаа {communication}%",
+    "ctaPrimary": "Өөрийн зохицлыг шалгах",
+    "pickerTitle": "Таны орд юу вэ?",
+    "pickerSubtitle": "Ордоо сонгоход шууд урьдчилсан үр дүн — бүртгэл шаардлагагүй.",
+    "yourMatchKicker": "Таны зохицлын урьдчилсан үзүүлэлт",
+    "compareToggleLabel": "Харьцуулах",
+    "compareWith": "{sign}-тай",
+    "saveCta": "Энэ зохицлыг Astralis-д хадгалах (сонголттой)"
   },
   "premium": {
     "badge": "Astralis Sky Intelligence",

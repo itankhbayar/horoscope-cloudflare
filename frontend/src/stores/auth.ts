@@ -68,14 +68,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(payload: RegisterPayload): Promise<void> {
+  async function register(
+    payload: RegisterPayload,
+    analytics: { signupSource?: string | null; shareRef?: string | null } = {},
+  ): Promise<void> {
     loading.value = true;
     error.value = null;
     try {
       const result = await authService.register(payload);
       user.value = result.user;
       identifyAnalyticsUser(result.user.id);
-      track('signup_completed');
+      track('signup_completed', {
+        hasBirthProfile: true,
+        signup_source: analytics.signupSource ?? null,
+        share_ref: analytics.shareRef ?? null,
+      });
     } catch (err) {
       error.value = (err as Error).message;
       captureFrontendException(err, { auth: { flow: 'register' } });

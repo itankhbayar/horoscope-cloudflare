@@ -1,5 +1,11 @@
 import type { HoroscopeShareCardPayload } from './horoscopeShareCard';
-import { generateHoroscopeShareCardSvg, horoscopeShareCardDataUrl } from './horoscopeShareCard';
+import {
+  buildHoroscopeShareText,
+  generateHoroscopeShareCardSvg,
+  horoscopeShareCardDataUrl,
+  horoscopeShareCardFilename,
+} from './horoscopeShareCard';
+import { isValidShareImageFile, MIN_SHARE_IMAGE_BYTES, nativeShareWithImageFallback } from './webShare';
 
 export interface WebShareResult {
   method: 'native' | 'download';
@@ -9,13 +15,17 @@ interface WebShareDeps {
   navigator?: Navigator;
   document?: Document;
   ImageCtor?: typeof Image;
+  appOrigin?: string;
 }
 
 function svgBlob(payload: HoroscopeShareCardPayload): Blob {
   return new Blob([generateHoroscopeShareCardSvg(payload)], { type: 'image/svg+xml;charset=utf-8' });
 }
 
-async function svgToPngFile(payload: HoroscopeShareCardPayload, deps: Required<Pick<WebShareDeps, 'document' | 'ImageCtor'>>): Promise<File> {
+async function svgToPngFile(
+  payload: HoroscopeShareCardPayload,
+  deps: Required<Pick<WebShareDeps, 'document' | 'ImageCtor'>>,
+): Promise<File> {
   const url = URL.createObjectURL(svgBlob(payload));
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -24,6 +34,12 @@ async function svgToPngFile(payload: HoroscopeShareCardPayload, deps: Required<P
       image.onerror = () => reject(new Error('share_card_image_load_failed'));
       image.src = url;
     });
+    if (typeof img.decode === 'function') {
+      await img.decode();
+    }
+    if (img.naturalWidth < 1 || img.naturalHeight < 1) {
+      throw new Error('share_card_image_empty');
+    }
     const canvas = deps.document.createElement('canvas');
     canvas.width = 1080;
     canvas.height = 1920;
@@ -32,13 +48,11 @@ async function svgToPngFile(payload: HoroscopeShareCardPayload, deps: Required<P
     ctx.drawImage(img, 0, 0, 1080, 1920);
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((value) => {
-        if (value) resolve(value);
+        if (value && value.size >= MIN_SHARE_IMAGE_BYTES) resolve(value);
         else reject(new Error('share_card_png_failed'));
       }, 'image/png', 0.94);
     });
-    return new File([blob], `astralis-${payload.sign}-${payload.dateLabel.replace(/\W+/g, '-').toLowerCase()}.png`, {
-      type: 'image/png',
-    });
+    return new File([blob], horoscopeShareCardFilename(payload, 'png'), { type: 'image/png' });
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -47,7 +61,7 @@ async function svgToPngFile(payload: HoroscopeShareCardPayload, deps: Required<P
 function downloadSvg(payload: HoroscopeShareCardPayload, documentRef: Document): void {
   const anchor = documentRef.createElement('a');
   anchor.href = horoscopeShareCardDataUrl(payload);
-  anchor.download = `astralis-${payload.sign}-daily-card.svg`;
+  anchor.download = horoscopeShareCardFilename(payload, 'svg');
   anchor.rel = 'noopener';
   documentRef.body.appendChild(anchor);
   anchor.click();
@@ -61,21 +75,31 @@ export async function shareHoroscopeCardOnWeb(
   const navigatorRef = deps.navigator ?? globalThis.navigator;
   const documentRef = deps.document ?? globalThis.document;
   const ImageCtor = deps.ImageCtor ?? globalThis.Image;
+  const appOrigin = deps.appOrigin ?? (typeof window !== 'undefined' ? window.location.origin : 'https://astralis.app');
+  const shareText = buildHoroscopeShareText(payload, appOrigin);
+  const title = `${payload.signName} · Astralis`;
 
-  if (navigatorRef?.share && documentRef && ImageCtor && typeof File !== 'undefined') {
+  const nativeShare = navigatorRef
+    ? (navigatorRef as Navigator & { share?: Navigator['share'] }).share
+    : undefined;
+  if (typeof nativeShare === 'function' && documentRef && ImageCtor && typeof File !== 'undefined') {
+    let pngFile: File | null = null;
     try {
-      const file = await svgToPngFile(payload, { document: documentRef, ImageCtor });
-      const files = [file];
-      if (!navigatorRef.canShare || navigatorRef.canShare({ files })) {
-        await navigatorRef.share({
-          title: `${payload.signName} daily horoscope`,
-          text: payload.energyLine,
-          files,
-        });
-        return { method: 'native' };
-      }
+      pngFile = await svgToPngFile(payload, { document: documentRef, ImageCtor });
+      if (!isValidShareImageFile(pngFile)) pngFile = null;
     } catch {
-      // Fall through to SVG download; sharing should stay useful even when PNG conversion is unavailable.
+      pngFile = null;
+    }
+
+    try {
+      await nativeShareWithImageFallback(navigatorRef, {
+        title,
+        text: shareText,
+        file: pngFile,
+      });
+      return { method: 'native' };
+    } catch {
+      // Fall through to SVG download.
     }
   }
 

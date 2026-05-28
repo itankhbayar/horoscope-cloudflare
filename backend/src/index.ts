@@ -27,6 +27,18 @@ import { fail, ok } from './utils/apiResponse';
 export { RateLimitBucket } from './rateLimitBucket';
 
 const DEFAULT_TIMEZONE = 'Asia/Ulaanbaatar';
+const HOROSCOPE_SERVICE_BUILD_VERSION = 'v3-hydration';
+const isDevDiagnostics = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+
+if (isDevDiagnostics) {
+  // Temporary runtime diagnostics for deployment mismatch.
+  // eslint-disable-next-line no-console
+  console.log('[horoscope-service-startup]', {
+    HOROSCOPE_SERVICE_BUILD_VERSION,
+    nodeEnv: process.env.NODE_ENV,
+    processEnv: process.env,
+  });
+}
 
 const app = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
 

@@ -41,29 +41,37 @@ function setCanonical(href: string): string | null {
   return previous;
 }
 
-export function useDocumentMeta(options: {
+export type DocumentMetaOptions = {
   title: string;
   description: string;
   canonicalPath: string;
   imagePath?: string;
   type?: 'website' | 'article';
   robots?: 'index,follow' | 'noindex,nofollow';
-}): void {
+};
+
+export function applyDocumentMeta(options: DocumentMetaOptions): void {
+  if (typeof document === 'undefined') return;
+  document.title = options.title;
+  const origin = window.location.origin;
+  const canonical = `${origin}${options.canonicalPath}`;
+  const imageUrl = `${origin}${options.imagePath ?? '/og/default.svg'}`;
+  setNamedMeta('description', options.description);
+  setNamedMeta('robots', options.robots ?? 'index,follow');
+  setNamedMeta('twitter:card', 'summary_large_image');
+  setNamedMeta('twitter:title', options.title);
+  setNamedMeta('twitter:description', options.description);
+  setNamedMeta('twitter:image', imageUrl);
+  setPropertyMeta('og:type', options.type ?? 'website');
+  setPropertyMeta('og:title', options.title);
+  setPropertyMeta('og:description', options.description);
+  setPropertyMeta('og:url', canonical);
+  setPropertyMeta('og:image', imageUrl);
+  setCanonical(canonical);
+}
+
+export function useDocumentMeta(options: DocumentMetaOptions): void {
   onMounted(() => {
-    document.title = options.title;
-    const canonical = `${window.location.origin}${options.canonicalPath}`;
-    const imageUrl = `${window.location.origin}${options.imagePath ?? '/og/default.svg'}`;
-    setNamedMeta('description', options.description);
-    setNamedMeta('robots', options.robots ?? 'index,follow');
-    setNamedMeta('twitter:card', 'summary_large_image');
-    setNamedMeta('twitter:title', options.title);
-    setNamedMeta('twitter:description', options.description);
-    setNamedMeta('twitter:image', imageUrl);
-    setPropertyMeta('og:type', options.type ?? 'website');
-    setPropertyMeta('og:title', options.title);
-    setPropertyMeta('og:description', options.description);
-    setPropertyMeta('og:url', canonical);
-    setPropertyMeta('og:image', imageUrl);
-    setCanonical(canonical);
+    applyDocumentMeta(options);
   });
 }

@@ -156,6 +156,10 @@
     "luckyNumber": "Lucky number",
     "luckyColor": "Lucky color",
     "sunSuffix": "sun",
+    "streakLabel": "🔥 {count} day streak",
+    "readingReady": "Today's reading is ready.",
+    "revealReading": "Reveal today's reading",
+    "ritualComplete": "Your daily ritual is complete.",
     "shareTodayReading": "Share today's reading",
     "sharePreparing": "Preparing card...",
     "shareError": "Could not prepare the share card. Please try again."
@@ -223,7 +227,29 @@
     "love": "Love",
     "friendship": "Friendship",
     "communication": "Communication",
-    "highlights": "Highlights"
+    "highlights": "Highlights",
+    "shareScoreLabel": "compatibility score",
+    "shareEyebrow": "Share card",
+    "shareTitle": "Send this to the person you are thinking about.",
+    "shareBody": "The card is built for stories and messages: simple score, clear relationship theme, and a link back to Astralis.",
+    "shareButton": "Share compatibility card",
+    "shareDone": "Share sheet opened.",
+    "shareCopied": "Share text copied.",
+    "shareFailed": "Could not share this card yet. Try again."
+  },
+  "compatibilityLanding": {
+    "seoTitle": "{sign1} + {sign2} = {score}% compatibility | Astralis",
+    "seoDescription": "{sign1} and {sign2} score {score}% on Astralis — {theme}. Pick your sign to see your side of this match.",
+    "sharedKicker": "Someone shared a compatibility check with you",
+    "matchLabel": "compatibility match",
+    "metricLine": "Love {love}% · Friendship {friendship}% · Communication {communication}%",
+    "ctaPrimary": "See your own match",
+    "pickerTitle": "What is your sign?",
+    "pickerSubtitle": "Tap your sign for an instant preview — no account needed.",
+    "yourMatchKicker": "Your match preview",
+    "compareToggleLabel": "Compare with",
+    "compareWith": "vs {sign}",
+    "saveCta": "Save this match in Astralis (optional)"
   },
   "premium": {
     "badge": "Premium Pattern Memory",

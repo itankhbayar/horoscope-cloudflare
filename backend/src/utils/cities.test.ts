@@ -31,6 +31,9 @@ describe('searchCities', () => {
   it('handles small Mongolian city anchors', () => {
     expect(searchCities('Erdenet')[0]).toMatchObject({ name: 'Erdenet', country: 'Mongolia' });
     expect(searchCities('Muren')[0]).toMatchObject({ name: 'Murun', country: 'Mongolia' });
+    expect(searchCities('Dalanzadgad')[0]).toMatchObject({ name: 'Dalanzadgad', country: 'Mongolia' });
+    expect(searchCities('Baruun Urt')[0]).toMatchObject({ name: 'Baruun-Urt', country: 'Mongolia' });
+    expect(searchCities('Ulaangom')[0]).toMatchObject({ name: 'Ulaangom', country: 'Mongolia' });
   });
 
   it('tolerates short typos without returning unrelated cities first', () => {

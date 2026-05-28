@@ -116,13 +116,27 @@ export async function getFullProfile(db: DB, userId: string): Promise<ProfilePay
 export async function getRitualHistory(db: DB, userId: string, todayISO = currentStreakDateISO()): Promise<RitualHistoryDay[]> {
   const dates = lastNDates(todayISO, 30);
   const startDate = dates[0] ?? todayISO;
-  const rows = await db
-    .select({ ritualDate: dailyRitualHistory.ritualDate })
-    .from(dailyRitualHistory)
-    .where(sql`${dailyRitualHistory.userId} = ${userId} AND ${dailyRitualHistory.ritualDate} >= ${startDate}`)
-    .orderBy(sql`${dailyRitualHistory.ritualDate} ASC`);
-  const completed = new Set(rows.map((row) => row.ritualDate));
-  return dates.map((date) => ({ date, completed: completed.has(date) }));
+  try {
+    const rows = await db
+      .select({ ritualDate: dailyRitualHistory.ritualDate })
+      .from(dailyRitualHistory)
+      .where(sql`${dailyRitualHistory.userId} = ${userId} AND ${dailyRitualHistory.ritualDate} >= ${startDate}`)
+      .orderBy(sql`${dailyRitualHistory.ritualDate} ASC`);
+    const completed = new Set(rows.map((row) => row.ritualDate));
+    return dates.map((date) => ({ date, completed: completed.has(date) }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('no such table: daily_ritual_history') || message.includes('no such column: ritual_date')) {
+      // eslint-disable-next-line no-console
+      console.error('[ritual-history-fallback]', {
+        userId,
+        reason: 'missing_daily_ritual_history_schema',
+        message,
+      });
+      return dates.map((date) => ({ date, completed: false }));
+    }
+    throw error;
+  }
 }
 
 function lastNDates(todayISO: string, count: number): string[] {

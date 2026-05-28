@@ -28,6 +28,7 @@ import { ScreenScroll } from '../components/ScreenScroll';
 import { useAuth } from '../hooks/useAuth';
 import { useHoroscope } from '../hooks/useHoroscope';
 import { useProfile } from '../hooks/useProfile';
+import { loadDailyReadingReveal, saveDailyReadingReveal } from '../lib/dailyReadingReveal';
 import { loadDailyStreak, localDateISO, saveDailyStreak, type DailyStreak } from '../lib/streaks';
 import { consumeDailyRitualCelebration, consumeMilestoneCelebration } from '../lib/streakCelebration';
 import { milestoneExperience, normalizeStreakCount, normalizeStreakSegment, type StreakMilestone } from '../lib/streakDisplay';
@@ -62,6 +63,8 @@ export function HomeScreen(): ReactElement {
   const [completion, setCompletion] = useState<DailyRitualCompletion | null>(null);
   const [completionError, setCompletionError] = useState<string | null>(null);
   const [completionPending, setCompletionPending] = useState(false);
+  const [sequenceStarted, setSequenceStarted] = useState(false);
+  const [readingRevealed, setReadingRevealed] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const opacities = useMemo(() => Array.from({ length: 9 }, () => new Animated.Value(0)), []);
@@ -76,6 +79,12 @@ export function HomeScreen(): ReactElement {
   const isPremium = Boolean(user?.isPremium ?? profile?.user?.isPremium);
   const effectiveHoroscopePeriod: HoroscopePeriod = isPremium ? horoscopePeriod : 'today';
   const dateISO = horoscopeDateForPeriod(effectiveHoroscopePeriod);
+  const hasServerRevealToday = Boolean(
+    horoscope &&
+      effectiveHoroscopePeriod === 'today' &&
+      horoscope.streakLastDate &&
+      horoscope.streakLastDate === horoscope.date,
+  );
 
   useEffect(() => {
     void loadDailyStreak().then(setDailyStreak);
@@ -106,8 +115,9 @@ export function HomeScreen(): ReactElement {
 
   useEffect(() => {
     if (!horoscope || horoLoading) return;
+    if (effectiveHoroscopePeriod === 'today' && !readingRevealed) return;
     void track('horoscope_viewed', { source: 'home', period: effectiveHoroscopePeriod, isPremium });
-  }, [effectiveHoroscopePeriod, horoLoading, horoscope, isPremium]);
+  }, [effectiveHoroscopePeriod, horoLoading, horoscope, isPremium, readingRevealed]);
 
   useEffect(() => {
     if (!horoscope || horoLoading || effectiveHoroscopePeriod !== 'today') return;
@@ -120,6 +130,25 @@ export function HomeScreen(): ReactElement {
       completedToday: (horoscope.streakLastDate ?? dailyStreak.lastCheckInDate) === localDateISO(),
     });
   }, [dailyStreak.count, dailyStreak.lastCheckInDate, effectiveHoroscopePeriod, horoLoading, horoscope, user?.longestStreakCount]);
+
+  useEffect(() => {
+    if (!horoscope || effectiveHoroscopePeriod !== 'today') {
+      setReadingRevealed(effectiveHoroscopePeriod !== 'today');
+      return;
+    }
+    if (hasServerRevealToday) {
+      setReadingRevealed(true);
+      void saveDailyReadingReveal(horoscope.date, user?.id);
+      return;
+    }
+    let mounted = true;
+    void loadDailyReadingReveal(horoscope.date, user?.id).then((revealed) => {
+      if (mounted) setReadingRevealed(revealed);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [effectiveHoroscopePeriod, hasServerRevealToday, horoscope, user?.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -208,6 +237,7 @@ export function HomeScreen(): ReactElement {
 
   const onHoroscopePeriodChange = (next: HoroscopePeriod): void => {
     setHoroscopePeriod(next);
+    setSequenceStarted(false);
     if (!isPremium && next !== 'today') {
       void trackRitualEvent('deeper_layer_tapped', {
         source: 'home',
@@ -227,8 +257,8 @@ export function HomeScreen(): ReactElement {
     void shareDailyHoroscopeCard(horoscope);
   };
 
-  const onCompleteDailyRitual = async (source: 'end_of_reading' | 'cta'): Promise<void> => {
-    if (!horoscope || effectiveHoroscopePeriod !== 'today' || completionPending) return;
+  const onCompleteDailyRitual = async (): Promise<DailyRitualCompletion | null> => {
+    if (!horoscope || effectiveHoroscopePeriod !== 'today' || completionPending) return null;
     setCompletionPending(true);
     setCompletionError(null);
     try {
@@ -248,13 +278,13 @@ export function HomeScreen(): ReactElement {
       if (!result.shouldCelebrate) {
         setCompletion(null);
         await track('daily_ritual_completion_replayed_blocked', { completedDate: result.completedDate, source: 'home' });
-        return;
+        return result;
       }
       const canShow = await consumeDailyRitualCelebration(result.completedDate);
       if (!canShow) {
         setCompletion(null);
         await track('daily_ritual_completion_replayed_blocked', { completedDate: result.completedDate, source: 'home' });
-        return;
+        return result;
       }
       setCompletion(result);
       if (result.milestoneReached) {
@@ -277,11 +307,43 @@ export function HomeScreen(): ReactElement {
         freezeAwarded: result.streakFreezeAwarded,
       });
       if (result.currentStreak === 1) await track('streak_started', { streakCount: 1 });
-      if (source === 'end_of_reading') await track('ritual_flow_completion', { surface: 'guest_ritual' });
+      return result;
     } catch (err) {
       setCompletionError(err instanceof Error ? err.message : 'Could not complete the ritual yet.');
+      return null;
     } finally {
       setCompletionPending(false);
+    }
+  };
+
+  const onRevealDailyReading = async (): Promise<void> => {
+    if (!horoscope || effectiveHoroscopePeriod !== 'today' || completionPending) return;
+    await track('daily_reading_reveal_clicked', { source: 'home', date: horoscope.date });
+    if (readingRevealed || hasServerRevealToday) {
+      setReadingRevealed(true);
+      await saveDailyReadingReveal(horoscope.date, user?.id);
+      await track('daily_reading_already_revealed', {
+        source: 'home',
+        date: horoscope.date,
+        currentStreak: horoscope.streakCount,
+      });
+      return;
+    }
+    const completion = await onCompleteDailyRitual();
+    setReadingRevealed(true);
+    await saveDailyReadingReveal(horoscope.date, user?.id);
+    if (completion?.alreadyCompletedToday) {
+      await track('daily_reading_already_revealed', {
+        source: 'home',
+        date: completion.completedDate,
+        currentStreak: completion.currentStreak,
+      });
+    } else {
+      await track('daily_reading_revealed', {
+        source: 'home',
+        date: completion?.completedDate ?? horoscope.date,
+        currentStreak: completion?.currentStreak,
+      });
     }
   };
 
@@ -331,8 +393,19 @@ export function HomeScreen(): ReactElement {
           date={horoscope?.date ?? dateISO}
           dominantSignal={dominantSignal}
           compact={compressHome}
+          sequenceStarted={sequenceStarted}
+          onContinue={horoscope ? () => setSequenceStarted(true) : undefined}
         />
       </Animated.View>
+
+      {horoscope && sequenceStarted && effectiveHoroscopePeriod === 'today' && !readingRevealed ? (
+        <DailyRevealMoment
+          streakCount={streakCount}
+          pending={completionPending}
+          error={completionError}
+          onReveal={() => void onRevealDailyReading()}
+        />
+      ) : null}
 
       {!sun && !showProfileSpinner ? (
         <Text style={[styles.hint, { color: theme.textMuted }]}>
@@ -340,7 +413,7 @@ export function HomeScreen(): ReactElement {
         </Text>
       ) : null}
 
-      {sun ? (
+      {sun && sequenceStarted && readingRevealed ? (
         <Animated.View style={{ opacity: opacities[4]! }}>
           <HoroscopePremiumCard
             horoscope={horoscope}
@@ -386,7 +459,7 @@ export function HomeScreen(): ReactElement {
         <LoadingBlock message={t('home.loadingSky')} />
       ) : null}
 
-      {horoscope ? (
+      {horoscope && readingRevealed ? (
         <>
           {openMoment === 'reflection' ? <Animated.View style={{ opacity: opacities[5]! }}>
             <ModularAstrologyCard
@@ -466,48 +539,40 @@ export function HomeScreen(): ReactElement {
               }}
             />
           ) : null}
-          <HomeSequenceControls
-            openMoment={openMoment}
-            isPremium={isPremium}
-            onOpen={(moment) => {
-              setOpenMoment(moment);
-              if (moment === 'reflection') {
-                void trackRitualEvent('expanded_reading_requested', {
+          {sequenceStarted ? (
+            <HomeSequenceControls
+              openMoment={openMoment}
+              isPremium={isPremium}
+              onOpen={(moment) => {
+                setOpenMoment(moment);
+                if (moment === 'reflection') {
+                  void trackRitualEvent('expanded_reading_requested', {
+                    source: 'home',
+                    moment,
+                    momentType: 'reflection',
+                    premiumState: isPremium ? 'premium' : 'free',
+                    trigger: 'sequence_control',
+                    readingType: 'affirmation',
+                    continuationType: 'reflection',
+                    userMode: user ? 'authenticated' : 'unknown',
+                  });
+                }
+                void trackRitualEvent('ritual_moment_continued', {
                   source: 'home',
                   moment,
-                  momentType: 'reflection',
+                  momentType: moment,
                   premiumState: isPremium ? 'premium' : 'free',
                   trigger: 'sequence_control',
-                  readingType: 'affirmation',
-                  continuationType: 'reflection',
+                  readingType: effectiveHoroscopePeriod,
+                  continuationType: moment,
                   userMode: user ? 'authenticated' : 'unknown',
                 });
-              }
-              void trackRitualEvent('ritual_moment_continued', {
-                source: 'home',
-                moment,
-                momentType: moment,
-                premiumState: isPremium ? 'premium' : 'free',
-                trigger: 'sequence_control',
-                readingType: effectiveHoroscopePeriod,
-                continuationType: moment,
-                userMode: user ? 'authenticated' : 'unknown',
-              });
-              void track('atmosphere_first_navigation_success', { from: 'home', to: moment, moment });
-            }}
-            onClose={() => {
-              setOpenMoment('closed');
-              void track('home_sequence_completed', { finalMoment: 'quiet_close' });
-              void onCompleteDailyRitual('end_of_reading');
-            }}
-          />
-          {effectiveHoroscopePeriod === 'today' ? (
-            <DailyRitualCompletionMoment
-              streakCount={streakCount}
-              completedToday={(horoscope.streakLastDate ?? dailyStreak.lastCheckInDate) === localDateISO()}
-              pending={completionPending}
-              error={completionError}
-              onComplete={() => void onCompleteDailyRitual('cta')}
+                void track('atmosphere_first_navigation_success', { from: 'home', to: moment, moment });
+              }}
+              onClose={() => {
+                setOpenMoment('closed');
+                void track('home_sequence_completed', { finalMoment: 'quiet_close' });
+              }}
             />
           ) : null}
           {completion?.shouldCelebrate ? (
@@ -526,25 +591,35 @@ function NightlyArrivalMoment({
   date,
   dominantSignal,
   compact,
+  sequenceStarted,
+  onContinue,
 }: {
   horoscope: NonNullable<ReturnType<typeof useHoroscope>['horoscope']> | null;
   date: string;
   dominantSignal: string;
   compact: boolean;
+  sequenceStarted: boolean;
+  onContinue?: () => void;
 }): ReactElement {
-  const signal = dominantSignal === 'stress' ? 'sensitivity' : dominantSignal;
+  void dominantSignal;
+  void compact;
   return (
     <View style={styles.nightlyArrival}>
       <Text style={styles.nightlyEyebrow}>Tonight's sequence</Text>
       <Text style={styles.nightlyTitle}>
         {horoscope?.overall ? clampHomeLine(horoscope.overall) : 'Arrive slowly. Let the sky come into focus.'}
       </Text>
-      {!compact ? (
-        <Text style={styles.nightlyBody}>
-          One reading, one resonance, one quiet continuation. The strongest signal tonight is {signal}.
-        </Text>
-      ) : null}
       <Text style={styles.nightlyMeta}>{date}</Text>
+      {onContinue && !sequenceStarted ? (
+        <Pressable
+          style={styles.continueButton}
+          onPress={onContinue}
+          accessibilityRole="button"
+          accessibilityLabel="Үргэлжлүүлэх"
+        >
+          <Text style={styles.continueText}>Үргэлжлүүлэх →</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -673,40 +748,33 @@ function PremiumContinuationMoment({ onPress }: { onPress: () => void }): ReactE
   );
 }
 
-function DailyRitualCompletionMoment({
+function DailyRevealMoment({
   streakCount,
-  completedToday,
   pending,
   error,
-  onComplete,
+  onReveal,
 }: {
   streakCount: number;
-  completedToday: boolean;
   pending: boolean;
   error: string | null;
-  onComplete: () => void;
+  onReveal: () => void;
 }): ReactElement {
+  const { t } = useI18n();
   return (
     <View style={styles.completeMoment}>
-      <Text style={styles.completeTitle}>
-        {completedToday ? `${streakCount} дахь өдөр баталгаажлаа.` : `Өнөөдрийн зурвасаа уншиж дуусгаад ${streakCount + 1} дахь өдрөө баталгаажуулаарай.`}
-      </Text>
-      <Text style={styles.completeBody}>
-        {completedToday
-          ? 'Та энэ жижиг зан үйлдээ дахин эргэн ирлээ.'
-          : 'This only counts after you choose to close the ritual, not just because the page loaded.'}
-      </Text>
+      <Text style={styles.completeTitle}>{t('home.streakBadge', { count: streakCount })}</Text>
+      <Text style={styles.completeBody}>{t('home.readingReady')}</Text>
       {error ? <Text style={styles.completeError}>{error}</Text> : null}
       <Pressable
-        style={({ pressed }) => [styles.completeButton, (completedToday || pending) && styles.completeButtonDisabled, pressed && !completedToday && !pending && styles.pressed]}
-        onPress={onComplete}
-        disabled={completedToday || pending}
+        style={({ pressed }) => [styles.completeButton, pending && styles.completeButtonDisabled, pressed && !pending && styles.pressed]}
+        onPress={onReveal}
+        disabled={pending}
         accessibilityRole="button"
-        accessibilityState={{ disabled: completedToday || pending, busy: pending }}
-        accessibilityLabel={completedToday ? 'Today ritual already completed' : "Complete today's ritual"}
+        accessibilityState={{ disabled: pending, busy: pending }}
+        accessibilityLabel={t('home.revealReading')}
       >
         <Text style={styles.completeButtonText}>
-          {pending ? 'Confirming quietly...' : completedToday ? 'Today is in your rhythm' : "Complete today's ritual"}
+          {pending ? t('home.revealingReading') : t('home.revealReading')}
         </Text>
       </Pressable>
     </View>
@@ -871,6 +939,23 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '900',
     textTransform: 'uppercase',
+  },
+  continueButton: {
+    minHeight: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(184, 168, 255, 0.38)',
+    backgroundColor: 'rgba(184, 168, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  continueText: {
+    color: '#f5f3ff',
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '900',
   },
   ringsRow: {
     flexDirection: 'row',

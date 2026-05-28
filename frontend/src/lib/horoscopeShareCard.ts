@@ -174,3 +174,17 @@ export function generateHoroscopeShareCardSvg(payload: HoroscopeShareCardPayload
 export function horoscopeShareCardDataUrl(payload: HoroscopeShareCardPayload): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(generateHoroscopeShareCardSvg(payload))}`;
 }
+
+export function horoscopeShareCardFilename(payload: HoroscopeShareCardPayload, ext: 'png' | 'svg'): string {
+  const slug = payload.dateLabel.replace(/\W+/g, '-').toLowerCase().replace(/^-+|-+$/g, '') || 'today';
+  return `astralis-${payload.sign}-${slug}-daily-card.${ext}`;
+}
+
+export function buildHoroscopeShareText(
+  payload: HoroscopeShareCardPayload,
+  appOrigin = 'https://astralis.app',
+): string {
+  const origin = appOrigin.replace(/\/$/, '');
+  const url = `${origin}/horoscope/${payload.sign}/today`;
+  return `${payload.energyLine}\n\n${payload.preview}\n\n${url}`;
+}

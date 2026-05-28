@@ -120,10 +120,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (token) headers.Authorization = `Bearer ${token}`;
   }
   const finalPath = localized ? appendLangParam(path, activeLocale) : path;
+  const requestUrl = `${baseUrl}${finalPath}`;
   const timeoutMs = timeoutOption === false ? undefined : (timeoutOption ?? DEFAULT_REQUEST_TIMEOUT_MS);
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}${finalPath}`, {
+    response = await fetch(requestUrl, {
       method,
       headers,
       body:
@@ -161,6 +162,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (data && typeof data === 'object' && data !== null && 'error' in data) {
       const e = (data as { error?: unknown }).error;
       if (typeof e === 'string' && e.length > 0) message = e;
+      else if (e && typeof e === 'object' && 'message' in e) {
+        const nested = (e as { message?: unknown }).message;
+        if (typeof nested === 'string' && nested.length > 0) message = nested;
+      }
     }
     const apiError = new ApiClientError(response.status, message);
     captureFrontendException(apiError, { api: { path, method, status: response.status } });

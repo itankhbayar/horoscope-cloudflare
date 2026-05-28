@@ -27,4 +27,21 @@ describe('profile ritual history', () => {
       '2026-05-20',
     ]);
   });
+
+  it('falls back to empty completion history when ritual table is missing', async () => {
+    const orderBy = vi.fn(async () => {
+      throw new Error('Failed query: select ritual_date from daily_ritual_history ... no such table: daily_ritual_history');
+    });
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({ orderBy })),
+        })),
+      })),
+    };
+
+    const history = await getRitualHistory(db as never, 'user-1', '2026-05-20');
+    expect(history).toHaveLength(30);
+    expect(history.every((day) => day.completed === false)).toBe(true);
+  });
 });

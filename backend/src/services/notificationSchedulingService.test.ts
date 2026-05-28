@@ -54,9 +54,9 @@ describe('notification scheduling rules', () => {
     expect(streakSegmentForNotification(7)).toBe('aligned');
     expect(streakSegmentForNotification(30)).toBe('devoted');
     expect(streakSegmentForNotification(100)).toBe('legendary');
-    expect(streakReminderCopy(1)).toBe("Today's sky is ready when you are \u2728");
-    expect(streakReminderCopy(3)).toBe('Your cosmic rhythm is building \u2728');
-    expect(streakReminderCopy(7)).toBe('7 nights aligned under the same stars \uD83C\uDF19');
-    expect(streakReminderCopy(30)).toBe('Your ritual history is glowing under the open sky.');
+    expect(streakReminderCopy(1)).toBe("Today's reading is ready.");
+    expect(streakReminderCopy(3)).toBe('Your sky is waiting.');
+    expect(streakReminderCopy(7)).toBe('Your sky is waiting.');
+    expect(streakReminderCopy(30)).toBe("Reveal today's horoscope.");
   });
 });

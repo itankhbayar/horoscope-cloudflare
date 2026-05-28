@@ -4,6 +4,12 @@ import { getApiLocale } from '@astralis/lib/apiClient';
 import type { DailyHoroscope, DailyRitualCompletion, ZodiacSign } from '@astralis/lib/types';
 
 const cache = new Map<string, DailyHoroscope>();
+const HOROSCOPE_CACHE_VERSION = 'v2';
+
+function hasPremiumDepthBlocks(horoscope: DailyHoroscope, lang: string): boolean {
+  if (lang !== 'mn') return true;
+  return Array.isArray(horoscope.blocks) && horoscope.blocks.length >= 6;
+}
 
 export function useHoroscope(): {
   horoscope: DailyHoroscope | null;
@@ -20,9 +26,9 @@ export function useHoroscope(): {
 
   const load = useCallback(async (sign: ZodiacSign, date?: string) => {
     const lang = getApiLocale();
-    const key = `${lang}:${sign}:${date ?? 'today'}`;
+    const key = `${HOROSCOPE_CACHE_VERSION}:${lang}:${sign}:${date ?? 'today'}`;
     const hit = cache.get(key);
-    if (hit) {
+    if (hit && hasPremiumDepthBlocks(hit, lang)) {
       setHoroscope(hit);
       return;
     }
@@ -30,6 +36,9 @@ export function useHoroscope(): {
     setError(null);
     try {
       const data = await horoscopeService.fetchDailyHoroscope(sign, date);
+      if (lang === 'mn' && !hasPremiumDepthBlocks(data, lang)) {
+        cache.delete(key);
+      }
       cache.set(key, data);
       setHoroscope(data);
     } catch (e) {
@@ -40,10 +49,16 @@ export function useHoroscope(): {
   }, []);
 
   const loadMine = useCallback(async () => {
+    const lang = getApiLocale();
     setLoading(true);
     setError(null);
     try {
       const data = await horoscopeService.fetchMyDailyHoroscope();
+      if (lang === 'mn' && !hasPremiumDepthBlocks(data, lang)) {
+        const retry = await horoscopeService.fetchMyDailyHoroscope();
+        setHoroscope(retry);
+        return;
+      }
       setHoroscope(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load sky reading');
