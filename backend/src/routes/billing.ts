@@ -45,9 +45,46 @@ const WEBHOOK_HANDLED = new Set<string>([
   /** Often fired for subscription invoices (same payload shape as invoice.paid). */
   'invoice.payment_succeeded',
   'invoice.payment_failed',
+  /** Grants premium when a trial subscription is created (web Checkout + mobile PaymentSheet). */
+  'customer.subscription.created',
   'customer.subscription.updated',
   'customer.subscription.deleted',
 ]);
+
+/**
+ * Maps a Stripe webhook event to a trial-funnel analytics metric, or null when the event is
+ * not a trial transition. Detection is server-authoritative so it covers every checkout entry
+ * point. Emitted only for freshly-processed events so idempotent retries never double-count.
+ */
+function trialMetricForEvent(event: Stripe.Event): 'trial_started' | 'trial_converted' | 'trial_cancelled' | null {
+  if (event.type === 'customer.subscription.created') {
+    const sub = event.data.object as Stripe.Subscription;
+    /**
+     * Single authoritative trial_started for every Stripe entry point (web Checkout + mobile
+     * PaymentSheet). Emitted here — not on checkout.session.completed — so the web flow, which
+     * fires both events, never double-counts.
+     */
+    if (sub.status === 'trialing') return 'trial_started';
+    return null;
+  }
+  if (event.type === 'customer.subscription.updated') {
+    const sub = event.data.object as Stripe.Subscription;
+    const previous = (event.data as { previous_attributes?: Partial<Stripe.Subscription> })
+      .previous_attributes;
+    if (previous?.status === 'trialing' && sub.status === 'active') return 'trial_converted';
+    return null;
+  }
+  if (event.type === 'customer.subscription.deleted') {
+    const sub = event.data.object as Stripe.Subscription;
+    /** Cancelled while still in trial, or before the trial-end charge ever happened. */
+    if (sub.status === 'trialing') return 'trial_cancelled';
+    if (sub.trial_end && sub.canceled_at && sub.canceled_at <= sub.trial_end) {
+      return 'trial_cancelled';
+    }
+    return null;
+  }
+  return null;
+}
 
 function stripeClientEnvReady(env: AppBindings): env is AppBindings & {
   STRIPE_SECRET_KEY: string;
@@ -335,6 +372,10 @@ router.post('/webhook', async (c) => {
     });
     if (event.type === 'checkout.session.completed' && result.action === 'process') {
       metric(c.env, 'premium_purchased', { source: 'stripe_webhook' });
+    }
+    if (result.action === 'process') {
+      const trialMetric = trialMetricForEvent(event);
+      if (trialMetric) metric(c.env, trialMetric, { source: 'stripe_webhook', eventType: event.type });
     }
     if (result.action === 'skip') {
       logFromContext(c, 'info', 'stripe_webhook_duplicate_skipped', {

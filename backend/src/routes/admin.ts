@@ -5,6 +5,7 @@ import {
   resolveCronDateISO,
 } from '../services/horoscopePrewarmService';
 import { prewarmTarotForTimezoneDate } from '../services/tarotPrewarmService';
+import { runRetentionPipeline } from '../services/notificationQueueService';
 import { isValidIanaTimeZone, isValidCalendarDate } from '../tarot/tarotQuery';
 import type { AppBindings, AppVariables } from '../types';
 import { secureSecretEqual } from '../utils/secureCompare';
@@ -102,6 +103,29 @@ router.post('/prewarm-tarot', async (c) => {
     logFromContext(c, 'error', 'admin_tarot_prewarm_failed', { timezone, dateISO, error: err });
     captureException(err, { admin: { job: 'tarot_prewarm', dateISO, timezone } });
     return c.json({ success: false, error: 'Tarot prewarm failed', details: String(err) }, 500);
+  }
+});
+
+router.post('/run-notifications', async (c) => {
+  if (!isAuthorized(c)) {
+    logFromContext(c, 'warn', 'admin_run_notifications_unauthorized', {
+      hasSecretConfigured: Boolean(c.env.ADMIN_SECRET),
+      hasHeader: Boolean(c.req.header('x-admin-secret')),
+    });
+    return fail(c, 401, 'UNAUTHORIZED', 'Unauthorized');
+  }
+
+  const db = getDb(c.env.horoscope_db);
+  logFromContext(c, 'info', 'admin_run_notifications_started', {});
+
+  try {
+    const result = await runRetentionPipeline(db, c.env);
+    logFromContext(c, 'info', 'admin_run_notifications_completed', { ...result });
+    return c.json({ success: true, ...result });
+  } catch (err) {
+    logFromContext(c, 'error', 'admin_run_notifications_failed', { error: err });
+    captureException(err, { admin: { job: 'notification_pipeline' } });
+    return c.json({ success: false, error: 'Notification pipeline failed', details: String(err) }, 500);
   }
 });
 

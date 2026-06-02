@@ -5,6 +5,7 @@ import { stripeEvent } from '../test/stripeFixtures';
 import { createDbCapture } from '../test/mockDb';
 import {
   claimStripeWebhookEvent,
+  createMobilePremiumPaymentSheet,
   createPremiumCheckoutSession,
   grantPremiumFromCheckoutSession,
   grantPremiumFromPaymentIntent,
@@ -155,6 +156,107 @@ describe('createPremiumCheckoutSession', () => {
         metadata: { userId: 'user-1' },
       }),
     );
+  });
+
+  it('attaches a 7-day trial and subscription metadata for recurring prices', async () => {
+    const stripe = {
+      prices: { retrieve: vi.fn().mockResolvedValue({ type: 'recurring' }) },
+      checkout: { sessions: { create: vi.fn().mockResolvedValue({ id: 'cs_sub' }) } },
+    } as unknown as Stripe;
+
+    await createPremiumCheckoutSession(
+      stripe,
+      'price_sub',
+      'user-1',
+      'user@example.com',
+      'http://localhost:5173',
+    );
+
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'subscription',
+        subscription_data: { trial_period_days: 7, metadata: { userId: 'user-1' } },
+      }),
+    );
+  });
+
+  it('does not attach subscription_data for one-time prices', async () => {
+    const stripe = {
+      prices: { retrieve: vi.fn().mockResolvedValue({ type: 'one_time' }) },
+      checkout: { sessions: { create: vi.fn().mockResolvedValue({ id: 'cs_one' }) } },
+    } as unknown as Stripe;
+
+    await createPremiumCheckoutSession(
+      stripe,
+      'price_one',
+      'user-1',
+      'user@example.com',
+      'http://localhost:5173',
+    );
+
+    const args = (stripe.checkout.sessions.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(args).not.toHaveProperty('subscription_data');
+    expect(args.mode).toBe('payment');
+  });
+});
+
+describe('createMobilePremiumPaymentSheet', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('starts a trial via SetupIntent for recurring mobile subscriptions', async () => {
+    const { db } = createDbCapture();
+    mocks.getUserById.mockResolvedValue({ id: 'user-1', email: 'u@e.com', stripeCustomerId: 'cus_1' });
+    const subscriptionsCreate = vi.fn().mockResolvedValue({
+      id: 'sub_trial',
+      status: 'trialing',
+      pending_setup_intent: { client_secret: 'seti_secret_123' },
+      latest_invoice: null,
+    });
+    const stripe = {
+      prices: { retrieve: vi.fn().mockResolvedValue({ type: 'recurring' }) },
+      subscriptions: { create: subscriptionsCreate },
+      ephemeralKeys: { create: vi.fn().mockResolvedValue({ secret: 'ek_secret' }) },
+    } as unknown as Stripe;
+
+    const result = await createMobilePremiumPaymentSheet(stripe, db, {
+      userId: 'user-1',
+      email: 'u@e.com',
+      priceId: 'price_sub',
+    });
+
+    expect(result).toEqual({
+      mode: 'subscription_trial',
+      setupIntentClientSecret: 'seti_secret_123',
+      customerId: 'cus_1',
+      customerEphemeralKeySecret: 'ek_secret',
+      subscriptionId: 'sub_trial',
+    });
+    expect(subscriptionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ trial_period_days: 7 }),
+      expect.anything(),
+    );
+  });
+
+  it('does not attach a trial to one-time mobile payments', async () => {
+    const { db } = createDbCapture();
+    mocks.getUserById.mockResolvedValue({ id: 'user-1', email: 'u@e.com', stripeCustomerId: 'cus_1' });
+    const paymentIntentsCreate = vi.fn().mockResolvedValue({ client_secret: 'pi_secret' });
+    const stripe = {
+      prices: { retrieve: vi.fn().mockResolvedValue({ type: 'one_time', unit_amount: 999, currency: 'usd' }) },
+      paymentIntents: { create: paymentIntentsCreate },
+    } as unknown as Stripe;
+
+    const result = await createMobilePremiumPaymentSheet(stripe, db, {
+      userId: 'user-1',
+      email: 'u@e.com',
+      priceId: 'price_one',
+    });
+
+    expect(result).toEqual({ mode: 'payment', paymentIntentClientSecret: 'pi_secret' });
+    const piArgs = paymentIntentsCreate.mock.calls[0][0];
+    expect(piArgs).not.toHaveProperty('trial_period_days');
   });
 });
 
@@ -498,6 +600,24 @@ describe('processStripeWebhookEvent', () => {
     );
 
     expect(setCalls.some((c) => c.isPremium === true)).toBe(true);
+  });
+
+  it('routes customer.subscription.created and grants premium for a trialing subscription', async () => {
+    const { db, setCalls } = createDbCapture();
+
+    await processStripeWebhookEvent(
+      db,
+      stripeEvent('customer.subscription.created', {
+        id: 'sub_new',
+        status: 'trialing',
+        metadata: { userId: 'user-1' },
+        customer: 'cus_1',
+      }),
+    );
+
+    expect(setCalls).toEqual([
+      expect.objectContaining({ isPremium: true, stripeSubscriptionId: 'sub_new' }),
+    ]);
   });
 
   it('routes customer.subscription.updated', async () => {

@@ -8,6 +8,7 @@ const REVOKED_REFRESH_RETENTION_DAYS = 30;
 const PROCESSED_WEBHOOK_RETENTION_DAYS = 30;
 const DAILY_HOROSCOPE_RETENTION_DAYS = 90;
 const TAROT_DAILY_RETENTION_DAYS = 45;
+const NOTIFICATION_JOB_RETENTION_DAYS = 14;
 
 type CleanupJobResult = {
   job: string;
@@ -110,6 +111,16 @@ export async function cleanupOperationalData(
     WHERE id IN (
       SELECT id FROM tarot_daily
       WHERE date < date('now', ${cutoff(TAROT_DAILY_RETENTION_DAYS)})
+      LIMIT ${limit}
+    )
+  `);
+
+  await run('notification_jobs_terminal', (limit) => sql`
+    DELETE FROM notification_jobs
+    WHERE id IN (
+      SELECT id FROM notification_jobs
+      WHERE status IN ('sent', 'failed', 'skipped')
+        AND updated_at < datetime('now', ${cutoff(NOTIFICATION_JOB_RETENTION_DAYS)})
       LIMIT ${limit}
     )
   `);

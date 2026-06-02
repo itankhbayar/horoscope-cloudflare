@@ -1,6 +1,7 @@
 import type { ZodiacSign } from './zodiac';
 import { getZodiacInfo } from './zodiac';
 import type { Lang } from './lang';
+import { buildDailyHook } from './dailyHook';
 import type { Aspect, DailySkySnapshot, HouseCusp, NatalChartData, PlanetPosition, TransitToNatalAspect } from '../services/astrologyService';
 
 interface PerSignText {
@@ -539,6 +540,8 @@ export interface DailyHoroscopeContent {
   advice?: string;
   luckyNumber: number;
   luckyColor: string;
+  /** The daily emotional-jolt opening line; also prepended into `overall`. */
+  hook?: string;
   skyContext?: DailySkyContext;
   blocks?: HoroscopeContentBlock[];
 }
@@ -610,10 +613,40 @@ export function generateDailyHoroscope(
     luckyNumber: (seed % 99) + 1,
     luckyColor: pick(bundle.colors, seed >> 8),
   };
-  if (!options.sky) return applyPeriodAwareFrame(fallback, lang, dateISO, seed);
-  if (lang === 'en') return applyPeriodAwareFrame(buildAstronomyAwareReadingEn(sign, dateISO, fallback, options), lang, dateISO, seed);
-  if (lang === 'mn') return applyPeriodAwareFrame(buildAstronomyAwareReadingMn(sign, dateISO, fallback, options), lang, dateISO, seed);
-  return applyPeriodAwareFrame(fallback, lang, dateISO, seed);
+  let content: DailyHoroscopeContent;
+  if (!options.sky) content = fallback;
+  else if (lang === 'en') content = buildAstronomyAwareReadingEn(sign, dateISO, fallback, options);
+  else if (lang === 'mn') content = buildAstronomyAwareReadingMn(sign, dateISO, fallback, options);
+  else content = fallback;
+  return withDailyHook(applyPeriodAwareFrame(content, lang, dateISO, seed), sign, dateISO, lang, options.sky);
+}
+
+/**
+ * Prepends the deterministic daily emotional jolt as the opening line and exposes
+ * it as `hook`. Applied as the final step for every reading (free and premium,
+ * EN and MN) so the opening always feels personal and the push can tease the same
+ * theme. Runs after period framing so weekly/monthly anchors keep their hook too.
+ */
+function withDailyHook(
+  content: DailyHoroscopeContent,
+  sign: ZodiacSign,
+  dateISO: string,
+  lang: Lang,
+  sky?: DailySkySnapshot,
+): DailyHoroscopeContent {
+  const moon = sky?.planets.find((p) => p.name === 'Moon');
+  const { jolt } = buildDailyHook({
+    sign,
+    dateISO,
+    lang,
+    moonSign: moon?.sign,
+    moonPhase: sky?.moonPhase.name,
+  });
+  const overall = content.overall ? `${jolt}\n\n${content.overall}` : jolt;
+  const blocks = Array.isArray(content.blocks)
+    ? content.blocks.map((b) => (b.id === 'overall' ? { ...b, paragraphs: [jolt, ...b.paragraphs] } : b))
+    : content.blocks;
+  return { ...content, hook: jolt, overall, blocks };
 }
 
 export function enrichDailyHoroscope(
@@ -624,23 +657,24 @@ export function enrichDailyHoroscope(
   options: DailyHoroscopeGenerationOptions,
 ): DailyHoroscopeContent {
   debugContentShape('enrich-input', content, { sign, dateISO, lang, hasSky: !!options.sky });
+  const seed = seedFromSignAndDate(sign, dateISO);
+  let next: DailyHoroscopeContent;
+  let branch: string;
   if (!options.sky) {
-    const framed = applyPeriodAwareFrame(content, lang, dateISO, seedFromSignAndDate(sign, dateISO));
-    debugContentShape('enrich-return-no-sky', framed, { sign, dateISO, lang, branch: 'no-sky' });
-    return framed;
+    next = content;
+    branch = 'no-sky';
+  } else if (lang === 'en') {
+    next = buildAstronomyAwareReadingEn(sign, dateISO, content, options);
+    branch = 'en';
+  } else if (lang === 'mn') {
+    next = buildAstronomyAwareReadingMn(sign, dateISO, content, options);
+    branch = 'mn';
+  } else {
+    next = content;
+    branch = 'fallback-lang';
   }
-  if (lang === 'en') {
-    const framed = applyPeriodAwareFrame(buildAstronomyAwareReadingEn(sign, dateISO, content, options), lang, dateISO, seedFromSignAndDate(sign, dateISO));
-    debugContentShape('enrich-return-en', framed, { sign, dateISO, lang, branch: 'en' });
-    return framed;
-  }
-  if (lang === 'mn') {
-    const framed = applyPeriodAwareFrame(buildAstronomyAwareReadingMn(sign, dateISO, content, options), lang, dateISO, seedFromSignAndDate(sign, dateISO));
-    debugContentShape('enrich-return-mn', framed, { sign, dateISO, lang, branch: 'mn' });
-    return framed;
-  }
-  const framed = applyPeriodAwareFrame(content, lang, dateISO, seedFromSignAndDate(sign, dateISO));
-  debugContentShape('enrich-return-fallback-lang', framed, { sign, dateISO, lang, branch: 'fallback-lang' });
+  const framed = withDailyHook(applyPeriodAwareFrame(next, lang, dateISO, seed), sign, dateISO, lang, options.sky);
+  debugContentShape(`enrich-return-${branch}`, framed, { sign, dateISO, lang, branch });
   return framed;
 }
 

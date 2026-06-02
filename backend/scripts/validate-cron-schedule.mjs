@@ -6,13 +6,17 @@ const cronPath = resolve(root, 'src/cron.ts');
 const jsoncConfigPath = resolve(root, 'wrangler.jsonc');
 const tomlConfigPath = resolve(root, 'wrangler.toml');
 
-function readExpectedCron() {
+function readExpectedCrons() {
   const source = readFileSync(cronPath, 'utf8');
-  const match = source.match(/CRON_DAILY\s*=\s*['"]([^'"]+)['"]/);
-  if (!match) {
+  const daily = source.match(/CRON_DAILY\s*=\s*['"]([^'"]+)['"]/);
+  if (!daily) {
     throw new Error(`Could not find CRON_DAILY in ${cronPath}`);
   }
-  return match[1];
+  const hourly = source.match(/CRON_HOURLY\s*=\s*['"]([^'"]+)['"]/);
+  if (!hourly) {
+    throw new Error(`Could not find CRON_HOURLY in ${cronPath}`);
+  }
+  return [daily[1], hourly[1]];
 }
 
 function readConfiguredCrons() {
@@ -33,15 +37,19 @@ function readConfiguredCrons() {
   return Array.from(match[1].matchAll(/"([^"]+)"/g), (item) => item[1]);
 }
 
-const expected = readExpectedCron();
+const expected = readExpectedCrons();
 const configured = readConfiguredCrons();
 
-if (configured.length !== 1 || configured[0] !== expected) {
+const sameSet =
+  configured.length === expected.length &&
+  [...expected].sort().every((cron, idx) => cron === [...configured].sort()[idx]);
+
+if (!sameSet) {
   console.error('Cron schedule mismatch between Worker code and Wrangler config.', {
-    expectedCronDaily: expected,
+    expectedCrons: expected,
     configuredCrons: configured,
   });
   process.exit(1);
 }
 
-console.log('Cron schedule matches Worker CRON_DAILY.', { cron: expected });
+console.log('Cron schedule matches Worker CRON_DAILY and CRON_HOURLY.', { crons: expected });

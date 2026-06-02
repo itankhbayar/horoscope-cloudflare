@@ -264,6 +264,42 @@ export const pushTokens = sqliteTable(
   }),
 );
 
+export const notificationJobs = sqliteTable(
+  'notification_jobs',
+  {
+    id: text('id').primaryKey(),
+    dedupeKey: text('dedupe_key').notNull(),
+    kind: text('kind').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    localDate: text('local_date').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    data: text('data'),
+    status: text('status').notNull().default('pending'),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(3),
+    scheduledFor: text('scheduled_for').notNull(),
+    lastError: text('last_error'),
+    receipts: text('receipts'),
+    receiptsCheckedAt: text('receipts_checked_at'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+    updatedAt: text('updated_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+    sentAt: text('sent_at'),
+  },
+  (t) => ({
+    dedupeKeyIdx: uniqueIndex('notification_jobs_dedupe_key_idx').on(t.dedupeKey),
+    statusScheduledIdx: index('notification_jobs_status_scheduled_idx').on(t.status, t.scheduledFor),
+    userIdx: index('notification_jobs_user_idx').on(t.userId),
+    receiptsPendingIdx: index('notification_jobs_receipts_pending_idx').on(t.status, t.receiptsCheckedAt),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type RefreshSession = typeof refreshSessions.$inferSelect;
@@ -286,3 +322,5 @@ export type NotificationPreferences = typeof notificationPreferences.$inferSelec
 export type NewNotificationPreferences = typeof notificationPreferences.$inferInsert;
 export type PushToken = typeof pushTokens.$inferSelect;
 export type NewPushToken = typeof pushTokens.$inferInsert;
+export type NotificationJob = typeof notificationJobs.$inferSelect;
+export type NewNotificationJob = typeof notificationJobs.$inferInsert;

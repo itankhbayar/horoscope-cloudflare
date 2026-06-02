@@ -28,6 +28,8 @@ export type AppBindings = {
   REVENUECAT_API_KEY?: string;
   /** Authorization secret configured in RevenueCat webhook settings. */
   REVENUECAT_WEBHOOK_SECRET?: string;
+  /** Optional Expo access token for push delivery (Enhanced Security for Push Notifications). */
+  EXPO_ACCESS_TOKEN?: string;
   /** Deployment environment label for logs and Sentry. */
   APP_ENV?: string;
   ENVIRONMENT?: string;

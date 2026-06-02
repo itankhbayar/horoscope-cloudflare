@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite';
 import { getDb } from '../db/client';
 import { cleanupOperationalData } from './cleanupService';
@@ -104,6 +104,27 @@ function createSchema(db: DatabaseSync) {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE notification_jobs (
+      id TEXT PRIMARY KEY NOT NULL,
+      dedupe_key TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      local_date TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      data TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 3,
+      scheduled_for TEXT NOT NULL,
+      last_error TEXT,
+      receipts TEXT,
+      receipts_checked_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      sent_at TEXT
+    );
   `);
 }
 
@@ -111,18 +132,28 @@ function count(db: DatabaseSync, table: string): number {
   return (db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count;
 }
 
+// The cleanup SQL filters with SQLite's datetime('now', '-N days'), which reads the real
+// system clock in node:sqlite (vitest fake timers don't reach it). Compute fixture timestamps
+// from the same clock so they stay on the intended side of each retention window regardless of
+// the actual wall-clock time.
+function relativeDateTime(db: DatabaseSync, modifier: string): string {
+  return (db.prepare(`SELECT datetime('now', ?) AS value`).get(modifier) as { value: string }).value;
+}
+
+function relativeDate(db: DatabaseSync, modifier: string): string {
+  return (db.prepare(`SELECT date('now', ?) AS value`).get(modifier) as { value: string }).value;
+}
+
 describe('cleanupOperationalData', () => {
   let sqlite: DatabaseSync;
 
   beforeEach(() => {
-    vi.setSystemTime(new Date('2026-05-22T00:00:00.000Z'));
     sqlite = new DatabaseSync(':memory:');
     createSchema(sqlite);
   });
 
   afterEach(() => {
     sqlite.close();
-    vi.useRealTimers();
   });
 
   it('deletes expired operational rows in chunks and is idempotent', async () => {
@@ -130,43 +161,49 @@ describe('cleanupOperationalData', () => {
       .prepare(
         'INSERT INTO refresh_sessions (id, user_id, token_hash, family_id, expires_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run('expired-1', 'user-1', 'hash-1', 'fam-1', '2026-05-01T00:00:00.000Z', null);
+      .run('expired-1', 'user-1', 'hash-1', 'fam-1', relativeDateTime(sqlite, '-21 days'), null);
     sqlite
       .prepare(
         'INSERT INTO refresh_sessions (id, user_id, token_hash, family_id, expires_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run('revoked-1', 'user-1', 'hash-2', 'fam-1', '2026-06-01T00:00:00.000Z', '2026-04-01T00:00:00.000Z');
+      .run('revoked-1', 'user-1', 'hash-2', 'fam-1', relativeDateTime(sqlite, '+10 days'), relativeDateTime(sqlite, '-40 days'));
     sqlite
       .prepare(
         'INSERT INTO refresh_sessions (id, user_id, token_hash, family_id, expires_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run('active-1', 'user-1', 'hash-3', 'fam-1', '2026-06-01T00:00:00.000Z', null);
+      .run('active-1', 'user-1', 'hash-3', 'fam-1', relativeDateTime(sqlite, '+10 days'), null);
     sqlite
       .prepare(
         'INSERT INTO stripe_webhook_events (event_id, event_type, processed_at, status) VALUES (?, ?, ?, ?)',
       )
-      .run('evt_old', 'checkout.session.completed', '2026-04-01T00:00:00.000Z', 'processed');
+      .run('evt_old', 'checkout.session.completed', relativeDateTime(sqlite, '-40 days'), 'processed');
     sqlite
       .prepare(
         'INSERT INTO daily_horoscopes (id, sign, date, lang, overall, love, career, health, lucky_number, lucky_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run('daily-old', 'aries', '2026-01-01', 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+      .run('daily-old', 'aries', relativeDate(sqlite, '-120 days'), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
     sqlite
       .prepare(
         'INSERT INTO tarot_daily (id, date, timezone, sign, payload_json, energy_score) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run('tarot-old', '2026-03-01', 'UTC', 'aries', '{}', 50);
+      .run('tarot-old', relativeDate(sqlite, '-60 days'), 'UTC', 'aries', '{}', 50);
+    sqlite
+      .prepare(
+        'INSERT INTO notification_jobs (id, dedupe_key, kind, user_id, local_date, title, body, status, scheduled_for, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run('job-old', 'd1', 'daily_horoscope', 'user-1', relativeDate(sqlite, '-20 days'), 't', 'b', 'sent', relativeDateTime(sqlite, '-20 days'), relativeDateTime(sqlite, '-20 days'));
 
     const result = await cleanupOperationalData(getDb(createSqliteD1(sqlite)), { APP_ENV: 'test' }, 1);
     const again = await cleanupOperationalData(getDb(createSqliteD1(sqlite)), { APP_ENV: 'test' }, 1);
 
-    expect(result.deleted).toBe(5);
+    expect(result.deleted).toBe(6);
     expect(result.jobs.some((job) => job.chunks > 0)).toBe(true);
     expect(again.deleted).toBe(0);
     expect(count(sqlite, 'refresh_sessions')).toBe(1);
     expect(count(sqlite, 'stripe_webhook_events')).toBe(0);
     expect(count(sqlite, 'daily_horoscopes')).toBe(0);
     expect(count(sqlite, 'tarot_daily')).toBe(0);
+    expect(count(sqlite, 'notification_jobs')).toBe(0);
   });
 
   it('preserves recent sessions, pending webhooks, and fresh cache rows', async () => {
@@ -174,7 +211,7 @@ describe('cleanupOperationalData', () => {
       .prepare(
         'INSERT INTO refresh_sessions (id, user_id, token_hash, family_id, expires_at) VALUES (?, ?, ?, ?, ?)',
       )
-      .run('recent-expired', 'user-1', 'hash-1', 'fam-1', '2026-05-20T00:00:00.000Z');
+      .run('recent-expired', 'user-1', 'hash-1', 'fam-1', relativeDateTime(sqlite, '-2 days'));
     sqlite
       .prepare(
         'INSERT INTO stripe_webhook_events (event_id, event_type, status) VALUES (?, ?, ?)',
@@ -184,7 +221,7 @@ describe('cleanupOperationalData', () => {
       .prepare(
         'INSERT INTO daily_horoscopes (id, sign, date, lang, overall, love, career, health, lucky_number, lucky_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run('daily-fresh', 'aries', '2026-05-21', 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+      .run('daily-fresh', 'aries', relativeDate(sqlite, '-2 days'), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
 
     const result = await cleanupOperationalData(getDb(createSqliteD1(sqlite)), { APP_ENV: 'test' }, 10);
 

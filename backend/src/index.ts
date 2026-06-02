@@ -17,7 +17,8 @@ import { isAllowedCorsOrigin } from './env';
 import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscopePrewarmService';
 import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
 import { cleanupOperationalData } from './services/cleanupService';
-import { CRON_DAILY } from './cron';
+import { runRetentionPipeline } from './services/notificationQueueService';
+import { CRON_DAILY, CRON_HOURLY } from './cron';
 import type { AppBindings, AppVariables } from './types';
 import { requestContextMiddleware } from './utils/requestContext';
 import { captureException, sentryOptions } from './utils/sentry';
@@ -125,16 +126,40 @@ const worker: ExportedHandler<AppBindings> = {
         const started = Date.now();
         const cron = controller.cron ?? '';
 
-        if (cron !== CRON_DAILY) {
+        if (cron !== CRON_DAILY && cron !== CRON_HOURLY) {
           log(env, 'warn', 'cron_skipped_unmatched_trigger', {
             receivedCron: cron,
-            expectedCron: CRON_DAILY,
+            expectedCrons: [CRON_DAILY, CRON_HOURLY],
           });
           return;
         }
 
         const db = getDb(env.horoscope_db);
         const timezone = env.CRON_TIMEZONE ?? DEFAULT_TIMEZONE;
+
+        if (cron === CRON_HOURLY) {
+          try {
+            const jobStarted = Date.now();
+            const pipeline = await runRetentionPipeline(db, env, { nowMs: controller.scheduledTime });
+            log(env, 'info', 'cron_notification_pipeline_completed', {
+              ...pipeline,
+              durationMs: Date.now() - jobStarted,
+            });
+            metric(env, 'cron_notification_pipeline_success', {
+              enqueued: pipeline.enqueue.enqueued,
+              sent: pipeline.deliver.sent,
+              failed: pipeline.deliver.failed,
+              tokensDisabled: pipeline.deliver.tokensDisabled + pipeline.receipts.tokensDisabled,
+            });
+          } catch (err) {
+            log(env, 'error', 'cron_notification_pipeline_failed', { error: String(err) });
+            metric(env, 'cron_notification_pipeline_failure', {});
+            captureException(err, { cron: { job: 'notification_pipeline' } });
+          }
+          log(env, 'info', 'cron_completed', { cron, timezone, durationMs: Date.now() - started });
+          return;
+        }
+
         const dateISO = resolveCronDateISO(controller.scheduledTime, timezone);
 
         log(env, 'info', 'cron_started', {

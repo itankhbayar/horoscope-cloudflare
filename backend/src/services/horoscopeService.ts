@@ -42,6 +42,8 @@ export interface HoroscopeResponse {
   advice?: string;
   luckyNumber: number;
   luckyColor: string;
+  /** Daily emotional-jolt opening line (also prepended into `overall`). */
+  hook?: string;
   blocks?: Array<{
     id: 'overall' | 'love' | 'career' | 'health' | 'finance' | 'advice' | 'lucky';
     title: string;

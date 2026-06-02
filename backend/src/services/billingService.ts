@@ -61,6 +61,16 @@ export async function createPremiumCheckoutSession(
     cancel_url: cancelUrl,
     metadata: { userId },
     customer_email: customerEmail,
+    /**
+     * Subscriptions start with a 7-day free trial. The trial subscription is created in
+     * `trialing` status, which `syncPremiumFromSubscription` and the premium middleware
+     * already treat as premium. `userId` is mirrored onto the subscription metadata so trial
+     * webhooks (created/updated/deleted) can resolve the user even before an invoice exists.
+     * Only valid for subscription mode — one-time `payment` sessions reject `subscription_data`.
+     */
+    ...(mode === 'subscription'
+      ? { subscription_data: { trial_period_days: PREMIUM_TRIAL_PERIOD_DAYS, metadata: { userId } } }
+      : {}),
   });
 }
 
@@ -73,9 +83,24 @@ export type MobilePremiumCheckoutResult =
       subscriptionId: string;
     }
   | {
+      /**
+       * Recurring subscription that starts in a free trial. There is no charge yet, so the
+       * PaymentSheet collects (and saves) a payment method via a SetupIntent instead of a
+       * PaymentIntent. Stripe charges automatically when the trial ends.
+       */
+      mode: 'subscription_trial';
+      setupIntentClientSecret: string;
+      customerId: string;
+      customerEphemeralKeySecret: string;
+      subscriptionId: string;
+    }
+  | {
       mode: 'payment';
       paymentIntentClientSecret: string;
     };
+
+/** Days of free trial granted to new mobile + web subscriptions. Keep in sync with web Checkout. */
+export const PREMIUM_TRIAL_PERIOD_DAYS = 7;
 
 /**
  * Prepare Stripe objects for React Native PaymentSheet (subscription or one-time price).
@@ -109,17 +134,19 @@ export async function createMobilePremiumPaymentSheet(
         customer: customerId,
         items: [{ price: priceId }],
         metadata: { userId },
+        /**
+         * 7-day free trial for recurring plans (matches web Checkout). The trial subscription is
+         * created `trialing`, so the first invoice is $0 and Stripe issues a SetupIntent (rather
+         * than a PaymentIntent) to collect the card for the post-trial charge.
+         */
+        trial_period_days: PREMIUM_TRIAL_PERIOD_DAYS,
+        trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
-        expand: ['latest_invoice.payment_intent'],
+        expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
       },
       { idempotencyKey: idem('sub') },
     );
-
-    const secret = extractPaymentIntentClientSecret(subscription);
-    if (!secret) {
-      throw new Error('Subscription is missing PaymentIntent client secret');
-    }
 
     const ephemeralKey = await stripe.ephemeralKeys.create(
       { customer: customerId },
@@ -138,6 +165,23 @@ export async function createMobilePremiumPaymentSheet(
         updatedAt: sql`(CURRENT_TIMESTAMP)`,
       })
       .where(eq(users.id, userId));
+
+    /** Trial subscriptions confirm a SetupIntent; immediately-charged ones confirm a PaymentIntent. */
+    const setupSecret = extractSetupIntentClientSecret(subscription);
+    if (setupSecret) {
+      return {
+        mode: 'subscription_trial',
+        setupIntentClientSecret: setupSecret,
+        customerId,
+        customerEphemeralKeySecret: ephemeralKey.secret,
+        subscriptionId: subscription.id,
+      };
+    }
+
+    const secret = extractPaymentIntentClientSecret(subscription);
+    if (!secret) {
+      throw new Error('Subscription is missing PaymentIntent client secret');
+    }
 
     return {
       mode: 'subscription',
@@ -210,6 +254,12 @@ function extractPaymentIntentClientSecret(subscription: Stripe.Subscription): st
   const pi = inv.payment_intent;
   if (!pi || typeof pi === 'string') return null;
   return pi.client_secret ?? null;
+}
+
+function extractSetupIntentClientSecret(subscription: Stripe.Subscription): string | null {
+  const si = subscription.pending_setup_intent;
+  if (!si || typeof si === 'string') return null;
+  return si.client_secret ?? null;
 }
 
 export async function createBillingPortalSession(
@@ -517,6 +567,7 @@ export async function processStripeWebhookEvent(db: DB, event: Stripe.Event): Pr
       await handleInvoicePaymentFailed(db, invoice);
       return;
     }
+    case 'customer.subscription.created':
     case 'customer.subscription.updated': {
       const sub = event.data.object as Stripe.Subscription;
       await syncPremiumFromSubscription(db, sub);

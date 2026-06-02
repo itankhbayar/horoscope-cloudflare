@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeDailySkySnapshot, computeNatalChart, computeTransitToNatalAspects } from '../services/astrologyService';
 import { generateDailyHoroscope } from './horoscopeTemplates';
+import { allJoltLines, buildDailyHook } from './dailyHook';
 import type { DailySkySnapshot, PlanetPosition, TransitToNatalAspect } from '../services/astrologyService';
 
 const chart = computeNatalChart({
@@ -235,6 +236,57 @@ describe('generateDailyHoroscope', () => {
 
     expect(copy).not.toMatch(/powerful energy|focus on self-care|good day to reflect|the universe rewards/i);
     expect(copy).toMatch(/hidden desire|fear|approval|performance|truth|tone|signal/i);
+  });
+
+  it('opens every reading with a deterministic emotional jolt hook (free + premium, EN + MN)', () => {
+    const sky = computeDailySkySnapshot('2026-05-20');
+    const transitAspects = computeTransitToNatalAspects(sky.planets, chart.planets);
+    const jolts = allJoltLines();
+
+    const freeEn = generateDailyHoroscope('gemini', '2026-05-20', 'en', { sky });
+    const premiumEn = generateDailyHoroscope('gemini', '2026-05-20', 'en', { sky, natalChart: chart, transitAspects });
+    const freeMn = generateDailyHoroscope('gemini', '2026-05-20', 'mn', { sky });
+    const premiumMn = generateDailyHoroscope('gemini', '2026-05-20', 'mn', { sky, natalChart: chart, transitAspects });
+
+    for (const reading of [freeEn, premiumEn, freeMn, premiumMn]) {
+      expect(reading.hook).toBeDefined();
+      expect(jolts).toContain(reading.hook);
+      // The hook is also the opening line of the overall reading.
+      expect(reading.overall.startsWith(reading.hook!)).toBe(true);
+    }
+
+    // MN structured blocks surface the hook as the first overall paragraph too.
+    expect(premiumMn.blocks?.find((b) => b.id === 'overall')?.paragraphs[0]).toBe(premiumMn.hook);
+  });
+
+  it('matches the in-app hook theme to the shared Moon-derived theme used by push copy', () => {
+    const sky = computeDailySkySnapshot('2026-05-20');
+    const moonSign = sky.planets.find((p) => p.name === 'Moon')!.sign;
+    const expected = buildDailyHook({
+      sign: 'gemini',
+      dateISO: '2026-05-20',
+      lang: 'en',
+      moonSign,
+      moonPhase: sky.moonPhase.name,
+    });
+    const reading = generateDailyHoroscope('gemini', '2026-05-20', 'en', { sky });
+    expect(reading.hook).toBe(expected.jolt);
+  });
+
+  it('varies the hook across 14 consecutive days and avoids a single repeated template', () => {
+    const hooks = Array.from({ length: 14 }, (_, i) => {
+      const date = new Date('2026-05-10T00:00:00Z');
+      date.setUTCDate(date.getUTCDate() + i);
+      const iso = date.toISOString().slice(0, 10);
+      return generateDailyHoroscope('gemini', iso, 'en', { sky: computeDailySkySnapshot(iso) }).hook;
+    });
+    const unique = new Set(hooks);
+    expect(unique.size).toBeGreaterThanOrEqual(5);
+    // No single template may dominate the two-week window.
+    for (const hook of unique) {
+      const count = hooks.filter((h) => h === hook).length;
+      expect(count).toBeLessThanOrEqual(6);
+    }
   });
 
   it('varies the public reading frame by date without changing the response contract', () => {

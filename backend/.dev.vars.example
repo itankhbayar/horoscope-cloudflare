@@ -26,6 +26,10 @@ STRIPE_PREMIUM_PRICE_ID_TEST=price_xxx_test_only
 # REVENUECAT_API_KEY=
 # REVENUECAT_WEBHOOK_SECRET=
 
+# Expo push delivery (optional). Required only if you enable "Enhanced Security for
+# Push Notifications" in the Expo dashboard; otherwise Expo accepts unauthenticated sends.
+# EXPO_ACCESS_TOKEN=
+
 # Optional password breach checks for new registrations.
 # Disabled by default. When enabled, the Worker uses the HaveIBeenPwned k-anonymity range API:
 # only the first 5 SHA-1 hash characters are sent, and suffixes are compared locally.

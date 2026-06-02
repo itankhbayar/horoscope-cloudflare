@@ -10,7 +10,8 @@
 	},
 	"triggers": {
 		// 16:01 UTC ≈ 00:01 Asia/Ulaanbaatar — horoscope + tarot prewarm for CRON_TIMEZONE calendar day.
-		"crons": ["1 16 * * *"]
+		// 0 * * * * — hourly retention pass: timezone-aware push enqueue + delivery + receipts.
+		"crons": ["1 16 * * *", "0 * * * *"]
 	},
 	"d1_databases": [
 		{
