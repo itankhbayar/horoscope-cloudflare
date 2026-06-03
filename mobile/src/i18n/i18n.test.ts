@@ -41,7 +41,7 @@ describe('mobile i18n', () => {
 
   it('contains premium positioning copy in Mongolian and English', () => {
     expect(translate('premium.featurePatternTitle', undefined, 'mn')).toContain('давтагдаж');
-    expect(translate('premium.featurePatternTitle', undefined, 'en')).toMatch(/recurring themes/i);
+    expect(translate('premium.featurePatternTitle', undefined, 'en')).toMatch(/keeps repeating/i);
   });
 
   it('contains streak and ritual copy in Mongolian and English', () => {

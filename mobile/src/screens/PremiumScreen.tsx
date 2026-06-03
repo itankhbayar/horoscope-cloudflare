@@ -27,7 +27,6 @@ import {
 import { usePremiumCheckout } from '../hooks/usePremiumCheckout';
 import { useProfile } from '../hooks/useProfile';
 import { usesRevenueCatBilling } from '../lib/billing/platform';
-import { readRevenueCatConfigurationStatus } from '../lib/revenueCat/config';
 import {
   premiumCtaLabelKey,
   shouldShowTrialFooter,
@@ -83,7 +82,6 @@ export function PremiumScreen(): React.JSX.Element {
   const { profile, load: loadProfile } = useProfile();
   const isIosIap = usesRevenueCatBilling();
   const purchasesUnavailable = isIosIap && !purchasesConfigured;
-  const revenueCatStatus = useMemo(() => (isIosIap ? readRevenueCatConfigurationStatus() : null), [isIosIap]);
   const [selectedPlanId, setSelectedPlanId] = useState<PremiumPlanDisplay['id']>('yearly');
   const [memorySummary, setMemorySummary] = useState<EmotionalPatternSummary | null>(null);
   const [continuityDetailsOpen, setContinuityDetailsOpen] = useState(true);
@@ -214,41 +212,24 @@ export function PremiumScreen(): React.JSX.Element {
             t={t}
           />
 
+          {/*
+            User-facing fallbacks only. Production users must never see billing-provider setup,
+            validation, or "coming soon" status. Internal package/offering identifiers and raw
+            provider errors are intentionally not rendered.
+          */}
           {purchasesUnavailable ? (
             <View style={[styles.configNotice, { backgroundColor: palette.card, borderColor: palette.border }]}>
               <Text style={[styles.configNoticeText, { color: palette.text }]}>
-                Purchases are not configured yet. Premium will be available after RevenueCat and Apple in-app purchase
-                setup are complete.
+                {t('premium.unavailableNotice')}
               </Text>
-              {revenueCatStatus ? (
-                <Text style={[styles.configNoticeMeta, { color: palette.textMuted }]}>
-                  Expected packages: monthly "{revenueCatStatus.monthlyPackageIdentifier}", yearly "
-                  {revenueCatStatus.annualPackageIdentifier}".
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-
-          {isIosIap && purchasesConfigured ? (
-            <View style={[styles.configNotice, { backgroundColor: palette.card, borderColor: palette.border }]}>
-              <Text style={[styles.configNoticeText, { color: palette.text }]}>
-                RevenueCat is configured. Purchases still need real-device validation before launch.
-              </Text>
-              {revenueCatStatus ? (
-                <Text style={[styles.configNoticeMeta, { color: palette.textMuted }]}>
-                  Offering: {revenueCatStatus.offeringIdentifier ?? 'current'} · packages: monthly "
-                  {revenueCatStatus.monthlyPackageIdentifier}", yearly "{revenueCatStatus.annualPackageIdentifier}".
-                </Text>
-              ) : null}
             </View>
           ) : null}
 
           {premiumPlansError && purchasesConfigured ? (
             <View style={[styles.configNotice, { backgroundColor: palette.card, borderColor: palette.border }]}>
               <Text style={[styles.configNoticeText, { color: palette.text }]}>
-                Premium pricing could not load from RevenueCat.
+                {t('premium.pricingUnavailableNotice')}
               </Text>
-              <Text style={[styles.configNoticeMeta, { color: palette.textMuted }]}>{premiumPlansError}</Text>
             </View>
           ) : null}
 
@@ -538,34 +519,49 @@ function ComparisonTable({ rows, palette }: { rows: ComparisonRow[]; palette: Ap
   );
 }
 
+/**
+ * Social proof (rating + testimonials) is FEATURE-FLAGGED OFF until real, verifiable user feedback
+ * exists. We never ship fabricated ratings or testimonials.
+ *
+ * To enable: set `SOCIAL_PROOF_ENABLED = true` AND populate `SOCIAL_PROOF` from a real, verifiable
+ * source (e.g. App Store / Play Store reviews you are allowed to quote). The data is empty by
+ * default, so even an accidental flag flip renders nothing fabricated. The genuine positioning line
+ * and billing-trust line below always render — they contain no invented claims.
+ */
+const SOCIAL_PROOF_ENABLED = false;
+const SOCIAL_PROOF: { rating: string | null; reviews: Array<{ quote: string; author: string }> } = {
+  rating: null,
+  reviews: [],
+};
+
 function FoundationProof({ palette, isIosIap, t }: { palette: AppearancePalette; isIosIap: boolean; t: ReturnType<typeof useI18n>['t'] }) {
-  const items = [
-    { metric: 'Local', label: 'Recent memory stays on this device unless you choose to sync' },
-    { metric: 'Clear', label: 'Reflective patterns are not mental health labels' },
-    { metric: 'Yours', label: 'Reset ritual memory and archive whenever you want' },
-  ];
+  const showSocialProof = SOCIAL_PROOF_ENABLED && SOCIAL_PROOF.reviews.length > 0;
   return (
     <View style={styles.proofWrap}>
-      <View style={styles.proofGrid}>
-        {items.map((item) => (
-          <View key={item.metric} style={[styles.proofCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
-            <Text style={[styles.proofMetric, { color: palette.text }]}>{item.metric}</Text>
-            <Text style={[styles.proofLabel, { color: palette.textMuted }]}>{item.label}</Text>
-          </View>
-        ))}
-      </View>
-      <View style={[styles.foundationNote, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-        <Text style={[styles.foundationNoteText, { color: palette.text }]}>
-          {t('premium.calmLine')}
-        </Text>
-        <Text style={[styles.foundationNoteMeta, { color: palette.textMuted }]}>
-          Astralis keeps astronomy, astrology, and emotional reflection clearly distinct.
-        </Text>
-      </View>
+      <Text style={[styles.foundationNoteText, { color: palette.text }]}>{t('premium.calmLine')}</Text>
+
+      {showSocialProof ? (
+        <>
+          {SOCIAL_PROOF.rating ? (
+            <View style={[styles.ratingRow, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Text style={[styles.ratingStars, { color: colors.gold }]}>★★★★★</Text>
+              <Text style={[styles.ratingValue, { color: palette.text }]}>{SOCIAL_PROOF.rating}</Text>
+              <Text style={[styles.ratingLabel, { color: palette.textMuted }]}>{t('premium.ratingLabel')}</Text>
+            </View>
+          ) : null}
+
+          {SOCIAL_PROOF.reviews.map((review) => (
+            <View key={review.author} style={[styles.reviewCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Text style={[styles.reviewStars, { color: colors.gold }]}>★★★★★</Text>
+              <Text style={[styles.reviewQuote, { color: palette.text }]}>{review.quote}</Text>
+              <Text style={[styles.reviewAuthor, { color: palette.textMuted }]}>{review.author}</Text>
+            </View>
+          ))}
+        </>
+      ) : null}
+
       <Text style={[styles.trustLine, { color: palette.textMuted }]}>
-        {isIosIap
-          ? 'Subscriptions are managed with your Apple ID. Restore purchases anytime.'
-          : 'Encrypted payments through Stripe. Restore access anytime.'}
+        {isIosIap ? t('premium.trustIos') : t('premium.trust')}
       </Text>
     </View>
   );
@@ -625,7 +621,9 @@ function PricingCard({
       </Text>
       <Text style={[styles.planCadence, { color: palette.textMuted }]}>{planCadence}</Text>
       {!plan.available && plan.unavailableReason ? (
-        <Text style={[styles.planUnavailable, { color: palette.textMuted }]}>{plan.unavailableReason}</Text>
+        // Never render the raw internal reason (it can contain billing-provider/build details).
+        // `plan.unavailableReason` is used only as an availability signal; show friendly copy.
+        <Text style={[styles.planUnavailable, { color: palette.textMuted }]}>{t('premium.planUnavailable')}</Text>
       ) : null}
     </Pressable>
   );
@@ -880,13 +878,23 @@ const styles = StyleSheet.create({
   tableCell: { flex: 1, fontSize: 12, lineHeight: 17 },
   tablePremiumText: { fontWeight: '700' },
   proofWrap: { gap: spacing.sm },
-  proofGrid: { flexDirection: 'row', gap: spacing.sm },
-  proofCard: { flex: 1, borderWidth: 1, borderRadius: 16, padding: spacing.sm },
-  proofMetric: { fontSize: 17, lineHeight: 22, fontWeight: '900' },
-  proofLabel: { marginTop: 2, fontSize: 11, lineHeight: 15 },
-  foundationNote: { borderWidth: 1, borderRadius: 16, padding: spacing.md },
   foundationNoteText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  foundationNoteMeta: { marginTop: spacing.xs, fontSize: 12, lineHeight: 17 },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  ratingStars: { fontSize: 16, letterSpacing: 1 },
+  ratingValue: { fontSize: 18, fontWeight: '900' },
+  ratingLabel: { flex: 1, fontSize: 12, lineHeight: 16 },
+  reviewCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.xs },
+  reviewStars: { fontSize: 13, letterSpacing: 1 },
+  reviewQuote: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  reviewAuthor: { fontSize: 12, lineHeight: 16 },
   pricingList: { gap: spacing.sm },
   planCard: { borderWidth: 1.5, borderRadius: 20, padding: spacing.lg },
   planTopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
