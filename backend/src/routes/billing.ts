@@ -45,6 +45,9 @@ const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
  * Mirror a server-authoritative trial event to PostHog without blocking the webhook response.
  * `trackBackendEvent` never rejects; the try/catch only guards environments (e.g. tests) where
  * no ExecutionContext is attached, so the mirror stays strictly fire-and-forget.
+ *
+ * OWNERSHIP: only ever called with BACKEND_OWNED events (the trial trio) and only on freshly-claimed
+ * webhook deliveries, so replays/retries never double-count. See docs/analytics-event-ownership.md.
  */
 function mirrorTrialEvent(
   c: Context<{ Bindings: AppBindings; Variables: AppVariables }>,

@@ -161,8 +161,10 @@ export type AnalyticsEventMap = {
   /** User tapped the paywall CTA. Distinct from `trial_started` (store-confirmed trial). */
   trial_cta_clicked: { provider: 'revenuecat' | 'stripe'; plan?: 'monthly' | 'yearly'; hasTrial: boolean };
   /**
-   * A real trial subscription was confirmed. For RevenueCat this fires once the purchased
-   * entitlement reports a TRIAL period. (Stripe trials are emitted server-side by the webhook.)
+   * BACKEND_OWNED — documented here for payload shape only; the client must NOT emit it.
+   * `trial_started` is emitted server-side by the RevenueCat and Stripe webhooks (single
+   * authoritative source). It is excluded from `ClientEmittableEvent`, so `track('trial_started', …)`
+   * will not compile. See docs/analytics-event-ownership.md.
    */
   trial_started: { provider: 'revenuecat'; plan?: 'monthly' | 'yearly'; source: 'purchase_confirmation' };
   subscription_restored: { provider: 'revenuecat' | 'stripe'; active: boolean };
@@ -299,6 +301,25 @@ export type AnalyticsEventMap = {
 };
 
 export type AnalyticsEvent = keyof AnalyticsEventMap;
+
+/**
+ * OWNERSHIP — single source of truth: `docs/analytics-event-ownership.md`.
+ * Events the BACKEND owns and emits server-side (Stripe / RevenueCat webhooks). The mobile client
+ * must never emit these or the trial funnel double-counts. `trial_started` deliberately remains in
+ * `AnalyticsEventMap` (so its server payload shape stays documented here) but is excluded from the
+ * client-emittable set below, so `track('trial_started', …)` is a compile error. Mirror of backend
+ * `BACKEND_OWNED_EVENTS`; the backend cross-source test pins all three copies to the same list.
+ */
+export const BACKEND_OWNED_EVENTS = ['trial_started', 'trial_converted', 'trial_cancelled'] as const;
+export type BackendOwnedEvent = (typeof BACKEND_OWNED_EVENTS)[number];
+
+/** Events this client is permitted to emit: everything except backend-owned funnel events. */
+export type ClientEmittableEvent = Exclude<AnalyticsEvent, BackendOwnedEvent>;
+
+/** True when `event` is backend-owned and therefore forbidden to the mobile client. */
+export function isBackendOwnedEvent(event: string): boolean {
+  return (BACKEND_OWNED_EVENTS as readonly string[]).includes(event);
+}
 export type RitualAnalyticsEvent =
   | 'deeper_layer_tapped'
   | 'premium_continuation_viewed'
@@ -441,10 +462,18 @@ export async function setAnalyticsConsent(allowed: boolean): Promise<void> {
   if (allowed) installId = await getInstallId();
 }
 
-export async function track<E extends AnalyticsEvent>(
+export async function track<E extends ClientEmittableEvent>(
   event: E,
   properties: AnalyticsEventMap[E],
 ): Promise<void> {
+  // Ownership guard (defensive, mirrors the compile-time `ClientEmittableEvent` bound): never let a
+  // backend-owned event leave the mobile client. See docs/analytics-event-ownership.md.
+  if (isBackendOwnedEvent(event)) {
+    if (readEnv('NODE_ENV') !== 'production' && typeof console?.warn === 'function') {
+      console.warn(`[analytics] "${event}" is BACKEND_OWNED and must not be emitted from the mobile client.`);
+    }
+    return;
+  }
   warnOnDirectLegacyEvent(event, properties as AnalyticsProperties);
   if (!analyticsEnabled) return;
   const key = posthogKey();

@@ -51,12 +51,29 @@ type AnalyticsEvent =
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 
+/**
+ * OWNERSHIP — single source of truth: `docs/analytics-event-ownership.md`.
+ * Events the BACKEND owns and emits server-side (Stripe / RevenueCat webhooks). The web client
+ * must never emit these or the trial funnel double-counts. Mirror of backend `BACKEND_OWNED_EVENTS`;
+ * the backend cross-source test pins all three copies to the same list.
+ */
+export const BACKEND_OWNED_EVENTS = ['trial_started', 'trial_converted', 'trial_cancelled'] as const;
+export type BackendOwnedEvent = (typeof BACKEND_OWNED_EVENTS)[number];
+
+/** Events this client is permitted to emit: everything except backend-owned funnel events. */
+export type ClientEmittableEvent = Exclude<AnalyticsEvent, BackendOwnedEvent>;
+
+/** True when `event` is backend-owned and therefore forbidden to the web client. */
+export function isBackendOwnedEvent(event: string): boolean {
+  return (BACKEND_OWNED_EVENTS as readonly string[]).includes(event);
+}
+
 /** The analytics event fired when a user taps the paywall CTA (never `trial_started`). */
-export const PAYWALL_CTA_EVENT: AnalyticsEvent = 'trial_cta_clicked';
+export const PAYWALL_CTA_EVENT: ClientEmittableEvent = 'trial_cta_clicked';
 
 let enabled = false;
 let posthogClient: typeof import('posthog-js').default | null = null;
-const queuedEvents: Array<{ event: AnalyticsEvent; properties: AnalyticsProperties }> = [];
+const queuedEvents: Array<{ event: ClientEmittableEvent; properties: AnalyticsProperties }> = [];
 let initializationStarted = false;
 
 export function initAnalytics(): void {
@@ -108,7 +125,17 @@ export function identifyAnalyticsUser(userId: string | null): void {
   else posthogClient.reset();
 }
 
-export function track(event: AnalyticsEvent, properties: AnalyticsProperties = {}): void {
+export function track(event: ClientEmittableEvent, properties: AnalyticsProperties = {}): void {
+  // Ownership guard (defensive, mirrors the compile-time `ClientEmittableEvent` bound): never let a
+  // backend-owned event leave the web client. See docs/analytics-event-ownership.md.
+  if (isBackendOwnedEvent(event)) {
+    // Cast keeps this file type-safe under both the web (vite) and mobile tsconfigs, which compile
+    // it via the `@astralis/lib/*` path alias and define different `ImportMetaEnv` shapes.
+    if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV === true) {
+      console.warn(`[analytics] "${event}" is BACKEND_OWNED and must not be emitted from the web client.`);
+    }
+    return;
+  }
   if (!enabled || !posthogClient) {
     if (initializationStarted) queuedEvents.push({ event, properties });
     return;

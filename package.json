@@ -9,6 +9,6 @@
   ],
   "scripts": {
     "validate:cron": "npm run validate:cron -w backend",
-    "typecheck": "npm run typecheck -w @horoscope/shared && npm run typecheck -w backend && npm run type-check -w horoscope-frontend"
+    "typecheck": "npm run typecheck -w @horoscope/shared && npm run typecheck -w backend && npm run type-check -w horoscope-frontend && npm run typecheck -w astralis-mobile"
   }
 }

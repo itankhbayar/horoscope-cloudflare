@@ -19,8 +19,29 @@ import { log } from '../utils/logger';
 
 const POSTHOG_DEFAULT_HOST = 'https://us.i.posthog.com';
 
+/**
+ * OWNERSHIP — single source of truth: `docs/analytics-event-ownership.md`.
+ *
+ * These are the only events the backend is allowed to send to PostHog (BACKEND_OWNED). The Stripe
+ * and RevenueCat webhooks are the single authoritative source for the trial funnel, so clients must
+ * never emit these names. Enforcement:
+ *   - clients narrow `track()` to exclude these (compile-time),
+ *   - `trackBackendEvent` refuses anything not in this list (runtime, below),
+ *   - `analyticsOwnership.crossSource.test.ts` scans client source for forbidden emissions (CI).
+ *
+ * Mirror copies live in `frontend/src/lib/analytics.ts` and `mobile/src/lib/analytics.ts`; the
+ * cross-source test pins all three to the same list. Adding a new backend-owned event means
+ * updating this list, the doc, and the client mirrors together.
+ */
+export const BACKEND_OWNED_EVENTS = ['trial_started', 'trial_converted', 'trial_cancelled'] as const;
+
 /** Events the backend is the source of truth for and which are absent from client PostHog. */
-export type BackendFunnelEvent = 'trial_started' | 'trial_converted' | 'trial_cancelled';
+export type BackendFunnelEvent = (typeof BACKEND_OWNED_EVENTS)[number];
+
+/** True when `event` is a backend-owned funnel event (the backend's exclusive PostHog territory). */
+export function isBackendOwnedEvent(event: string): event is BackendFunnelEvent {
+  return (BACKEND_OWNED_EVENTS as readonly string[]).includes(event);
+}
 
 export type BackendAnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
 
@@ -61,6 +82,13 @@ function sanitize(properties: BackendAnalyticsProperties): BackendAnalyticsPrope
  */
 export async function trackBackendEvent(input: TrackBackendEventInput): Promise<TrackBackendEventResult> {
   try {
+    // Ownership guard: the backend mirrors ONLY backend-owned events. This stops a future caller
+    // (e.g. someone "promoting" a client-owned metric like premium_purchased to PostHog) from
+    // double-counting against the client source. See docs/analytics-event-ownership.md.
+    if (!isBackendOwnedEvent(input.event)) {
+      log(input.env, 'warn', 'posthog_mirror_blocked_not_backend_owned', { event: input.event });
+      return 'failed';
+    }
     if (!posthogEnabled(input.env)) return 'skipped_disabled';
     const distinctId = input.distinctId?.trim();
     if (!distinctId) return 'skipped_no_distinct_id';
