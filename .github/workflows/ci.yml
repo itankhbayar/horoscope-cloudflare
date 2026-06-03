@@ -47,6 +47,16 @@ jobs:
       - name: Run backend Vitest suite
         run: npm test -w backend -- --reporter=default --reporter=junit --outputFile=reports/backend-vitest.xml
 
+      # Frontend + mobile suites run here (before the build) so analytics ownership protections and
+      # other unit tests fail the pipeline fast on every PR. Both are pure-logic Vitest suites in a
+      # Node environment (~1-2s each), so they add negligible time. Dependencies are already present
+      # from the single `npm ci` above; no extra install is needed.
+      - name: Run frontend Vitest suite
+        run: npm test -w horoscope-frontend
+
+      - name: Run mobile Vitest suite
+        run: npm test -w astralis-mobile
+
       - name: Build frontend
         run: npm run build -w horoscope-frontend
 
