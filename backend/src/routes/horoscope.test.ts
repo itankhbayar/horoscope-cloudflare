@@ -279,6 +279,8 @@ describe('horoscope routes', () => {
         moonSign: 'leo',
         risingSign: 'libra',
       }),
+      // Identity seed (users.id) is threaded through so same-sign users diverge deterministically.
+      'user-1',
     );
     expect(mocks.mockGetCurrentStreakData).toHaveBeenCalledWith(db, 'user-1');
     expect(mockCache.match).not.toHaveBeenCalled();

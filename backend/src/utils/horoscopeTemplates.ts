@@ -524,11 +524,37 @@ function pick<T>(arr: T[], seed: number): T {
   return arr[seed % arr.length];
 }
 
-function seedFromSignAndDate(sign: ZodiacSign, dateISO: string): number {
+/**
+ * Deterministic seed for template-variant selection.
+ *
+ * `identity` is an optional stable per-user token (e.g. users.id). When omitted or empty the seed
+ * is byte-identical to the historical sign+date seed, so the SHARED, edge-cached guest reading and
+ * the persisted `dailyHoroscopes` row are completely unchanged. When an identity is supplied (only
+ * on the authenticated, `private, no-store` path) two same-sign users deterministically diverge in
+ * which sentence variants are chosen — no randomness, no extra calls, fully reproducible.
+ */
+function seedFromSignAndDate(sign: ZodiacSign, dateISO: string, identity = ''): number {
   let h = 0;
-  const text = `${sign}-${dateISO}`;
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
-  return Math.abs(h);
+  const base = `${sign}-${dateISO}`;
+  for (let i = 0; i < base.length; i++) h = (h * 31 + base.charCodeAt(i)) | 0;
+  const sharedSeed = Math.abs(h);
+  // No identity → return the exact historical sign+date seed, keeping the shared/guest reading and
+  // the persisted row byte-identical.
+  if (!identity) return sharedSeed;
+  // Identity present: fold it in with an FNV-1a pass plus an avalanche finalizer so that even
+  // near-sequential ids (e.g. consecutive UUIDs) spread across all bits. Without this, small pools
+  // (`seed % 3`) collide for similar ids and the per-user variation is barely visible. Pure integer
+  // math → deterministic, reproducible, no randomness.
+  let g = (sharedSeed ^ 0x9e3779b9) | 0;
+  for (let i = 0; i < identity.length; i++) {
+    g = Math.imul(g ^ identity.charCodeAt(i), 0x01000193);
+  }
+  g ^= g >>> 15;
+  g = Math.imul(g, 0x2c1b3c6d);
+  g ^= g >>> 12;
+  g = Math.imul(g, 0x297a2d39);
+  g ^= g >>> 15;
+  return Math.abs(g | 0);
 }
 
 export interface DailyHoroscopeContent {
@@ -657,19 +683,20 @@ export function enrichDailyHoroscope(
   dateISO: string,
   lang: Lang,
   options: DailyHoroscopeGenerationOptions,
+  identity = '',
 ): DailyHoroscopeContent {
   debugContentShape('enrich-input', content, { sign, dateISO, lang, hasSky: !!options.sky });
-  const seed = seedFromSignAndDate(sign, dateISO);
+  const seed = seedFromSignAndDate(sign, dateISO, identity);
   let next: DailyHoroscopeContent;
   let branch: string;
   if (!options.sky) {
     next = content;
     branch = 'no-sky';
   } else if (lang === 'en') {
-    next = buildAstronomyAwareReadingEn(sign, dateISO, content, options);
+    next = buildAstronomyAwareReadingEn(sign, dateISO, content, options, identity);
     branch = 'en';
   } else if (lang === 'mn') {
-    next = buildAstronomyAwareReadingMn(sign, dateISO, content, options);
+    next = buildAstronomyAwareReadingMn(sign, dateISO, content, options, identity);
     branch = 'mn';
   } else {
     next = content;
@@ -685,6 +712,7 @@ function buildAstronomyAwareReadingEn(
   dateISO: string,
   base: DailyHoroscopeContent,
   options: DailyHoroscopeGenerationOptions,
+  identity = '',
 ): DailyHoroscopeContent {
   const sky = options.sky;
   if (!sky) return base;
@@ -698,7 +726,7 @@ function buildAstronomyAwareReadingEn(
   const moonName = getZodiacInfo(moon.sign).name;
   const focusTransit = selectFocusTransit(options.transitAspects ?? []);
   const skyContext = buildSkyContext(sun.sign, moon.sign, sky.moonPhase.name, focusTransit);
-  const seed = seedFromSignAndDate(sign, dateISO);
+  const seed = seedFromSignAndDate(sign, dateISO, identity);
   const mercuryName = mercury ? getZodiacInfo(mercury.sign).name : null;
   const phase = sky.moonPhase.name.toLowerCase();
 
@@ -755,6 +783,7 @@ function buildAstronomyAwareReadingMn(
   dateISO: string,
   base: DailyHoroscopeContent,
   options: DailyHoroscopeGenerationOptions,
+  identity = '',
 ): DailyHoroscopeContent {
   const sky = options.sky;
   if (!sky) {
@@ -776,7 +805,7 @@ function buildAstronomyAwareReadingMn(
     return base;
   }
 
-  const seed = seedFromSignAndDate(sign, dateISO);
+  const seed = seedFromSignAndDate(sign, dateISO, identity);
   const skySeed = seedFromSkyState(sky);
   const dynamicSeed = seed ^ skySeed;
   const focusTransit = selectFocusTransit(options.transitAspects ?? []);

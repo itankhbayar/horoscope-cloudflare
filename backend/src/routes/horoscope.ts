@@ -205,7 +205,9 @@ router.get('/daily', authMiddleware, async (c) => {
     planets: chart.planets as NatalChartData['planets'],
     houses: chart.houses as NatalChartData['houses'],
     aspects: chart.aspects as NatalChartData['aspects'],
-  });
+    // Identity seed: deterministically varies variant selection per user so two same-sign users
+    // no longer read identical phrasing. Served `private, no-store`, so cache safety is preserved.
+  }, userId);
   const streak = await getCurrentStreakData(db, userId);
 
   // Premium Pattern Memory: deterministic, premium-only, reuses today's hook theme.

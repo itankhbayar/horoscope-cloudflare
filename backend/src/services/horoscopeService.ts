@@ -256,6 +256,12 @@ export async function getOrCreateDailyHoroscope(
 export function personalizeDailyHoroscope(
   horoscope: HoroscopeResponse,
   chart: PersonalizedChartContext,
+  /**
+   * Stable per-user token (users.id) used only to diverge template-variant selection between
+   * same-sign users. Safe because this path is served `private, no-store` (never edge-cached) and
+   * nothing here is persisted to the shared `dailyHoroscopes` row.
+   */
+  identity = '',
 ): HoroscopeResponse {
   // Temporary diagnostics: shape entering personalize.
   // eslint-disable-next-line no-console
@@ -274,7 +280,7 @@ export function personalizeDailyHoroscope(
       sky,
       natalChart: chart,
       transitAspects,
-    }),
+    }, identity),
   };
   // Temporary diagnostics: shape exiting personalize.
   // eslint-disable-next-line no-console
