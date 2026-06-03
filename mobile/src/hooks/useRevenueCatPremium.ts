@@ -3,7 +3,7 @@ import type { CustomerInfo } from 'react-native-purchases';
 import { Linking, Platform } from 'react-native';
 import { ApiClientError } from '@astralis/lib/apiClient';
 import * as billingMobileService from '../lib/billingMobileService';
-import { hasPremiumEntitlement } from '../lib/revenueCat/entitlements';
+import { hasPremiumEntitlement, isPremiumEntitlementInTrial } from '../lib/revenueCat/entitlements';
 import {
   configureRevenueCat,
   getPremiumPlanDisplays,
@@ -180,15 +180,22 @@ export function useRevenueCatPremium(): RevenueCatPremiumCheckout {
         void track('checkout_started', { provider: 'revenuecat', plan });
         const info = await purchasePlan(plan);
         setCustomerInfo(info);
+        // Store-confirmed trial vs. immediate paid purchase, read from the returned entitlement.
+        const startedTrial = isPremiumEntitlementInTrial(info);
         const sync = await billingMobileService.syncRevenueCatPremium();
         await refreshUser();
-        if (sync.isPremium) {
+        // `trial_started` is now server-authoritative (emitted by the RevenueCat webhook), so the
+        // client no longer emits it — keeping the iOS trial funnel comparable to Stripe and
+        // double-count free. A confirmed non-trial purchase still reports premium_purchased.
+        if (!startedTrial && sync.isPremium) {
           void track('premium_purchased', { provider: 'revenuecat', source: 'purchase_sync' });
         }
         setMessage(
-          sync.isPremium
-            ? 'Premium is active. Enjoy full access.'
-            : 'Purchase completed, but Premium is still syncing. Tap Restore purchases in a moment.',
+          startedTrial
+            ? 'Your 7-day free trial is active. Enjoy full access.'
+            : sync.isPremium
+              ? 'Premium is active. Enjoy full access.'
+              : 'Purchase completed, but Premium is still syncing. Tap Restore purchases in a moment.',
         );
       } catch (e) {
         if (isNotConfiguredError(e)) {

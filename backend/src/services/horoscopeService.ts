@@ -3,6 +3,7 @@ import type { DB } from '../db/client';
 import { dailyHoroscopes, type DailyHoroscope } from '../db/schema';
 import { enrichDailyHoroscope, generateDailyHoroscope, type PersonalizedChartContext } from '../utils/horoscopeTemplates';
 import type { ZodiacSign } from '../utils/zodiac';
+import type { HookTheme } from '../utils/dailyHook';
 import type { Lang } from '../utils/lang';
 import { safeDateISO } from '../utils/localDate';
 import { computeDailySkySnapshot, computeTransitToNatalAspects } from './astrologyService';
@@ -44,6 +45,8 @@ export interface HoroscopeResponse {
   luckyColor: string;
   /** Daily emotional-jolt opening line (also prepended into `overall`). */
   hook?: string;
+  /** Deterministic theme behind today's hook; consumed by Premium Pattern Memory. */
+  hookTheme?: HookTheme;
   blocks?: Array<{
     id: 'overall' | 'love' | 'career' | 'health' | 'finance' | 'advice' | 'lucky';
     title: string;

@@ -275,6 +275,12 @@
     "tryAgain": "Back to Premium",
     "premiumTag": "Premium",
     "unlock": "Unlock Premium",
+    "trialCta": "Try it free for 7 days",
+    "trialFeature1": "More detailed daily horoscope",
+    "trialFeature2": "Tarot readings",
+    "trialFeature3": "Detailed compatibility analysis",
+    "trialFeature4": "Streak Freeze protection",
+    "trialFooter": "After 7 days your monthly subscription starts automatically. Cancel anytime.",
     "features": {
       "ai": {
         "title": "Deeper natal timing",

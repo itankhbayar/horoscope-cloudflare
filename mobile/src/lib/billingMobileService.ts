@@ -9,6 +9,14 @@ export type MobilePremiumCheckoutResponse =
       subscriptionId: string;
     }
   | {
+      /** Free-trial subscription: confirm a SetupIntent (no charge until the trial ends). */
+      mode: 'subscription_trial';
+      setupIntentClientSecret: string;
+      customerId: string;
+      customerEphemeralKeySecret: string;
+      subscriptionId: string;
+    }
+  | {
       mode: 'payment';
       paymentIntentClientSecret: string;
     };

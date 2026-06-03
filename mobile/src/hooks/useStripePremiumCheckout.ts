@@ -95,10 +95,18 @@ export function useStripePremiumCheckout(): PremiumCheckoutActions {
                 customerEphemeralKeySecret: sheet.customerEphemeralKeySecret,
                 customerId: sheet.customerId,
               })
-            : await initPaymentSheet({
-                ...baseSheet,
-                paymentIntentClientSecret: sheet.paymentIntentClientSecret,
-              });
+            : sheet.mode === 'subscription_trial'
+              ? await initPaymentSheet({
+                  ...baseSheet,
+                  // Free trial: no charge yet, so collect + save the card via a SetupIntent.
+                  setupIntentClientSecret: sheet.setupIntentClientSecret,
+                  customerEphemeralKeySecret: sheet.customerEphemeralKeySecret,
+                  customerId: sheet.customerId,
+                })
+              : await initPaymentSheet({
+                  ...baseSheet,
+                  paymentIntentClientSecret: sheet.paymentIntentClientSecret,
+                });
 
         if (init.error) {
           setMessage(init.error.message);
@@ -108,6 +116,21 @@ export function useStripePremiumCheckout(): PremiumCheckoutActions {
         const result = await presentPaymentSheet();
         if (result.error) {
           setMessage(result.error.code === 'Canceled' ? 'Checkout canceled.' : result.error.message);
+          return;
+        }
+
+        if (sheet.mode === 'subscription_trial') {
+          // Trial subscriptions are granted server-side from the `customer.subscription.created`
+          // webhook; sync pulls that through immediately. `trial_started` is emitted by the
+          // webhook (source of truth), so the client deliberately stays silent here.
+          setMessage('Setting up your free trial...');
+          const restored = await billingMobileService.restoreMobilePremiumStatus();
+          await refreshUser();
+          setMessage(
+            restored.isPremium
+              ? 'Your 7-day free trial is active. Enjoy full access.'
+              : 'Trial started. If Premium is not active yet, wait a moment and tap "Refresh premium status".',
+          );
           return;
         }
 

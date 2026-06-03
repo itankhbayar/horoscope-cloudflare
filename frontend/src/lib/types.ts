@@ -186,6 +186,20 @@ export interface DailyHoroscope {
   milestoneReached?: null | 3 | 7 | 14 | 30 | 50 | 100 | 365;
   nextMilestone?: null | 3 | 7 | 14 | 30 | 50 | 100 | 365;
   streakSegment?: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
+  /** Premium-only "the app remembers you" note; null/absent for free users. */
+  patternMemory?: PatternMemory | null;
+}
+
+export type HookTheme = 'unspoken' | 'recognition' | 'restraint' | 'clarity' | 'turning';
+
+export interface PatternMemory {
+  theme: HookTheme;
+  kind: 'recent' | 'multiple';
+  /** Days since the most recent prior occurrence; null when kind === 'multiple'. */
+  daysAgo: number | null;
+  occurrences: number;
+  title: string;
+  body: string;
 }
 
 export interface DailyRitualCompletion {
@@ -203,6 +217,8 @@ export interface DailyRitualCompletion {
   streakPreservedByFreeze: boolean;
   streakFreezeAwardReason: null | '7_day' | '30_day' | '100_day';
   streakSegment: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
+  /** True only on the response that first claimed the user's activation milestone. */
+  firstHoroscopeReveal?: boolean;
 }
 
 export type AtmosphereKey =

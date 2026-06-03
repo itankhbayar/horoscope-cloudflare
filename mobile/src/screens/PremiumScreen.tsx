@@ -28,7 +28,11 @@ import { usePremiumCheckout } from '../hooks/usePremiumCheckout';
 import { useProfile } from '../hooks/useProfile';
 import { usesRevenueCatBilling } from '../lib/billing/platform';
 import { readRevenueCatConfigurationStatus } from '../lib/revenueCat/config';
-import type { PremiumPlanDisplay } from '../lib/revenueCat/packages';
+import {
+  premiumCtaLabelKey,
+  shouldShowTrialFooter,
+  type PremiumPlanDisplay,
+} from '../lib/revenueCat/packages';
 import { track } from '../lib/analytics';
 import {
   getEmotionalPatternMemory,
@@ -74,6 +78,7 @@ export function PremiumScreen(): React.JSX.Element {
     premiumPlans,
     premiumPlansLoading,
     premiumPlansError,
+    billingProvider,
   } = usePremiumCheckout();
   const { profile, load: loadProfile } = useProfile();
   const isIosIap = usesRevenueCatBilling();
@@ -94,6 +99,12 @@ export function PremiumScreen(): React.JSX.Element {
     [premiumPlans, selectedPlanId],
   );
   const selectedPlanUnavailable = !selectedPlan.available || premiumPlansLoading;
+  // Trial copy is shown only when the actually-selected store package/plan supports a trial.
+  const trialEligible = selectedPlan.hasTrial;
+  const ctaLabel = t(premiumCtaLabelKey({ isPremium, hasTrial: trialEligible }));
+  const trialFooter = shouldShowTrialFooter({ isPremium, hasTrial: trialEligible })
+    ? t('premium.trialFooter')
+    : null;
   const stickyReserve = spacing.xxxl + 76;
   const bottomPadding = tabScrollBottomPadding(insets, stickyReserve);
   const isLight = mode === 'light';
@@ -154,8 +165,23 @@ export function PremiumScreen(): React.JSX.Element {
       return;
     }
     if (selectedPlanUnavailable) return;
+    // CTA tap only. `trial_started` is confirmed later (RevenueCat entitlement / Stripe webhook).
+    void track('trial_cta_clicked', {
+      provider: billingProvider,
+      plan: selectedPlan.id,
+      hasTrial: trialEligible,
+    });
     void upgrade(isIosIap ? { plan: selectedPlan.id } : undefined);
-  }, [isIosIap, isPremium, manageBilling, selectedPlan.id, selectedPlanUnavailable, upgrade]);
+  }, [
+    billingProvider,
+    isIosIap,
+    isPremium,
+    manageBilling,
+    selectedPlan.id,
+    selectedPlanUnavailable,
+    trialEligible,
+    upgrade,
+  ]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['left', 'right', 'top']}>
@@ -174,6 +200,8 @@ export function PremiumScreen(): React.JSX.Element {
             busy={busy}
             isPremium={isPremium}
             t={t}
+            ctaLabel={ctaLabel}
+            trialFooter={trialFooter}
             onPress={onPrimaryCta}
             purchasesUnavailable={purchasesUnavailable || selectedPlanUnavailable}
           />
@@ -305,6 +333,7 @@ export function PremiumScreen(): React.JSX.Element {
         isPremium={isPremium}
         selectedPlan={selectedPlan}
         t={t}
+        ctaLabel={ctaLabel}
         onPress={onPrimaryCta}
         purchasesUnavailable={purchasesUnavailable || selectedPlanUnavailable}
       />
@@ -321,6 +350,8 @@ function HeroSection({
   busy,
   isPremium,
   t,
+  ctaLabel,
+  trialFooter,
   onPress,
   purchasesUnavailable,
 }: {
@@ -332,6 +363,8 @@ function HeroSection({
   busy: boolean;
   isPremium: boolean;
   t: ReturnType<typeof useI18n>['t'];
+  ctaLabel: string;
+  trialFooter: string | null;
   onPress: () => void;
   purchasesUnavailable: boolean;
 }): React.JSX.Element {
@@ -362,13 +395,17 @@ function HeroSection({
         <MiniStat value={t('premium.statDeeper')} label={t('premium.statDeeperLabel')} palette={palette} />
       </View>
       <PrimaryButton
-        label={isPremium ? t('premium.activeCta') : t('premium.cta')}
+        label={ctaLabel}
         busy={busy}
         onPress={onPress}
         disabled={purchasesUnavailable && !isPremium}
         accessibilityLabel={isPremium ? 'Manage premium access' : 'Open deeper sky layers'}
       />
-      <Text style={[styles.urgency, { color: palette.textMuted }]}>{t('premium.urgency')}</Text>
+      {trialFooter ? (
+        <Text style={[styles.urgency, { color: palette.textMuted }]}>{trialFooter}</Text>
+      ) : (
+        <Text style={[styles.urgency, { color: palette.textMuted }]}>{t('premium.urgency')}</Text>
+      )}
     </View>
   );
 }
@@ -655,6 +692,7 @@ function StickyCta({
   isPremium,
   selectedPlan,
   t,
+  ctaLabel,
   onPress,
   purchasesUnavailable,
 }: {
@@ -664,6 +702,7 @@ function StickyCta({
   isPremium: boolean;
   selectedPlan: PremiumPlanDisplay;
   t: ReturnType<typeof useI18n>['t'];
+  ctaLabel: string;
   onPress: () => void;
   purchasesUnavailable: boolean;
 }) {
@@ -685,7 +724,7 @@ function StickyCta({
         <Text style={[styles.stickySub, { color: palette.textMuted }]}>{t('premium.stickySubtitle')}</Text>
       </View>
       <PrimaryButton
-        label={isPremium ? t('premium.activeCta') : t('premium.cta')}
+        label={ctaLabel}
         busy={busy}
         onPress={onPress}
         compact

@@ -127,6 +127,17 @@ async function revealTodayReading(): Promise<void> {
         date: result.completedDate,
         currentStreak: result.currentStreak,
       });
+      // Activation milestone — gated by the server's once-per-user flag, so it fires at most once.
+      if (result.firstHoroscopeReveal) {
+        const createdAt = user.value?.createdAt;
+        const created = createdAt ? Date.parse(createdAt) : Number.NaN;
+        const props: Record<string, string | number> = { platform: 'web' };
+        if (horoscope.value?.sign) props.sign = horoscope.value.sign;
+        if (!Number.isNaN(created)) {
+          props.days_since_signup = Math.max(0, Math.floor((Date.now() - created) / 86_400_000));
+        }
+        track('first_horoscope_revealed', props);
+      }
     } else {
       track('daily_reading_revealed', { source: 'home', date });
     }

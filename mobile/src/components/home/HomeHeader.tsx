@@ -35,6 +35,7 @@ type Props = {
   longestStreakCount?: number;
   streakFreezes?: number;
   streakFreezeCap?: number;
+  streakAtRisk?: boolean;
   streakFreezeAwarded?: boolean;
   streakPreservedByFreeze?: boolean;
   streakSegment?: StreakSegment;
@@ -60,6 +61,7 @@ export function HomeHeader({
   longestStreakCount = 0,
   streakFreezes = 0,
   streakFreezeCap = 1,
+  streakAtRisk = false,
   streakFreezeAwarded = false,
   streakPreservedByFreeze = false,
   streakSegment = 'new',
@@ -110,6 +112,7 @@ export function HomeHeader({
         longestStreakCount={longestStreakCount}
         freezeCount={streakFreezes}
         freezeCap={streakFreezeCap}
+        streakAtRisk={streakAtRisk}
         nextMilestone={resolvedNextMilestone}
         streakLastDate={streakLastDate}
         completedToday={completedToday}
@@ -176,6 +179,7 @@ function StreakStatusCard({
   longestStreakCount,
   freezeCount,
   freezeCap,
+  streakAtRisk,
   nextMilestone,
   streakLastDate,
   completedToday,
@@ -194,6 +198,7 @@ function StreakStatusCard({
   longestStreakCount: number;
   freezeCount: number;
   freezeCap: number;
+  streakAtRisk: boolean;
   nextMilestone: StreakMilestone | null;
   streakLastDate?: string | null;
   completedToday: boolean;
@@ -262,6 +267,11 @@ function StreakStatusCard({
           {completedToday ? '✓  ' : ''}{keepStreakAliveCopy(completedToday, streakCount)}
         </Text>
       </View>
+      {streakAtRisk && !completedToday ? (
+        <Text style={[styles.atRiskText, { color: t.paleYellow }]} accessibilityRole="alert">
+          {`${'❄'}  ${tr('streak.atRisk')}`}
+        </Text>
+      ) : null}
       <View style={styles.progressHeader}>
         <Text style={[styles.progressLabel, { color: t.textMuted }]}>{tr('streak.nextMilestone')}</Text>
         <Text style={[styles.progressValue, { color: t.lavender }]}>
@@ -510,6 +520,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '800',
+  },
+  atRiskText: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '900',
+    marginBottom: spacing.sm,
   },
   rhythmRow: {
     flexDirection: 'row',

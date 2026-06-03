@@ -4,10 +4,15 @@ import { Hono } from 'hono';
 const mocks = vi.hoisted(() => ({
   mockGetDb: vi.fn(),
   mockCompleteDailyRitual: vi.fn(),
+  mockMarkFirstHoroscopeReveal: vi.fn(),
 }));
 
 vi.mock('../db/client', () => ({
   getDb: mocks.mockGetDb,
+}));
+
+vi.mock('../services/activationService', () => ({
+  markFirstHoroscopeReveal: mocks.mockMarkFirstHoroscopeReveal,
 }));
 
 vi.mock('../middleware/auth', () => ({
@@ -41,6 +46,7 @@ describe('ritual routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.mockGetDb.mockReturnValue({});
+    mocks.mockMarkFirstHoroscopeReveal.mockResolvedValue(false);
     mocks.mockCompleteDailyRitual.mockResolvedValue({
       data: {
         streakCount: 7,
@@ -106,5 +112,49 @@ describe('ritual routes', () => {
       shouldCelebrate: true,
       completedDate: '2026-05-20',
     });
+  });
+
+  async function postComplete() {
+    return createApp().request(
+      '/api/rituals/daily/complete',
+      { method: 'POST', headers: { Authorization: 'Bearer token' } },
+      mockEnv,
+    );
+  }
+
+  it('returns firstHoroscopeReveal: true when the milestone is claimed (first reveal)', async () => {
+    mocks.mockMarkFirstHoroscopeReveal.mockResolvedValue(true);
+
+    const res = await postComplete();
+
+    expect(res.status).toBe(200);
+    expect(mocks.mockMarkFirstHoroscopeReveal).toHaveBeenCalledWith({}, 'user-1');
+    await expect(res.json()).resolves.toMatchObject({ firstHoroscopeReveal: true });
+  });
+
+  it('returns firstHoroscopeReveal: false on a later reveal (already claimed / another device)', async () => {
+    mocks.mockMarkFirstHoroscopeReveal.mockResolvedValue(false);
+
+    const res = await postComplete();
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ firstHoroscopeReveal: false });
+  });
+
+  it('does not alter the existing completion payload (reveal flow unchanged)', async () => {
+    mocks.mockMarkFirstHoroscopeReveal.mockResolvedValue(true);
+
+    const res = await postComplete();
+    const body = await res.json();
+
+    // Streak/ritual completion fields are returned exactly as before, untouched.
+    expect(body).toMatchObject({
+      currentStreak: 7,
+      longestStreak: 7,
+      streakSegment: 'aligned',
+      streakFreezeAwardReason: '7_day',
+      shouldCelebrate: true,
+    });
+    expect(mocks.mockCompleteDailyRitual).toHaveBeenCalledWith({}, 'user-1', '2026-05-20');
   });
 });

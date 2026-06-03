@@ -6,17 +6,27 @@ import LockedFeatureCard from '../components/LockedFeatureCard.vue';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
 import { usePremiumStore } from '../stores/premium';
-import { track } from '../lib/analytics';
+import { track, PAYWALL_CTA_EVENT } from '../lib/analytics';
 
 const { t } = useI18n();
 const premiumStore = usePremiumStore();
 const { checkoutLoading, error: checkoutError, isPremium } = storeToRefs(premiumStore);
 
 const checkoutLabel = computed(() =>
-  checkoutLoading.value ? t('premium.checkoutLoading') : t('premium.goPremium'),
+  checkoutLoading.value ? t('premium.checkoutLoading') : t('premium.trialCta'),
 );
 
+const trialFeatures = computed(() => [
+  t('premium.trialFeature1'),
+  t('premium.trialFeature2'),
+  t('premium.trialFeature3'),
+  t('premium.trialFeature4'),
+]);
+
 async function goPremium() {
+  // CTA tap only. The real `trial_started` is emitted by the Stripe webhook once the
+  // subscription is confirmed `trialing`, so we never double-count from the client.
+  track(PAYWALL_CTA_EVENT, { source: 'premium_page', hasTrial: true });
   const url = await premiumStore.startCheckout(t('premium.checkoutFailed'));
   if (url) window.location.href = url;
 }
@@ -69,6 +79,11 @@ track('paywall_viewed', { isPremium: isPremium.value });
       <template v-else>
         <h2>{{ t('premium.upgradeTitle') }}</h2>
         <p>{{ t('premium.upgradeBody') }}</p>
+        <ul class="trial-features">
+          <li v-for="feature in trialFeatures" :key="feature">
+            <span class="check" aria-hidden="true">✓</span>{{ feature }}
+          </li>
+        </ul>
         <p v-if="checkoutError" class="checkout-error" role="alert">{{ checkoutError }}</p>
         <button
           type="button"
@@ -78,6 +93,7 @@ track('paywall_viewed', { isPremium: isPremium.value });
         >
           {{ checkoutLabel }}
         </button>
+        <p class="trial-footer">{{ t('premium.trialFooter') }}</p>
       </template>
     </section>
     </ScreenLayout>
@@ -138,5 +154,30 @@ track('paywall_viewed', { isPremium: isPremium.value });
   color: var(--danger, #e57373);
   font-size: 0.9rem;
   margin-bottom: 0.75rem;
+}
+.trial-features {
+  list-style: none;
+  margin: 0 auto 1.5rem;
+  padding: 0;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  text-align: left;
+}
+.trial-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+.trial-features .check {
+  color: var(--gold);
+  font-weight: 700;
+}
+.trial-footer {
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 </style>

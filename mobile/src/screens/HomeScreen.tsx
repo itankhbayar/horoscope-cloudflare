@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EnergyDetailsCard } from '../components/home/EnergyDetailsCard';
 import { EnergyRing } from '../components/home/EnergyRing';
 import { HomeHeader } from '../components/home/HomeHeader';
 import { HoroscopePremiumCard } from '../components/home/HoroscopePremiumCard';
+import { PatternMemoryCard } from '../components/home/PatternMemoryCard';
 import { ModularAstrologyCard } from '../components/home/ModularAstrologyCard';
 import { RitualMoment } from '../components/home/RitualMoment';
 import type { HoroscopePeriod } from '../components/home/homeDateUtils';
@@ -32,6 +33,9 @@ import { loadDailyReadingReveal, saveDailyReadingReveal } from '../lib/dailyRead
 import { loadDailyStreak, localDateISO, saveDailyStreak, type DailyStreak } from '../lib/streaks';
 import { consumeDailyRitualCelebration, consumeMilestoneCelebration } from '../lib/streakCelebration';
 import { milestoneExperience, normalizeStreakCount, normalizeStreakSegment, type StreakMilestone } from '../lib/streakDisplay';
+import { isStreakAtRisk } from '../lib/streakFreeze';
+import { firstRevealEventProps } from '../lib/activationMilestone';
+import { StreakFreezeModal } from '../components/StreakFreezeModal';
 import { shareStreakMilestoneCard } from '../lib/streakShare';
 import { shareDailyHoroscopeCard } from '../lib/horoscopeShareCard';
 import { track, trackDailyActiveOnce, trackRitualEvent } from '../lib/analytics';
@@ -66,6 +70,10 @@ export function HomeScreen(): ReactElement {
   const [sequenceStarted, setSequenceStarted] = useState(false);
   const [readingRevealed, setReadingRevealed] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [freezeModalVisible, setFreezeModalVisible] = useState(false);
+  const [freezePending, setFreezePending] = useState(false);
+  const [freezeError, setFreezeError] = useState<string | null>(null);
+  const [freezePromptDate, setFreezePromptDate] = useState<string | null>(null);
 
   const opacities = useMemo(() => Array.from({ length: 9 }, () => new Animated.Value(0)), []);
 
@@ -85,6 +93,18 @@ export function HomeScreen(): ReactElement {
       horoscope.streakLastDate &&
       horoscope.streakLastDate === horoscope.date,
   );
+  const availableFreezes = horoscope?.streakFreezes ?? user?.streakFreezes ?? 0;
+  const freezeCap = horoscope?.streakFreezeCap ?? user?.streakFreezeCap ?? 1;
+  // Pattern Memory is only ever populated by the server for premium users; gate again
+  // on the client so free users never see the section even if a payload leaks through.
+  const patternMemory = isPremium ? horoscope?.patternMemory ?? null : null;
+  const streakAtRisk =
+    effectiveHoroscopePeriod === 'today' &&
+    isStreakAtRisk({
+      streakCount: horoscope?.streakCount ?? dailyStreak.count,
+      streakFreezes: availableFreezes,
+      streakLastDate: horoscope?.streakLastDate ?? dailyStreak.lastCheckInDate,
+    });
 
   useEffect(() => {
     void loadDailyStreak().then(setDailyStreak);
@@ -162,6 +182,32 @@ export function HomeScreen(): ReactElement {
       mounted = false;
     };
   }, [horoscope?.milestoneReached, horoscope?.streakLastDate]);
+
+  // Surface the "Use a Freeze?" prompt once per day when an active streak would
+  // otherwise be lost and the user still holds a freeze.
+  useEffect(() => {
+    if (!streakAtRisk) return;
+    const today = localDateISO();
+    if (freezePromptDate === today) return;
+    setFreezePromptDate(today);
+    setFreezeError(null);
+    setFreezeModalVisible(true);
+    void track('streak_freeze_prompt_shown', {
+      source: 'home',
+      streakCount: horoscope?.streakCount ?? dailyStreak.count,
+      freezesAvailable: availableFreezes,
+    });
+  }, [streakAtRisk, freezePromptDate, availableFreezes, horoscope?.streakCount, dailyStreak.count]);
+
+  useEffect(() => {
+    if (!patternMemory || !readingRevealed) return;
+    void track('pattern_memory_shown', {
+      source: 'home',
+      theme: patternMemory.theme,
+      kind: patternMemory.kind,
+      daysAgo: patternMemory.daysAgo,
+    });
+  }, [patternMemory, readingRevealed]);
 
   useEffect(() => {
     if (profileLoading) return;
@@ -275,6 +321,14 @@ export function HomeScreen(): ReactElement {
         shouldCelebrate: result.shouldCelebrate,
         milestone: result.milestoneReached,
       });
+      // Activation milestone — gated by the server's once-per-user flag, so it fires at most once.
+      const firstRevealProps = firstRevealEventProps({
+        firstHoroscopeReveal: result.firstHoroscopeReveal,
+        sign: sun,
+        platform: Platform.OS,
+        createdAt: user?.createdAt,
+      });
+      if (firstRevealProps) await track('first_horoscope_revealed', firstRevealProps);
       if (!result.shouldCelebrate) {
         setCompletion(null);
         await track('daily_ritual_completion_replayed_blocked', { completedDate: result.completedDate, source: 'home' });
@@ -347,6 +401,37 @@ export function HomeScreen(): ReactElement {
     }
   };
 
+  // Consuming a freeze reuses the daily-completion flow: completing today after a
+  // one-day gap makes the backend spend a freeze and preserve the streak. No streak
+  // math or inventory logic is duplicated here.
+  const onUseStreakFreeze = async (): Promise<void> => {
+    if (freezePending || !horoscope) return;
+    setFreezePending(true);
+    setFreezeError(null);
+    try {
+      const result = await onCompleteDailyRitual();
+      if (!result) {
+        setFreezeError(completionError ?? t('streak.freezeError'));
+        return;
+      }
+      setReadingRevealed(true);
+      await saveDailyReadingReveal(horoscope.date, user?.id);
+      setFreezeModalVisible(false);
+    } finally {
+      setFreezePending(false);
+    }
+  };
+
+  const onDismissStreakFreeze = (): void => {
+    if (freezePending) return;
+    setFreezeModalVisible(false);
+    void track('streak_freeze_prompt_dismissed', {
+      source: 'home',
+      streakCount: horoscope?.streakCount ?? dailyStreak.count,
+      freezesAvailable: availableFreezes,
+    });
+  };
+
   return (
     <ScreenScroll
       scrollBackgroundColor={theme.bgDeep}
@@ -374,8 +459,9 @@ export function HomeScreen(): ReactElement {
           risingSign={risingSign}
           streakCount={streakCount}
           longestStreakCount={horoscope?.longestStreakCount ?? user?.longestStreakCount ?? 0}
-          streakFreezes={horoscope?.streakFreezes ?? 0}
-          streakFreezeCap={horoscope?.streakFreezeCap ?? user?.streakFreezeCap ?? 1}
+          streakFreezes={availableFreezes}
+          streakFreezeCap={freezeCap}
+          streakAtRisk={streakAtRisk}
           streakFreezeAwarded={Boolean(horoscope?.streakFreezeAwarded)}
           streakPreservedByFreeze={Boolean(horoscope?.streakPreservedByFreeze)}
           streakSegment={streakSegment}
@@ -447,6 +533,19 @@ export function HomeScreen(): ReactElement {
             </Pressable>
           ) : null}
         </Animated.View>
+      ) : null}
+
+      {patternMemory && readingRevealed ? (
+        <PatternMemoryCard
+          memory={patternMemory}
+          onOpen={() =>
+            void track('pattern_memory_opened', {
+              source: 'home',
+              theme: patternMemory.theme,
+              kind: patternMemory.kind,
+            })
+          }
+        />
       ) : null}
 
       {horoscope && openMoment === 'reflection' ? (
@@ -580,6 +679,17 @@ export function HomeScreen(): ReactElement {
           ) : null}
         </>
       ) : null}
+
+      <StreakFreezeModal
+        visible={freezeModalVisible}
+        streakCount={streakCount}
+        freezeCount={availableFreezes}
+        freezeCap={freezeCap}
+        pending={freezePending}
+        error={freezeError}
+        onUseFreeze={() => void onUseStreakFreeze()}
+        onDismiss={onDismissStreakFreeze}
+      />
     </ScreenScroll>
   );
 }

@@ -30,6 +30,10 @@ export type AppBindings = {
   REVENUECAT_WEBHOOK_SECRET?: string;
   /** Optional Expo access token for push delivery (Enhanced Security for Push Notifications). */
   EXPO_ACCESS_TOKEN?: string;
+  /** PostHog project API key for the backend funnel mirror. When unset, mirroring is a no-op. */
+  POSTHOG_API_KEY?: string;
+  /** PostHog ingestion host (defaults to https://us.i.posthog.com). */
+  POSTHOG_HOST?: string;
   /** Deployment environment label for logs and Sentry. */
   APP_ENV?: string;
   ENVIRONMENT?: string;

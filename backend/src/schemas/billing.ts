@@ -16,9 +16,12 @@ export const mobilePortalSchema = z.object({
 export const revenueCatWebhookSchema = z.object({
   event: z
     .object({
+      id: z.string().optional(),
       type: z.string().optional(),
       app_user_id: z.string().optional(),
       original_app_user_id: z.string().optional(),
+      period_type: z.string().optional(),
+      is_trial_conversion: z.boolean().optional(),
     })
     .passthrough()
     .optional(),

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
 import { completeDailyRitual, currentStreakDateISO } from '../services/streakService';
+import { markFirstHoroscopeReveal } from '../services/activationService';
 import type { AppBindings, AppVariables } from '../types';
 import { metric } from '../utils/logger';
 import { ok } from '../utils/apiResponse';
@@ -15,6 +16,11 @@ router.post('/daily/complete', async (c) => {
   const db = getDb(c.env.horoscope_db);
   const completedDate = currentStreakDateISO();
   const result = await completeDailyRitual(db, userId, completedDate);
+
+  // Activation milestone: claim "first horoscope revealed" exactly once per user. The flag
+  // is the source of truth; the client emits the analytics event only when this returns true,
+  // so it can never fire twice — across restarts, logout/login, or devices.
+  const firstHoroscopeReveal = await markFirstHoroscopeReveal(db, userId);
 
   metric(c.env, 'daily_ritual_completed', {
     completedDate,
@@ -31,7 +37,7 @@ router.post('/daily/complete', async (c) => {
     });
   }
 
-  return ok(c, result.completion);
+  return ok(c, { ...result.completion, firstHoroscopeReveal });
 });
 
 export default router;

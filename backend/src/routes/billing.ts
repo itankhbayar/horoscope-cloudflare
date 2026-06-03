@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import type Stripe from 'stripe';
 import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
@@ -10,9 +11,11 @@ import {
   createPremiumCheckoutSession,
   createStripeClient,
   processStripeWebhookEventIdempotently,
+  resolveUserIdFromSubscription,
   syncPremiumFromCheckoutSession,
   syncPremiumFromStripeForUser,
 } from '../services/billingService';
+import { trackBackendEvent } from '../services/analyticsService';
 import { isAllowedReturnUrl, resolveAppPublicUrl } from '../env';
 import {
   processRevenueCatWebhook,
@@ -37,6 +40,23 @@ import { parseJsonBody, isResponse } from '../validators/request';
 import { fail, ok } from '../utils/apiResponse';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
+
+/**
+ * Mirror a server-authoritative trial event to PostHog without blocking the webhook response.
+ * `trackBackendEvent` never rejects; the try/catch only guards environments (e.g. tests) where
+ * no ExecutionContext is attached, so the mirror stays strictly fire-and-forget.
+ */
+function mirrorTrialEvent(
+  c: Context<{ Bindings: AppBindings; Variables: AppVariables }>,
+  input: Parameters<typeof trackBackendEvent>[0],
+): void {
+  const task = trackBackendEvent(input);
+  try {
+    c.executionCtx.waitUntil(task);
+  } catch {
+    void task;
+  }
+}
 
 const WEBHOOK_HANDLED = new Set<string>([
   'checkout.session.completed',
@@ -302,6 +322,22 @@ router.post('/revenuecat/webhook', async (c) => {
       handled: result.handled,
       isPremium: result.isPremium,
     });
+    // Server-authoritative trial funnel (parity with Stripe). Emitted at most once per event:
+    // the service only returns `trialMetric` on the first, freshly-claimed delivery.
+    if (result.trialMetric) {
+      metric(c.env, result.trialMetric, {
+        source: 'revenuecat_webhook',
+        eventType: payload.event?.type,
+        periodType: payload.event?.period_type,
+      });
+      // Mirror to PostHog. app_user_id is our users.id, so it is a stable distinct_id.
+      mirrorTrialEvent(c, {
+        env: c.env,
+        distinctId: result.userId,
+        event: result.trialMetric,
+        properties: { provider: 'revenuecat', eventType: payload.event?.type },
+      });
+    }
     return ok(c, { received: true, ...result });
   } catch (err) {
     logFromContext(c, 'error', 'revenuecat_webhook_failed', { error: err });
@@ -375,7 +411,17 @@ router.post('/webhook', async (c) => {
     }
     if (result.action === 'process') {
       const trialMetric = trialMetricForEvent(event);
-      if (trialMetric) metric(c.env, trialMetric, { source: 'stripe_webhook', eventType: event.type });
+      if (trialMetric) {
+        metric(c.env, trialMetric, { source: 'stripe_webhook', eventType: event.type });
+        // Mirror the server-authoritative trial event to PostHog (fire-and-forget, fails open).
+        const distinctId = await resolveUserIdFromSubscription(db, event.data.object as Stripe.Subscription);
+        mirrorTrialEvent(c, {
+          env: c.env,
+          distinctId,
+          event: trialMetric,
+          properties: { provider: 'stripe', eventType: event.type },
+        });
+      }
     }
     if (result.action === 'skip') {
       logFromContext(c, 'info', 'stripe_webhook_duplicate_skipped', {

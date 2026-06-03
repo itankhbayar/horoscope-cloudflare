@@ -9,6 +9,7 @@ import { colors, hitSlopComfortable, MIN_TOUCH, spacing } from '../theme';
 import { useAppearance } from '../hooks/useAppearance';
 import { BRAND_COPY, ONBOARDING_COPY } from '../lib/brandCopy';
 import { buildNatalRevealCards, skyMappingStep, whyBirthplaceMatters } from '../lib/onboardingReveal';
+import { EmotionalHookScreen } from './EmotionalHookScreen';
 
 type Props = {
   onComplete: (hasBirthProfile: boolean) => Promise<void>;
@@ -46,6 +47,20 @@ export function OnboardingScreen({ onComplete }: Props): React.JSX.Element {
     trackedStart.current = true;
     void track('onboarding_started', { hasBirthProfile });
   }, [hasBirthProfile]);
+
+  // Primary path: the chart exists, so lead with the single emotional "aha moment" and
+  // route Continue straight into today's reading. The educational layout below is kept only
+  // as a fallback for the rare authenticated-without-chart case.
+  if (hasBirthProfile && profile?.natalChart) {
+    return (
+      <EmotionalHookScreen
+        sunSign={profile.natalChart.sunSign}
+        moonSign={profile.natalChart.moonSign}
+        risingSign={profile.natalChart.risingSign}
+        onContinue={() => void onComplete(true)}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top', 'bottom', 'left', 'right']}>

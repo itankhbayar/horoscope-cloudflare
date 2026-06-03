@@ -90,7 +90,8 @@ function createSchema(db: DatabaseSync) {
       streak_count INTEGER NOT NULL DEFAULT 0,
       streak_last_date TEXT,
       longest_streak_count INTEGER NOT NULL DEFAULT 0,
-      streak_freezes INTEGER NOT NULL DEFAULT 0
+      streak_freezes INTEGER NOT NULL DEFAULT 0,
+      first_horoscope_revealed_at TEXT
     );
 
     CREATE UNIQUE INDEX users_email_idx ON users (email);

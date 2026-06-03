@@ -452,7 +452,7 @@ async function setPremiumForUserId(db: DB, userId: string, isPremium: boolean): 
     .where(eq(users.id, userId));
 }
 
-async function resolveUserIdFromSubscription(db: DB, sub: Stripe.Subscription): Promise<string | null> {
+export async function resolveUserIdFromSubscription(db: DB, sub: Stripe.Subscription): Promise<string | null> {
   const fromMeta = sub.metadata?.userId?.trim();
   if (fromMeta) return fromMeta;
   const custId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;

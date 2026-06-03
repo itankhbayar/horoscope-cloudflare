@@ -8,6 +8,8 @@ import { buildGlobalSkyToday } from '../services/globalSkyService';
 import { buildPersonalSkyLayer } from '../services/personalSkyService';
 import type { NatalChartData } from '../services/astrologyService';
 import { getCurrentStreakData } from '../services/streakService';
+import { buildPatternMemoryForUser } from '../services/themeMemoryService';
+import { hasActivePremiumEntitlement } from '../middleware/premium';
 import { isZodiacSign, ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
 import { natalCharts, users } from '../db/schema';
 import { searchCities } from '../utils/cities';
@@ -189,7 +191,7 @@ router.get('/daily', authMiddleware, async (c) => {
   const chart = await db.select().from(natalCharts).where(eq(natalCharts.userId, userId)).get();
   if (!chart) return fail(c, 404, 'NOT_FOUND', 'Natal chart not found');
   const user = await db
-    .select({ timezone: users.timezone })
+    .select({ timezone: users.timezone, isPremium: users.isPremium })
     .from(users)
     .where(eq(users.id, userId))
     .get();
@@ -205,6 +207,35 @@ router.get('/daily', authMiddleware, async (c) => {
     aspects: chart.aspects as NatalChartData['aspects'],
   });
   const streak = await getCurrentStreakData(db, userId);
+
+  // Premium Pattern Memory: deterministic, premium-only, reuses today's hook theme.
+  // Never allowed to break the reading — any failure simply omits the section.
+  let patternMemory = null;
+  if (horoscope.hookTheme) {
+    try {
+      patternMemory = await buildPatternMemoryForUser(db, {
+        userId,
+        isPremium: hasActivePremiumEntitlement(user),
+        todayISO: dateISO,
+        theme: horoscope.hookTheme,
+        lang,
+      });
+    } catch {
+      patternMemory = null;
+    }
+  }
+  if (patternMemory) {
+    // Generation-time content signal only. The user-facing impression is counted once,
+    // client-side, by `pattern_memory_shown` when the card actually renders — the backend
+    // must not emit an impression event here or every API call (refresh, period switch,
+    // prefetch) would double-count against the real impression.
+    metric(c.env, 'pattern_memory_repeat_theme', {
+      theme: patternMemory.theme,
+      occurrences: patternMemory.occurrences,
+      kind: patternMemory.kind,
+    });
+  }
+
   metric(c.env, 'horoscope_viewed', { sign: chart.sunSign, lang, variant: 'authenticated' });
   // Temporary runtime diagnostics for MN depth rollout.
   // eslint-disable-next-line no-console
@@ -232,6 +263,7 @@ router.get('/daily', authMiddleware, async (c) => {
     moonSign: chart.moonSign,
     risingSign: chart.risingSign,
     ...streak,
+    patternMemory,
   });
   return response;
 });

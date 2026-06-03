@@ -18,7 +18,7 @@ import { goToAccountSettings, goToAppAppearance, goToManageNotifications, resetT
 import { toProfileDraft, validateProfileDraft, type ProfileDraft, type ProfileValidation } from './profileForm';
 import { useAppearance } from '../hooks/useAppearance';
 import { profileStreakLines, normalizeRitualHistory, ritualHistoryCompletedCount, type RitualHistoryDay } from '../lib/streakProfile';
-import { shareableMilestoneFor } from '../lib/streakDisplay';
+import { formatFreezeCapacity, shareableMilestoneFor } from '../lib/streakDisplay';
 import { shareStreakMilestoneCard } from '../lib/streakShare';
 import { getScreenPurpose } from '../lib/emotionalScreenHierarchy';
 import { track } from '../lib/analytics';
@@ -107,6 +107,10 @@ export function ProfileScreen(): React.JSX.Element {
     : [];
   const ritualHistory = normalizeRitualHistory(profile?.ritualHistory);
   const ritualCompletedCount = ritualHistoryCompletedCount(ritualHistory);
+  const freezeCapacityLine = formatFreezeCapacity(
+    profile?.user.streakFreezes ?? 0,
+    profile?.user.streakFreezeCap ?? 1,
+  );
   const shareMilestone = shareableMilestoneFor(profile?.user.streakCount ?? 0);
 
   const isLight = mode === 'light';
@@ -218,6 +222,9 @@ export function ProfileScreen(): React.JSX.Element {
             <View style={styles.streakSummary}>
               <Text style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
                 {ritualCompletedCount > 0 ? t('profile.ritualHasHistory') : t('profile.ritualEmpty')}
+              </Text>
+              <Text style={[styles.streakLine, isLight && { color: palette.textMuted }]}>
+                {`❄  ${freezeCapacityLine}`}
               </Text>
               {ritualHistoryOpen ? (
                 <>

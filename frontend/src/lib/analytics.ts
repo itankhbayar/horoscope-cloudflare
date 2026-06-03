@@ -8,6 +8,12 @@ type AnalyticsEvent =
   | 'paywall_viewed'
   | 'checkout_started'
   | 'premium_purchased'
+  /**
+   * Client-side paywall CTA tap only. `trial_started` is intentionally NOT a client event —
+   * it is emitted server-side by the Stripe webhook once a subscription enters `trialing`,
+   * so the trial funnel has a single authoritative source and never double-counts.
+   */
+  | 'trial_cta_clicked'
   | 'subscription_restored'
   | 'horoscope_share_card_opened'
   | 'horoscope_share_card_generated'
@@ -26,6 +32,7 @@ type AnalyticsEvent =
   | 'compatibility_landing_cta_clicked'
   | 'daily_reading_reveal_clicked'
   | 'daily_reading_revealed'
+  | 'first_horoscope_revealed'
   | 'daily_reading_already_revealed'
   | 'daily_ritual_completed'
   | 'streak_completion_celebrated'
@@ -43,6 +50,9 @@ type AnalyticsEvent =
   | 'preview_account_created';
 
 type AnalyticsProperties = Record<string, string | number | boolean | null | undefined>;
+
+/** The analytics event fired when a user taps the paywall CTA (never `trial_started`). */
+export const PAYWALL_CTA_EVENT: AnalyticsEvent = 'trial_cta_clicked';
 
 let enabled = false;
 let posthogClient: typeof import('posthog-js').default | null = null;

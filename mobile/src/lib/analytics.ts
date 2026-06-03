@@ -93,6 +93,9 @@ export type AnalyticsEventMap = {
   daily_active: { date: string; hasBirthProfile: boolean; isPremium: boolean };
   onboarding_started: { hasBirthProfile?: boolean; surface?: 'register' | 'post_register'; step?: string };
   onboarding_completed: { hasBirthProfile: boolean };
+  onboarding_hook_shown: { source: 'onboarding'; sign: string; element: string; variant: number };
+  onboarding_hook_continue: { source: 'onboarding'; sign: string; element: string; variant: number };
+  first_horoscope_revealed: { sign?: string; platform: string; days_since_signup?: number };
   birth_data_completed: { hasBirthTime: boolean; cityCountry?: string };
   first_value_shown: { surface: 'register'; valueType: 'personal_sky_preview'; hasBirthTime: boolean };
   account_creation_prompt_shown: { surface: 'register'; valueType: 'personal_sky_preview' };
@@ -155,6 +158,13 @@ export type AnalyticsEventMap = {
   paywall_viewed: LegacyPaywallProperties;
   checkout_started: { plan?: 'monthly' | 'yearly'; provider: 'revenuecat' | 'stripe' };
   premium_purchased: { provider: 'revenuecat' | 'stripe'; source: 'purchase_sync' | 'restore_sync' };
+  /** User tapped the paywall CTA. Distinct from `trial_started` (store-confirmed trial). */
+  trial_cta_clicked: { provider: 'revenuecat' | 'stripe'; plan?: 'monthly' | 'yearly'; hasTrial: boolean };
+  /**
+   * A real trial subscription was confirmed. For RevenueCat this fires once the purchased
+   * entitlement reports a TRIAL period. (Stripe trials are emitted server-side by the webhook.)
+   */
+  trial_started: { provider: 'revenuecat'; plan?: 'monthly' | 'yearly'; source: 'purchase_confirmation' };
   subscription_restored: { provider: 'revenuecat' | 'stripe'; active: boolean };
   notification_settings_viewed: { canRequestPush: boolean };
   notification_opt_in_started: { source: 'settings' };
@@ -254,6 +264,8 @@ export type AnalyticsEventMap = {
   streak_started: { streakCount: number };
   streak_milestone: { streakCount: number; milestone: number };
   streak_freeze_used: { streakCount: number; freezesRemaining: number };
+  streak_freeze_prompt_shown: { source: 'home'; streakCount: number; freezesAvailable: number };
+  streak_freeze_prompt_dismissed: { source: 'home'; streakCount: number; freezesAvailable: number };
   streak_lost: { previousStreak?: number };
   streak_status_viewed: {
     source: 'home_launch';
@@ -277,6 +289,13 @@ export type AnalyticsEventMap = {
   streak_milestone_reached: { streakCount: number; milestone: number; freezeAwarded: boolean };
   daily_ritual_completion_replayed_blocked: { completedDate: string; source: 'home' };
   streak_milestone_shared: { milestone: number; source: 'home' | 'profile' };
+  pattern_memory_shown: {
+    source: 'home';
+    theme: string;
+    kind: 'recent' | 'multiple';
+    daysAgo?: number | null;
+  };
+  pattern_memory_opened: { source: 'home'; theme: string; kind: 'recent' | 'multiple' };
 };
 
 export type AnalyticsEvent = keyof AnalyticsEventMap;

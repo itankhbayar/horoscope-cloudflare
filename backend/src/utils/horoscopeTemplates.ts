@@ -1,7 +1,7 @@
 import type { ZodiacSign } from './zodiac';
 import { getZodiacInfo } from './zodiac';
 import type { Lang } from './lang';
-import { buildDailyHook } from './dailyHook';
+import { buildDailyHook, type HookTheme } from './dailyHook';
 import type { Aspect, DailySkySnapshot, HouseCusp, NatalChartData, PlanetPosition, TransitToNatalAspect } from '../services/astrologyService';
 
 interface PerSignText {
@@ -542,6 +542,8 @@ export interface DailyHoroscopeContent {
   luckyColor: string;
   /** The daily emotional-jolt opening line; also prepended into `overall`. */
   hook?: string;
+  /** Deterministic theme behind today's hook; consumed by Premium Pattern Memory. */
+  hookTheme?: HookTheme;
   skyContext?: DailySkyContext;
   blocks?: HoroscopeContentBlock[];
 }
@@ -635,7 +637,7 @@ function withDailyHook(
   sky?: DailySkySnapshot,
 ): DailyHoroscopeContent {
   const moon = sky?.planets.find((p) => p.name === 'Moon');
-  const { jolt } = buildDailyHook({
+  const { theme, jolt } = buildDailyHook({
     sign,
     dateISO,
     lang,
@@ -646,7 +648,7 @@ function withDailyHook(
   const blocks = Array.isArray(content.blocks)
     ? content.blocks.map((b) => (b.id === 'overall' ? { ...b, paragraphs: [jolt, ...b.paragraphs] } : b))
     : content.blocks;
-  return { ...content, hook: jolt, overall, blocks };
+  return { ...content, hook: jolt, hookTheme: theme, overall, blocks };
 }
 
 export function enrichDailyHoroscope(

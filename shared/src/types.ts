@@ -191,6 +191,8 @@ export interface DailyRitualCompletion {
   streakPreservedByFreeze: boolean;
   streakFreezeAwardReason: null | '7_day' | '30_day' | '100_day';
   streakSegment: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
+  /** True only on the response that first claimed the user's activation milestone. */
+  firstHoroscopeReveal?: boolean;
 }
 
 /** Canonical alias for daily horoscope reading content. */

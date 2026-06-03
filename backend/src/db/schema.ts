@@ -26,6 +26,8 @@ export const users = sqliteTable(
     streakLastDate: text('streak_last_date'),
     longestStreakCount: integer('longest_streak_count').notNull().default(0),
     streakFreezes: integer('streak_freezes').notNull().default(0),
+    /** Set once, on the user's first successful daily-horoscope reveal (activation milestone). */
+    firstHoroscopeRevealedAt: text('first_horoscope_revealed_at'),
   },
   (t) => ({
     emailIdx: uniqueIndex('users_email_idx').on(t.email),
@@ -166,6 +168,30 @@ export const dailyRitualHistory = sqliteTable(
   (t) => ({
     userDateIdx: uniqueIndex('daily_ritual_history_user_date_idx').on(t.userId, t.ritualDate),
     userDateLookupIdx: index('daily_ritual_history_user_date_lookup_idx').on(t.userId, t.ritualDate),
+  }),
+);
+
+/**
+ * Lightweight per-user history of the daily hook theme (Premium Pattern Memory).
+ * Stores only the theme keyword + date — never reading content. Pruned to the last
+ * 14 days by the theme-memory service.
+ */
+export const userThemeHistory = sqliteTable(
+  'user_theme_history',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    theme: text('theme').notNull(),
+    themeDate: text('theme_date').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    userDateIdx: uniqueIndex('user_theme_history_user_date_idx').on(t.userId, t.themeDate),
+    userDateLookupIdx: index('user_theme_history_user_date_lookup_idx').on(t.userId, t.themeDate),
   }),
 );
 
@@ -312,6 +338,8 @@ export type DailyHoroscope = typeof dailyHoroscopes.$inferSelect;
 export type NewDailyHoroscope = typeof dailyHoroscopes.$inferInsert;
 export type DailyRitualHistory = typeof dailyRitualHistory.$inferSelect;
 export type NewDailyRitualHistory = typeof dailyRitualHistory.$inferInsert;
+export type UserThemeHistory = typeof userThemeHistory.$inferSelect;
+export type NewUserThemeHistory = typeof userThemeHistory.$inferInsert;
 export type CompatibilityResult = typeof compatibilityResults.$inferSelect;
 export type NewCompatibilityResult = typeof compatibilityResults.$inferInsert;
 export type TarotDaily = typeof tarotDaily.$inferSelect;
