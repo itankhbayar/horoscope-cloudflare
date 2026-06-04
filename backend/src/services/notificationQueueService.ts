@@ -7,6 +7,7 @@ import {
   bestSendHour,
   copyForKind,
   daysBetweenISO,
+  isWithinQuietHours,
   localDateISOInTimezone,
   localHourInTimezone,
   notificationDedupeKey,
@@ -14,6 +15,12 @@ import {
   shouldQueueRetentionNotification,
   type RetentionNotificationKind,
 } from './notificationSchedulingService';
+import {
+  selectTrialLifecycleStage,
+  trialDayForUser,
+  trialLifecycleCopy,
+  trialLifecycleDedupeKey,
+} from './trialLifecycleService';
 import {
   buildExpoMessages,
   chunk,
@@ -32,6 +39,7 @@ const EXPO_RECEIPT_QUERY_SIZE = 1000;
 
 interface CandidateRow {
   id: string;
+  created_at: string;
   timezone: string | null;
   streak_count: number;
   streak_last_date: string | null;
@@ -59,6 +67,8 @@ export interface EnqueueSummary {
   considered: number;
   enqueued: number;
   skipped: number;
+  /** Subset of `enqueued` that were signup-anchored trial lifecycle nudges. */
+  lifecycleEnqueued: number;
 }
 
 export interface DeliverSummary {
@@ -178,7 +188,7 @@ export async function enqueueDueNotifications(
   const defaultTimezone = env.CRON_TIMEZONE ?? DEFAULT_TIMEZONE;
 
   const rows = await db.all<CandidateRow>(sql`
-    SELECT u.id, u.timezone, u.streak_count, u.streak_last_date,
+    SELECT u.id, u.created_at, u.timezone, u.streak_count, u.streak_last_date,
            p.daily_reminder_enabled, p.streak_reminder_enabled, p.re_engagement_enabled,
            p.quiet_hours_enabled, p.quiet_hours_start, p.quiet_hours_end, p.reminder_hour_local
     FROM users u
@@ -193,6 +203,7 @@ export async function enqueueDueNotifications(
   let considered = 0;
   let enqueued = 0;
   let skipped = 0;
+  let lifecycleEnqueued = 0;
 
   for (const row of rows) {
     const timezone = row.timezone ?? defaultTimezone;
@@ -201,6 +212,44 @@ export async function enqueueDueNotifications(
 
     considered += 1;
     const localDate = localDateISOInTimezone(now, timezone);
+
+    // Highest precedence: a signup-anchored trial lifecycle nudge. When one is due
+    // it replaces the daily/streak/win-back selection so the user gets exactly one
+    // push this run. Not gated on isPremium (trial users are isPremium=true) — only
+    // on the master switch (SQL all_enabled), an enabled token (SQL EXISTS), quiet
+    // hours, and the stage-scoped dedupe key. Copy is billing-neutral.
+    const trialStage = selectTrialLifecycleStage({
+      trialDay: trialDayForUser(row.created_at, localDate, timezone),
+    });
+    if (trialStage) {
+      const inQuietHours = isWithinQuietHours(localHour, {
+        enabled: Boolean(row.quiet_hours_enabled),
+        start: row.quiet_hours_start,
+        end: row.quiet_hours_end,
+      });
+      if (inQuietHours) {
+        skipped += 1;
+        continue;
+      }
+      const dedupeKey = trialLifecycleDedupeKey(row.id, trialStage);
+      const copy = trialLifecycleCopy(trialStage);
+      const data = JSON.stringify({ kind: trialStage, route: 'home', localDate });
+      const result = await db.run(sql`
+        INSERT OR IGNORE INTO notification_jobs
+          (id, dedupe_key, kind, user_id, local_date, title, body, data, status, scheduled_for)
+        VALUES
+          (${crypto.randomUUID()}, ${dedupeKey}, ${trialStage}, ${row.id}, ${localDate},
+           ${copy.title}, ${copy.body}, ${data}, 'pending', ${nowISO})
+      `);
+      if (changesFrom(result) > 0) {
+        enqueued += 1;
+        lifecycleEnqueued += 1;
+      } else {
+        skipped += 1;
+      }
+      continue;
+    }
+
     const kind = selectNotificationKind({
       localDate,
       streakCount: row.streak_count,
@@ -256,9 +305,16 @@ export async function enqueueDueNotifications(
     else skipped += 1;
   }
 
-  log(env, 'info', 'notification_enqueue_completed', { considered, enqueued, skipped, candidates: rows.length });
+  log(env, 'info', 'notification_enqueue_completed', {
+    considered,
+    enqueued,
+    skipped,
+    lifecycleEnqueued,
+    candidates: rows.length,
+  });
   metric(env, 'notification_enqueue', { considered, enqueued, skipped });
-  return { considered, enqueued, skipped };
+  metric(env, 'trial_lifecycle_enqueue', { enqueued: lifecycleEnqueued });
+  return { considered, enqueued, skipped, lifecycleEnqueued };
 }
 
 function preferenceEnabledForKind(row: CandidateRow, kind: RetentionNotificationKind): boolean {
