@@ -8,7 +8,14 @@ type QuietHours = {
   end: string;
 };
 
-export type RetentionNotificationKind = 'daily_horoscope' | 'streak_reminder' | 're_engagement';
+export type RetentionNotificationKind =
+  | 'daily_horoscope'
+  | 'streak_reminder'
+  | 're_engagement'
+  | 'evening_reflection';
+
+/** Local hour (user timezone) the Accuracy Loop evening check-in nudge is sent at. */
+export const EVENING_REFLECTION_HOUR_LOCAL = 20;
 export type StreakSegment = 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
 
 export type RetentionNotificationCandidate = {
@@ -194,11 +201,20 @@ export function winBackCopy(inactiveDays: number | null): NotificationCopy {
   return { title: 'Your reading missed you', body: 'A quiet moment is waiting. No streak pressure, just tonight\'s sky.' };
 }
 
+/**
+ * Accuracy Loop evening nudge: invites the user to mark how today's reading landed.
+ * Kept billing-neutral and calm, in the same register as the other push copy.
+ */
+export function eveningReflectionCopy(): NotificationCopy {
+  return { title: 'How did today land?', body: "Take a breath and mark how today's sky felt." };
+}
+
 export function copyForKind(
   kind: RetentionNotificationKind,
   context: { sky: GlobalSkyToday | null; streakCount: number; inactiveDays: number | null },
 ): NotificationCopy {
   if (kind === 'streak_reminder') return streakRescueCopy(context.streakCount);
   if (kind === 're_engagement') return winBackCopy(context.inactiveDays);
+  if (kind === 'evening_reflection') return eveningReflectionCopy();
   return dailyReminderCopy(context.sky);
 }

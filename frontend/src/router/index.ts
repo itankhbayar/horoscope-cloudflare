@@ -71,6 +71,12 @@ router.beforeEach(async (to) => {
     const validSession = await auth.validateGuestSession();
     if (validSession) return { name: 'home' };
   }
+  // Logged-in users hitting the public marketing landing belong on their daily reading,
+  // not the acquisition pitch. Validate first so a stale token can't cause a redirect loop.
+  if (to.name === 'landing' && auth.isAuthenticated) {
+    const validSession = await auth.validateGuestSession();
+    if (validSession) return { name: 'home' };
+  }
   return true;
 });
 

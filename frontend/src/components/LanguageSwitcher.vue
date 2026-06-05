@@ -28,7 +28,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutside));
 <template>
   <div ref="root" class="lang-switcher">
     <button class="lang-trigger" @click="toggle" :aria-expanded="open">
-      <span class="flag">{{ flags[locale] }}</span>
+      <span class="flag" :class="{ 'flag-code': flags[locale].length <= 3 }">{{ flags[locale] }}</span>
       <span class="label">{{ labels[locale] }}</span>
       <span class="chevron" :class="{ open }">▾</span>
     </button>
@@ -41,7 +41,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutside));
           :class="{ active: code === locale }"
           @click="pick(code)"
         >
-          <span class="flag">{{ flags[code] }}</span>
+          <span class="flag" :class="{ 'flag-code': flags[code].length <= 3 }">{{ flags[code] }}</span>
           <span class="label">{{ labels[code] }}</span>
           <span v-if="code === locale" class="check">✓</span>
         </li>
@@ -55,45 +55,58 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutside));
 .lang-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.85rem;
-  background: transparent;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0 0.72rem;
+  background: rgba(255, 255, 255, 0.035);
   color: var(--text-secondary);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   cursor: pointer;
   font-family: var(--font-body);
   font-size: 0.8rem;
-  transition: all 0.3s ease;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 .lang-trigger:hover {
   color: var(--gold-light);
-  border-color: var(--glass-border-hover);
-  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(212, 175, 55, 0.3);
+  background: rgba(212, 175, 55, 0.07);
+}
+.lang-trigger:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
 }
 .flag { font-size: 1rem; line-height: 1; }
-.label { letter-spacing: 0.5px; }
+.flag-code {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+.label { letter-spacing: 0.3px; }
 .chevron {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   transition: transform 0.25s ease;
   color: var(--text-muted);
 }
 .chevron.open { transform: rotate(-180deg); }
 .lang-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   right: 0;
   list-style: none;
   margin: 0;
-  padding: 0.3rem;
-  min-width: 160px;
-  background: rgba(20, 15, 40, 0.95);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  z-index: 50;
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  padding: 0.35rem;
+  min-width: 168px;
+  background: rgba(8, 8, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  z-index: 60;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
 .lang-option {
   display: flex;
@@ -101,19 +114,24 @@ onBeforeUnmount(() => document.removeEventListener('click', handleOutside));
   gap: 0.6rem;
   padding: 0.55rem 0.7rem;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 0.7rem;
   font-size: 0.85rem;
-  color: var(--text-primary);
-  transition: background 0.2s ease;
+  color: var(--text-secondary);
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
 }
 .lang-option:hover {
-  background: var(--gold-glow);
+  background: rgba(212, 175, 55, 0.08);
   color: var(--gold-light);
 }
-.lang-option.active { color: var(--gold); }
+.lang-option.active {
+  color: #151326;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+}
 .check {
   margin-left: auto;
-  color: var(--gold);
+  color: currentColor;
   font-size: 0.8rem;
 }
 .lang-fade-enter-active, .lang-fade-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }

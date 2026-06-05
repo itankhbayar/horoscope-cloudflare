@@ -5,11 +5,12 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as horoscopeService from '@astralis/lib/horoscopeService';
 import type { DailyHoroscope, GlobalSkyToday, PersonalSkyLayer, ZodiacSign } from '@astralis/lib/types';
-import { getZodiacInfo, ZODIAC_SIGNS } from '@astralis/lib/zodiac';
+import { ZODIAC_SIGNS } from '@astralis/lib/zodiac';
 import { AmbientRitualFrame } from '../components/AmbientRitualFrame';
 import { useAppearance } from '../hooks/useAppearance';
 import type { RootStackParamList } from '../navigation/types';
 import { BRAND_COPY } from '../lib/brandCopy';
+import { useI18n, type TranslationKey } from '../i18n';
 import { track } from '../lib/analytics';
 import {
   ambientFatigueRisk,
@@ -37,6 +38,13 @@ import {
 import { colors, hitSlopComfortable, MIN_TOUCH, spacing } from '../theme';
 
 const PREVIEW_COUNT = 3;
+const AMBIENT_THEME_LABEL_KEYS: Record<AmbientRitualState['theme']['key'], TranslationKey> = {
+  'moonlit-stillness': 'guest.themeMoonlit',
+  'tense-night': 'guest.themeTense',
+  'warm-social': 'guest.themeSocial',
+  'dream-haze': 'guest.themeDream',
+  'clear-sky': 'guest.themeClear',
+};
 const fallbackAmbientTheme = {
   key: 'moonlit-stillness' as const,
   label: 'Reflective moonlit stillness',
@@ -62,6 +70,12 @@ const fallbackAmbientTheme = {
 export function GuestWelcomeScreen(): React.JSX.Element {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { palette, mode } = useAppearance();
+  const { t } = useI18n();
+  const signName = useCallback((sign: ZodiacSign): string => t(`zodiac.${sign}` as TranslationKey), [t]);
+  const ambientThemeLabel = useCallback(
+    (key: AmbientRitualState['theme']['key']): string => t(AMBIENT_THEME_LABEL_KEYS[key]),
+    [t],
+  );
   const [globalSky, setGlobalSky] = useState<GlobalSkyToday | null>(null);
   const [personalSky, setPersonalSky] = useState<PersonalSkyLayer | null>(null);
   const [horoscope, setHoroscope] = useState<DailyHoroscope | null>(null);
@@ -120,7 +134,7 @@ export function GuestWelcomeScreen(): React.JSX.Element {
         const moonPreview = await horoscopeService.fetchDailyHoroscope(sky.moonSign, sky.date);
         if (alive) setHoroscope(moonPreview);
       } catch (err) {
-        if (alive) setError(err instanceof Error ? err.message : 'Could not load today\'s sky.');
+        if (alive) setError(err instanceof Error ? err.message : t('guest.errorSky'));
       } finally {
         if (alive) setLoading(false);
       }
@@ -146,11 +160,11 @@ export function GuestWelcomeScreen(): React.JSX.Element {
     if (!globalSky) return [];
     const [first, second] = globalSky.cards;
     return [
-      { title: first?.title ?? 'Tonight\'s atmosphere', body: first?.body ?? globalSky.summary },
-      { title: second?.title ?? 'Social weather', body: second?.body ?? globalSky.shareLine },
-      { title: 'Partial personalization preview', body: horoscope?.overall ?? atmosphereLine(globalSky) },
+      { title: first?.title ?? t('guest.previewAtmosphere'), body: first?.body ?? globalSky.summary },
+      { title: second?.title ?? t('guest.previewSocial'), body: second?.body ?? globalSky.shareLine },
+      { title: t('guest.previewPersonal'), body: horoscope?.overall ?? atmosphereLine(globalSky, t) },
     ];
-  }, [globalSky, horoscope]);
+  }, [globalSky, horoscope, t]);
 
   const compressExplanations = shouldCompressExplanations({
     returningUser: Boolean(memorySummary && memorySummary.eventCount > 0),
@@ -202,7 +216,7 @@ export function GuestWelcomeScreen(): React.JSX.Element {
       void track('nightly_ritual_return', { date: layer.date, source: 'guest' });
       void track('emotional_memory_opt_in', { source: 'guest_ritual' });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not personalize tonight\'s sky.');
+      setError(err instanceof Error ? err.message : t('guest.errorPersonalize'));
     } finally {
       setResonanceLoading(false);
     }
@@ -261,21 +275,22 @@ export function GuestWelcomeScreen(): React.JSX.Element {
     >
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={[styles.brand, { color: isLight ? palette.accent : colors.gold }]}>{BRAND_COPY.mark}</Text>
-        <Text style={[styles.kicker, { color: colors.gold }]}>{screenPurpose.atmosphericTone}</Text>
-        <Text style={[styles.title, { color: palette.text }]}>The sky is already doing something.</Text>
+        <Text style={[styles.kicker, { color: colors.gold }]}>{t('guest.kicker')}</Text>
+        <View style={[styles.kickerRule, { backgroundColor: colors.gold }]} />
+        <Text style={[styles.title, { color: palette.text }]}>{t('guest.title')}</Text>
         {!compressExplanations ? (
           <Text style={[styles.subtitle, { color: palette.textMuted }]}>
-            Start with the real collective weather. Personal details can wait.
+            {t('guest.subtitle')}
           </Text>
         ) : null}
 
         {ambientState ? (
           <View style={[styles.ambientPanel, { borderColor: ambientMode ? ambientState.theme.accent : palette.border, backgroundColor: ambientMode ? ambientState.theme.surface : isLight ? '#ffffff' : palette.surface }]}>
-            <Text style={[styles.ambientEyebrow, { color: ambientState.theme.accent }]}>Ambient ritual</Text>
-            <Text style={[styles.ambientTitle, { color: ambientMode ? ambientState.theme.text : palette.text }]}>{ambientState.theme.label}</Text>
+            <Text style={[styles.ambientEyebrow, { color: ambientState.theme.accent }]}>{t('guest.ambientEyebrow')}</Text>
+            <Text style={[styles.ambientTitle, { color: ambientMode ? ambientState.theme.text : palette.text }]}>{ambientThemeLabel(ambientState.theme.key)}</Text>
               {!compressExplanations ? (
                 <Text style={[styles.ambientLine, { color: ambientMode ? ambientState.theme.muted : palette.textMuted }]}>
-                  {ambientState.pauseLabel}
+                  {quietHourEnabled ? t('guest.pauseQuiet') : t('guest.pauseNormal')}
                 </Text>
               ) : null}
             <Text style={[styles.singleLine, { color: ambientMode ? ambientState.theme.text : palette.text }]}>
@@ -290,11 +305,11 @@ export function GuestWelcomeScreen(): React.JSX.Element {
                 ]}
                 onPress={toggleAmbientMode}
                 accessibilityRole="button"
-                accessibilityLabel={ambientMode ? 'Leave ambient ritual mode' : 'Enter ambient ritual mode'}
+                accessibilityLabel={ambientMode ? t('guest.ambientLeaveA11y') : t('guest.ambientEnterA11y')}
                 hitSlop={hitSlopComfortable}
               >
                 <Text style={[styles.ambientButtonText, { color: ambientState.theme.accent }]}>
-                  {ambientMode ? 'Leave ambient mode' : 'Enter ambient mode'}
+                  {ambientMode ? t('guest.ambientLeave') : t('guest.ambientEnter')}
                 </Text>
               </Pressable>
               {!ambientMode ? <Pressable
@@ -313,17 +328,17 @@ export function GuestWelcomeScreen(): React.JSX.Element {
                   });
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Toggle silent soundscape preview"
+                accessibilityLabel={t('guest.soundToggleA11y')}
                 hitSlop={hitSlopComfortable}
               >
                 <Text style={[styles.ambientButtonText, { color: ambientState.theme.accent }]}>
-                  {soundscapeEnabled ? 'Silent' : 'Sound'}
+                  {soundscapeEnabled ? t('guest.silent') : t('guest.sound')}
                 </Text>
               </Pressable> : null}
             </View>
             {soundscapeEnabled ? (
               <Text style={[styles.soundscapeNote, { color: ambientMode ? ambientState.theme.muted : palette.textMuted }]}>
-                Soundscape hook: {ambientState.theme.soundscape.label}. Audio remains off until a future explicit opt-in.
+                {t('guest.soundscapeNote', { label: t('guest.soundscapeSilent') })}
               </Text>
             ) : null}
           </View>
@@ -342,7 +357,7 @@ export function GuestWelcomeScreen(): React.JSX.Element {
           {loading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={palette.accent} />
-              <Text style={[styles.loadingText, { color: palette.textMuted }]}>Reading today&apos;s sky...</Text>
+              <Text style={[styles.loadingText, { color: palette.textMuted }]}>{t('guest.loadingSky')}</Text>
             </View>
           ) : null}
           {error ? (
@@ -353,13 +368,13 @@ export function GuestWelcomeScreen(): React.JSX.Element {
           {globalSky ? (
             <>
               <Text style={[styles.glyph, { color: colors.gold }]}>{'\u263D'}</Text>
-              <Text style={[styles.heroLabel, { color: ambientMode && ambientState ? ambientState.theme.muted : palette.textMuted }]}>Global sky today</Text>
-              <Text style={[styles.heroTitle, { color: ambientMode && ambientState ? ambientState.theme.text : palette.text }]}>Moon in {getZodiacInfo(globalSky.moonSign).name}</Text>
+              <Text style={[styles.heroLabel, { color: ambientMode && ambientState ? ambientState.theme.muted : palette.textMuted }]}>{t('guest.globalSkyToday')}</Text>
+              <Text style={[styles.heroTitle, { color: ambientMode && ambientState ? ambientState.theme.text : palette.text }]}>{t('guest.moonIn', { sign: signName(globalSky.moonSign) })}</Text>
               <Text style={[styles.heroBody, { color: ambientMode && ambientState ? ambientState.theme.text : palette.text, lineHeight: ambientMode && ambientState ? ambientState.theme.readingLineHeight : 25 }]}>
                 {ambientMode ? globalSky.headline : globalSky.summary}
               </Text>
               <Text style={[styles.weather, { color: ambientMode && ambientState ? ambientState.theme.accent : colors.gold }]}>
-                {globalSky.moonPhase} | tension {globalSky.atmosphere.tension} | clarity {globalSky.atmosphere.clarity}
+                {globalSky.moonPhase} \u00B7 {t('guest.tension')} {globalSky.atmosphere.tension} \u00B7 {t('guest.clarity')} {globalSky.atmosphere.clarity}
               </Text>
             </>
           ) : null}
@@ -375,10 +390,10 @@ export function GuestWelcomeScreen(): React.JSX.Element {
                 void track('hidden_control_discovered', { screen: screenPurpose.screen, control: 'preview_moments' });
               }}
               accessibilityRole="button"
-              accessibilityLabel={previewMomentsOpen ? 'Hide preview moments' : 'Show preview moments'}
+              accessibilityLabel={previewMomentsOpen ? t('guest.previewHideA11y') : t('guest.previewShowA11y')}
             >
               <Text style={[styles.secondaryText, { color: palette.accent }]}>
-                {previewMomentsOpen ? 'Let the sky breathe' : 'Preview tonight in three fragments'}
+                {previewMomentsOpen ? t('guest.previewCollapse') : t('guest.previewExpand')}
               </Text>
             </Pressable>
             {previewMomentsOpen ? (
@@ -395,7 +410,7 @@ export function GuestWelcomeScreen(): React.JSX.Element {
         ) : null}
 
         <View style={[styles.resonancePanel, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
-          <Text style={[styles.previewTitle, { color: palette.text }]}>How tonight affects you</Text>
+          <Text style={[styles.previewTitle, { color: palette.text }]}>{t('guest.howTonight')}</Text>
           {!personalSky && !resonanceOpen ? (
             <Pressable
               style={({ pressed }) => [styles.momentDisclosure, { borderColor: palette.border }, pressed && styles.pressed]}
@@ -404,16 +419,16 @@ export function GuestWelcomeScreen(): React.JSX.Element {
                 void track('atmosphere_first_navigation_success', { from: 'arrival', to: 'resonance', moment: 'resonance' });
               }}
               accessibilityRole="button"
-              accessibilityLabel="Add a light personal resonance"
+              accessibilityLabel={t('guest.addEchoA11y')}
             >
-              <Text style={[styles.secondaryText, { color: palette.accent }]}>Add a light personal echo</Text>
+              <Text style={[styles.secondaryText, { color: palette.accent }]}>{t('guest.addEcho')}</Text>
             </Pressable>
           ) : null}
           {resonanceOpen || personalSky ? (
             <>
           {!compressExplanations ? (
             <Text style={[styles.previewBody, { color: palette.textMuted }]}>
-              A sign or birthday is enough for now.
+              {t('guest.signOrBirthday')}
             </Text>
           ) : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.signRow}>
@@ -427,11 +442,11 @@ export function GuestWelcomeScreen(): React.JSX.Element {
                 ]}
                 onPress={() => void loadPersonalSky({ sign: item.key })}
                 accessibilityRole="button"
-                accessibilityLabel={`Personalize with ${item.name}`}
+                accessibilityLabel={t('guest.personalizeWithA11y', { sign: signName(item.key) })}
                 hitSlop={hitSlopComfortable}
               >
                 <Text style={[styles.signSymbol, { color: colors.gold }]}>{item.symbol}</Text>
-                <Text style={[styles.signName, { color: palette.text }]}>{item.name}</Text>
+                <Text style={[styles.signName, { color: palette.text }]}>{signName(item.key)}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -440,20 +455,20 @@ export function GuestWelcomeScreen(): React.JSX.Element {
               style={[styles.birthDateInput, { borderColor: palette.border, color: palette.text, backgroundColor: isLight ? '#ffffff' : palette.background }]}
               value={birthDate}
               onChangeText={setBirthDate}
-              placeholder="Birth date YYYY-MM-DD"
+              placeholder={t('guest.birthDatePlaceholder')}
               placeholderTextColor={palette.textMuted}
               keyboardType="numbers-and-punctuation"
-              accessibilityLabel="Birth date for lightweight personalization"
+              accessibilityLabel={t('guest.useBirthDateA11y')}
             />
             <Pressable
               style={({ pressed }) => [styles.birthDateButton, pressed && styles.pressed]}
               onPress={() => void loadPersonalSky({ birthDate: birthDate.trim() })}
               disabled={!/^\d{4}-\d{2}-\d{2}$/.test(birthDate.trim()) || resonanceLoading}
               accessibilityRole="button"
-              accessibilityLabel="Use birth date for lightweight personalization"
+              accessibilityLabel={t('guest.useBirthDateA11y')}
               hitSlop={hitSlopComfortable}
             >
-              <Text style={styles.birthDateButtonText}>{resonanceLoading ? 'Reading...' : 'Use'}</Text>
+              <Text style={styles.birthDateButtonText}>{resonanceLoading ? t('guest.reading') : t('guest.use')}</Text>
             </Pressable>
           </View>
             </>
@@ -514,10 +529,10 @@ export function GuestWelcomeScreen(): React.JSX.Element {
                   }
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Toggle quiet hour mode"
+                accessibilityLabel={t('guest.quietHourA11y')}
               >
                 <Text style={[styles.quietHourTitle, { color: palette.text }]}>
-                  {quietHourEnabled ? 'Quiet hour is on' : 'Start quiet hour'}
+                  {quietHourEnabled ? t('guest.quietHourOn') : t('guest.quietHourStart')}
                 </Text>
                 <Text style={[styles.ritualBody, { color: palette.textMuted }]}>{personalSky.quietHourSuggestion}</Text>
               </Pressable>
@@ -527,16 +542,16 @@ export function GuestWelcomeScreen(): React.JSX.Element {
 
         {memorySummary && memorySummary.eventCount > 0 ? (
           <View style={[styles.memoryPanel, { borderColor: palette.border, backgroundColor: isLight ? '#ffffff' : palette.surface }]}>
-            <Text style={[styles.memoryEyebrow, { color: colors.gold }]}>Emotional pattern memory</Text>
-            <Text style={[styles.personalHeadline, { color: palette.text }]}>Your recent emotional rhythm</Text>
+            <Text style={[styles.memoryEyebrow, { color: colors.gold }]}>{t('guest.memoryEyebrow')}</Text>
+            <Text style={[styles.personalHeadline, { color: palette.text }]}>{t('guest.memoryHeadline')}</Text>
             {memorySummary.insights.slice(0, memoryExplainerOpen ? 3 : 1).map((insight) => (
               <Text key={insight} style={[styles.memoryInsight, { color: palette.textMuted }]}>
                 {insight}
               </Text>
             ))}
             {memoryExplainerOpen ? <View style={styles.memoryMetaRow}>
-              <Text style={[styles.memoryMeta, { color: palette.textMuted }]}>{memorySummary.ritualNights} ritual nights</Text>
-              <Text style={[styles.memoryMeta, { color: palette.textMuted }]}>{memorySummary.archiveCount} saved moments</Text>
+              <Text style={[styles.memoryMeta, { color: palette.textMuted }]}>{t('guest.ritualNights', { count: memorySummary.ritualNights })}</Text>
+              <Text style={[styles.memoryMeta, { color: palette.textMuted }]}>{t('guest.savedMoments', { count: memorySummary.archiveCount })}</Text>
             </View> : null}
             {memoryExplainerOpen ? (
               <Text style={[styles.memoryExplanation, { color: palette.textMuted }]}>{emotionalMemoryExplanation()}</Text>
@@ -553,17 +568,17 @@ export function GuestWelcomeScreen(): React.JSX.Element {
                   void track('text_expansion_used', { screen: 'guest_welcome', moment: 'archive_revisit' });
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Explain emotional memory"
+                accessibilityLabel={t('guest.openMemoryA11y')}
               >
-                <Text style={[styles.memoryButtonText, { color: palette.accent }]}>{memoryExplainerOpen ? 'Simplify' : 'Open memory'}</Text>
+                <Text style={[styles.memoryButtonText, { color: palette.accent }]}>{memoryExplainerOpen ? t('guest.simplify') : t('guest.openMemory')}</Text>
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.memoryButton, { borderColor: palette.border }, pressed && styles.pressed]}
                 onPress={resetMemory}
                 accessibilityRole="button"
-                accessibilityLabel="Reset emotional memory"
+                accessibilityLabel={t('guest.resetA11y')}
               >
-                <Text style={[styles.memoryButtonText, { color: palette.textMuted }]}>Reset</Text>
+                <Text style={[styles.memoryButtonText, { color: palette.textMuted }]}>{t('guest.reset')}</Text>
               </Pressable>
             </View>
           </View>
@@ -574,29 +589,29 @@ export function GuestWelcomeScreen(): React.JSX.Element {
             style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
             onPress={goSignup}
             accessibilityRole="button"
-            accessibilityLabel="Get your personalized sky"
+            accessibilityLabel={t('guest.primaryCta')}
             hitSlop={hitSlopComfortable}
           >
-            <Text style={styles.primaryText}>Get your personalized sky</Text>
+            <Text style={styles.primaryText}>{t('guest.primaryCta')}</Text>
           </Pressable>
           {!ambientMode ? <Pressable
             style={({ pressed }) => [styles.secondaryButton, { borderColor: palette.border }, pressed && styles.pressed]}
             onPress={shareGuestReading}
             disabled={!globalSky}
             accessibilityRole="button"
-            accessibilityLabel="Share today's sky"
+            accessibilityLabel={t('guest.shareToday')}
             hitSlop={hitSlopComfortable}
           >
-            <Text style={[styles.secondaryText, { color: palette.accent }]}>Share today&apos;s sky</Text>
+            <Text style={[styles.secondaryText, { color: palette.accent }]}>{t('guest.shareToday')}</Text>
           </Pressable> : null}
           <Pressable
             style={({ pressed }) => [styles.loginLink, pressed && styles.pressed]}
             onPress={goLogin}
             accessibilityRole="button"
-            accessibilityLabel="Sign in"
+            accessibilityLabel={t('guest.signInA11y')}
             hitSlop={hitSlopComfortable}
           >
-            <Text style={[styles.loginText, { color: palette.textMuted }]}>Already have an account? Sign in</Text>
+            <Text style={[styles.loginText, { color: palette.textMuted }]}>{t('guest.haveAccount')}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -605,10 +620,10 @@ export function GuestWelcomeScreen(): React.JSX.Element {
   );
 }
 
-function atmosphereLine(sky: GlobalSkyToday): string {
+function atmosphereLine(sky: GlobalSkyToday, t: (key: TranslationKey, params?: Record<string, string | number>) => string): string {
   const strongest = Object.entries(sky.atmosphere).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'reflection';
   const label = strongest.replace(/[A-Z]/g, (match) => ` ${match.toLowerCase()}`);
-  return `The strongest collective signal is ${label}. ${sky.shareLine}`;
+  return t('guest.strongestSignal', { label, shareLine: sky.shareLine });
 }
 
 const styles = StyleSheet.create({
@@ -631,14 +646,23 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 2,
+  },
+  kickerRule: {
+    alignSelf: 'center',
+    width: 36,
+    height: 2,
+    borderRadius: 1,
+    marginTop: spacing.sm,
+    opacity: 0.7,
   },
   title: {
-    marginTop: spacing.xs,
+    marginTop: spacing.md,
     textAlign: 'center',
-    fontSize: 32,
+    fontSize: 29,
     lineHeight: 38,
     fontWeight: '900',
+    letterSpacing: -0.3,
   },
   subtitle: {
     marginTop: spacing.sm,
@@ -646,6 +670,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '600',
+    paddingHorizontal: spacing.sm,
   },
   heroCard: {
     marginTop: spacing.xl,
@@ -654,6 +679,11 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     minHeight: 330,
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 6,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -664,17 +694,18 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 14, lineHeight: 20, fontWeight: '700' },
   glyph: {
     textAlign: 'center',
-    fontSize: 78,
-    lineHeight: 90,
+    fontSize: 64,
+    lineHeight: 76,
+    opacity: 0.92,
   },
   heroLabel: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     textAlign: 'center',
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1.5,
   },
   heroTitle: {
     textAlign: 'center',
@@ -696,6 +727,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '900',
     textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   previewRow: {
     gap: spacing.sm,
@@ -878,16 +910,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   memoryButtonText: { fontSize: 13, lineHeight: 18, fontWeight: '900' },
-  actions: { gap: spacing.sm },
+  actions: { gap: spacing.md, marginTop: spacing.xs },
   primaryButton: {
-    minHeight: MIN_TOUCH,
+    minHeight: MIN_TOUCH + 6,
     borderRadius: 999,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
-  primaryText: { color: '#fff', fontSize: 16, lineHeight: 21, fontWeight: '900' },
+  primaryText: { color: '#fff', fontSize: 16, lineHeight: 21, fontWeight: '900', letterSpacing: 0.3 },
   secondaryButton: {
     minHeight: MIN_TOUCH,
     borderRadius: 999,

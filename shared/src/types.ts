@@ -174,6 +174,8 @@ export interface DailyHoroscope {
   milestoneReached?: null | 3 | 7 | 14 | 30 | 50 | 100 | 365;
   nextMilestone?: null | 3 | 7 | 14 | 30 | 50 | 100 | 365;
   streakSegment?: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
+  /** Accuracy Loop: next-day acknowledgment of how yesterday's reading landed; absent when no prior rating. */
+  reflection?: string;
 }
 
 export interface DailyRitualCompletion {

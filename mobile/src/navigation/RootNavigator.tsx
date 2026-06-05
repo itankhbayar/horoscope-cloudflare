@@ -18,6 +18,7 @@ import { AccountSettingsScreen } from '../screens/AccountSettingsScreen';
 import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { PremiumScreen } from '../screens/PremiumScreen';
+import { ReflectionCheckInScreen } from '../screens/ReflectionCheckInScreen';
 import { hasCompletedOnboarding, markOnboardingComplete } from '../lib/onboardingStorage';
 import { getOrCreateGuestOnboardingState, linkGuestToAuthenticatedUser } from '../lib/progressiveOnboarding';
 import { track } from '../lib/analytics';
@@ -124,6 +125,11 @@ export function RootNavigator(): React.JSX.Element {
             <Stack.Screen name="ManageNotifications" component={ManageNotificationsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Premium" component={PremiumScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="ReflectionCheckIn"
+              component={ReflectionCheckInScreen}
+              options={{ headerShown: false, presentation: 'modal' }}
+            />
           </>
         ) : (
           <Stack.Screen name="Onboarding" options={{ headerShown: false }}>

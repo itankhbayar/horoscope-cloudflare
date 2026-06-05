@@ -188,6 +188,28 @@ export interface DailyHoroscope {
   streakSegment?: 'new' | 'building' | 'aligned' | 'devoted' | 'legendary';
   /** Premium-only "the app remembers you" note; null/absent for free users. */
   patternMemory?: PatternMemory | null;
+  /** Accuracy Loop: next-day acknowledgment of how yesterday's reading landed; absent when no prior rating. */
+  reflection?: string;
+}
+
+/** Accuracy Loop: how a reading landed. 1 didn't land · 2 partly · 3 this was my day. */
+export type Resonance = 1 | 2 | 3;
+
+export interface ReflectionRecord {
+  readingDate: string;
+  resonance: Resonance;
+}
+
+export interface ReflectionState {
+  todayCheckIn: ReflectionRecord | null;
+  yesterday: ReflectionRecord | null;
+  checkInPending: boolean;
+}
+
+export interface ReflectionSubmitResult {
+  readingDate: string;
+  resonance: Resonance;
+  alreadyExisted: boolean;
 }
 
 export type HookTheme = 'unspoken' | 'recognition' | 'restraint' | 'clarity' | 'turning';

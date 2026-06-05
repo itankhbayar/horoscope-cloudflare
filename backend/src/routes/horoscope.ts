@@ -8,6 +8,8 @@ import { buildGlobalSkyToday } from '../services/globalSkyService';
 import { buildPersonalSkyLayer } from '../services/personalSkyService';
 import type { NatalChartData } from '../services/astrologyService';
 import { getCurrentStreakData } from '../services/streakService';
+import { getReflection, previousDateISO } from '../services/reflectionService';
+import { buildReflectionAck } from '../utils/reflectionAck';
 import { buildPatternMemoryForUser } from '../services/themeMemoryService';
 import { hasActivePremiumEntitlement } from '../middleware/premium';
 import { isZodiacSign, ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
@@ -210,6 +212,19 @@ router.get('/daily', authMiddleware, async (c) => {
   }, userId);
   const streak = await getCurrentStreakData(db, userId);
 
+  // Accuracy Loop: visible next-day reflection beat. If the user rated how yesterday's
+  // reading landed, acknowledge it atop today's reading. Additive sibling field only —
+  // the core reading text is byte-identical regardless. Never allowed to break the read.
+  let reflection: string | undefined;
+  try {
+    const yesterday = await getReflection(db, userId, previousDateISO(dateISO));
+    if (yesterday) {
+      reflection = buildReflectionAck(yesterday.resonance, lang)?.reflection;
+    }
+  } catch {
+    reflection = undefined;
+  }
+
   // Premium Pattern Memory: deterministic, premium-only, reuses today's hook theme.
   // Never allowed to break the reading — any failure simply omits the section.
   let patternMemory = null;
@@ -266,6 +281,7 @@ router.get('/daily', authMiddleware, async (c) => {
     risingSign: chart.risingSign,
     ...streak,
     patternMemory,
+    reflection,
   });
   return response;
 });

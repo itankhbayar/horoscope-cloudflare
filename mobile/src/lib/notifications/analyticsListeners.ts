@@ -1,10 +1,13 @@
 import * as Notifications from 'expo-notifications';
 import { track } from '../analytics';
+import { goToReflectionCheckIn } from '../../navigation/navigationRef';
 import { recordAtmosphericReminderDelivered, recordAtmosphericReminderOpened } from './atmosphericDelivery';
 
 type NotificationData = {
   kind?: unknown;
   reason?: unknown;
+  route?: unknown;
+  localDate?: unknown;
 };
 
 let installed = false;
@@ -29,7 +32,14 @@ export function installNotificationAnalyticsListeners(): () => void {
   });
 
   const opened = Notifications.addNotificationResponseReceivedListener((response) => {
-    const reason = atmosphericReason(response.notification.request.content.data as NotificationData | undefined);
+    const data = response.notification.request.content.data as NotificationData | undefined;
+    // Accuracy Loop evening nudge → deep-link into the check-in (warm start). On cold
+    // start navigationRef may not be ready yet; the user then lands on Home where the
+    // evening check-in card is already shown for pending users.
+    if (data?.kind === 'evening_reflection' && typeof data.localDate === 'string') {
+      goToReflectionCheckIn({ readingDate: data.localDate, source: 'push' });
+    }
+    const reason = atmosphericReason(data);
     if (!reason) return;
     void recordAtmosphericReminderOpened(reason);
     void track('reminder_opened', { type: 'atmospheric_ritual', reason });

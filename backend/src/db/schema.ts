@@ -172,6 +172,31 @@ export const dailyRitualHistory = sqliteTable(
 );
 
 /**
+ * Accuracy Loop: one resonance rating per user per reading-day. Stores only how the
+ * reading *landed* (1 didn't land · 2 partly · 3 this was my day) — never any
+ * self-assessment or free text. The unique (userId, readingDate) index makes the
+ * evening check-in an idempotent upsert.
+ */
+export const dailyReflections = sqliteTable(
+  'daily_reflections',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    readingDate: text('reading_date').notNull(),
+    resonance: integer('resonance').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    userDateIdx: uniqueIndex('daily_reflections_user_date_idx').on(t.userId, t.readingDate),
+    userDateLookupIdx: index('daily_reflections_user_date_lookup_idx').on(t.userId, t.readingDate),
+  }),
+);
+
+/**
  * Lightweight per-user history of the daily hook theme (Premium Pattern Memory).
  * Stores only the theme keyword + date — never reading content. Pruned to the last
  * 14 days by the theme-memory service.

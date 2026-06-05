@@ -2,6 +2,7 @@ import React, { type ReactElement, type ReactNode, useMemo, useState } from 'rea
 import { Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { spacing } from '../../theme';
 import { useSanctuaryTheme, type SanctuaryPalette } from './sanctuaryTheme';
+import { useI18n, type TranslationKey } from '../../i18n';
 
 export type RitualMomentProps = {
   moment: 'reading' | 'resonance' | 'reflection' | 'continuation' | 'premium' | 'close';
@@ -22,7 +23,7 @@ function makeStyles(t: SanctuaryPalette) {
       borderRadius: 24,
       borderWidth: 1,
       borderColor: t.cardBorder,
-      backgroundColor: 'rgba(16, 17, 37, 0.72)',
+      backgroundColor: t.card,
       padding: spacing.lg,
       marginBottom: spacing.lg,
       overflow: 'hidden',
@@ -76,15 +77,15 @@ function makeStyles(t: SanctuaryPalette) {
       minHeight: 46,
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: 'rgba(244, 217, 139, 0.34)',
+      borderColor: t.cardBorder,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: spacing.md,
       paddingHorizontal: spacing.lg,
-      backgroundColor: 'rgba(244, 217, 139, 0.08)',
+      backgroundColor: t.surfaceTint,
     },
     actionText: {
-      color: '#f4d98b',
+      color: t.lavender,
       fontSize: 13,
       lineHeight: 18,
       fontWeight: '900',
@@ -94,13 +95,13 @@ function makeStyles(t: SanctuaryPalette) {
   });
 }
 
-const MOMENT_LABELS: Record<RitualMomentProps['moment'], string> = {
-  reading: 'Reading moment',
-  resonance: 'Resonance moment',
-  reflection: 'Reflection moment',
-  continuation: 'Continuation',
-  premium: 'Private continuation',
-  close: 'Quiet close',
+const MOMENT_LABEL_KEYS: Record<RitualMomentProps['moment'], TranslationKey> = {
+  reading: 'ritual.momentReading',
+  resonance: 'ritual.momentResonance',
+  reflection: 'ritual.momentReflection',
+  continuation: 'ritual.momentContinuation',
+  premium: 'ritual.momentPremium',
+  close: 'ritual.momentClose',
 };
 
 export function RitualMoment({
@@ -116,18 +117,20 @@ export function RitualMoment({
   defaultExpanded = false,
 }: RitualMomentProps): ReactElement {
   const t = useSanctuaryTheme();
+  const { t: translate } = useI18n();
   const styles = useMemo(() => makeStyles(t), [t]);
   const [expanded, setExpanded] = useState(defaultExpanded);
   const showDetail = Boolean(detail && expanded);
   const action = onAction ?? (detail ? () => setExpanded((current) => !current) : undefined);
-  const resolvedLabel = actionLabel ?? (expanded ? 'Let it settle' : 'Read a little deeper');
+  const resolvedLabel =
+    actionLabel ?? (expanded ? translate('ritual.letSettle') : translate('ritual.readDeeper'));
 
   return (
     <Animated.View onLayout={onLayout} style={[styles.shell, entranceOpacity ? { opacity: entranceOpacity } : null]}>
       <View style={styles.row}>
         {symbol ? <View style={styles.symbol}>{symbol}</View> : null}
         <View style={styles.copy}>
-          <Text style={styles.eyebrow}>{MOMENT_LABELS[moment]}</Text>
+          <Text style={styles.eyebrow}>{translate(MOMENT_LABEL_KEYS[moment])}</Text>
           <Text style={styles.title}>{title}</Text>
         </View>
       </View>

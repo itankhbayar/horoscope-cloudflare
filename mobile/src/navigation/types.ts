@@ -13,6 +13,11 @@ export type RootStackParamList = {
   AppAppearance: undefined;
   ManageNotifications: undefined;
   DeleteAccount: undefined;
+  ReflectionCheckIn: {
+    readingDate: string;
+    hook?: string;
+    source?: 'push' | 'home_card' | 'morning_catchup';
+  };
   Premium: {
     source?:
       | 'locked_preview'

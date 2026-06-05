@@ -28,7 +28,9 @@ import { LoadingBlock } from '../components/LoadingBlock';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { useAuth } from '../hooks/useAuth';
 import { useHoroscope } from '../hooks/useHoroscope';
+import { useReflection } from '../hooks/useReflection';
 import { useProfile } from '../hooks/useProfile';
+import { EveningCheckInCard, ReflectionAckCard } from '../components/home/ReflectionCards';
 import { loadDailyReadingReveal, saveDailyReadingReveal } from '../lib/dailyReadingReveal';
 import { loadDailyStreak, localDateISO, saveDailyStreak, type DailyStreak } from '../lib/streaks';
 import { consumeDailyRitualCelebration, consumeMilestoneCelebration } from '../lib/streakCelebration';
@@ -41,7 +43,7 @@ import { shareDailyHoroscopeCard } from '../lib/horoscopeShareCard';
 import { track, trackDailyActiveOnce, trackRitualEvent } from '../lib/analytics';
 import { BRAND_COPY } from '../lib/brandCopy';
 import { shouldCompressExplanations } from '../lib/emotionalScreenHierarchy';
-import { goToPremium } from '../navigation/navigationRef';
+import { goToPremium, goToReflectionCheckIn } from '../navigation/navigationRef';
 import { spacing } from '../theme';
 import type { DailyRitualCompletion } from '@astralis/lib/types';
 import { useI18n } from '../i18n';
@@ -59,6 +61,7 @@ export function HomeScreen(): ReactElement {
   const { user } = useAuth();
   const { profile, load: loadProfile, loading: profileLoading, error: profileError } = useProfile();
   const { horoscope, load, loadMine, completeToday, loading: horoLoading, error: horoError } = useHoroscope();
+  const { state: reflectionState, loadState: loadReflectionState } = useReflection();
   const [horoscopePeriod, setHoroscopePeriod] = useState<HoroscopePeriod>('today');
   const [activeEnergy, setActiveEnergy] = useState<'love' | 'opportunity' | 'stress'>('opportunity');
   const [openMoment, setOpenMoment] = useState<'resonance' | 'reflection' | 'deeper' | 'closed' | null>(null);
@@ -209,6 +212,20 @@ export function HomeScreen(): ReactElement {
     });
   }, [patternMemory, readingRevealed]);
 
+  // Accuracy Loop: once today's reading is revealed, load reflection state to drive the
+  // morning acknowledgment block and the evening check-in card.
+  useEffect(() => {
+    if (effectiveHoroscopePeriod !== 'today' || !readingRevealed || !horoscope?.date) return;
+    void loadReflectionState(horoscope.date);
+  }, [effectiveHoroscopePeriod, readingRevealed, horoscope?.date, loadReflectionState]);
+
+  useEffect(() => {
+    if (!readingRevealed || !horoscope?.reflection) return;
+    const yesterdayResonance = reflectionState?.yesterday?.resonance;
+    if (!yesterdayResonance) return;
+    void track('reflection_ack_viewed', { yesterdayResonance });
+  }, [readingRevealed, horoscope?.reflection, reflectionState?.yesterday?.resonance]);
+
   useEffect(() => {
     if (profileLoading) return;
     const anims = opacities.map((o) =>
@@ -219,10 +236,10 @@ export function HomeScreen(): ReactElement {
 
   const displayName = useMemo(() => {
     const u = profile?.user;
-    if (!u) return 'stargazer';
+    if (!u) return t('home.defaultName');
     const n = (u.displayName ?? u.fullName).trim();
-    return n || 'stargazer';
-  }, [profile?.user]);
+    return n || t('home.defaultName');
+  }, [profile?.user, t]);
 
   const moonSign = profile?.natalChart?.moonSign ?? null;
   const risingSign = profile?.natalChart?.risingSign ?? null;
@@ -363,7 +380,7 @@ export function HomeScreen(): ReactElement {
       if (result.currentStreak === 1) await track('streak_started', { streakCount: 1 });
       return result;
     } catch (err) {
-      setCompletionError(err instanceof Error ? err.message : 'Could not complete the ritual yet.');
+      setCompletionError(err instanceof Error ? err.message : t('home.completionError'));
       return null;
     } finally {
       setCompletionPending(false);
@@ -495,7 +512,7 @@ export function HomeScreen(): ReactElement {
 
       {!sun && !showProfileSpinner ? (
         <Text style={[styles.hint, { color: theme.textMuted }]}>
-          Add a birth chart when you want tonight mapped more personally.
+          {t('home.addChartHint')}
         </Text>
       ) : null}
 
@@ -544,6 +561,16 @@ export function HomeScreen(): ReactElement {
               theme: patternMemory.theme,
               kind: patternMemory.kind,
             })
+          }
+        />
+      ) : null}
+
+      {readingRevealed && horoscope?.reflection ? <ReflectionAckCard text={horoscope.reflection} /> : null}
+
+      {readingRevealed && horoscope && effectiveHoroscopePeriod === 'today' && reflectionState?.checkInPending ? (
+        <EveningCheckInCard
+          onPress={() =>
+            goToReflectionCheckIn({ readingDate: horoscope.date, source: 'home_card' })
           }
         />
       ) : null}
@@ -713,11 +740,14 @@ function NightlyArrivalMoment({
 }): ReactElement {
   void dominantSignal;
   void compact;
+  const { t } = useI18n();
+  // Arrival is an invitation, not the reading itself. The actual horoscope.overall
+  // is revealed only in HoroscopePremiumCard, so this teaser must not echo its content.
   return (
     <View style={styles.nightlyArrival}>
-      <Text style={styles.nightlyEyebrow}>Tonight's sequence</Text>
+      <Text style={styles.nightlyEyebrow}>{t('home.arrivalEyebrow')}</Text>
       <Text style={styles.nightlyTitle}>
-        {horoscope?.overall ? clampHomeLine(horoscope.overall) : 'Arrive slowly. Let the sky come into focus.'}
+        {horoscope ? t('home.arrivalTeaser') : t('home.arrivalPreparing')}
       </Text>
       <Text style={styles.nightlyMeta}>{date}</Text>
       {onContinue && !sequenceStarted ? (
@@ -725,9 +755,9 @@ function NightlyArrivalMoment({
           style={styles.continueButton}
           onPress={onContinue}
           accessibilityRole="button"
-          accessibilityLabel="Үргэлжлүүлэх"
+          accessibilityLabel={t('home.arrivalCta')}
         >
-          <Text style={styles.continueText}>Үргэлжлүүлэх →</Text>
+          <Text style={styles.continueText}>{t('home.arrivalCta')} →</Text>
         </Pressable>
       ) : null}
     </View>
@@ -745,28 +775,29 @@ function HomeSequenceControls({
   onOpen: (moment: 'resonance' | 'reflection' | 'deeper') => void;
   onClose: () => void;
 }): ReactElement {
+  const { t } = useI18n();
   if (openMoment === 'closed') {
     return (
       <View style={styles.quietClose}>
-        <Text style={styles.quietCloseTitle}>Enough for tonight.</Text>
-        <Text style={styles.quietCloseBody}>The ritual can stay small and still count.</Text>
+        <Text style={styles.quietCloseTitle}>{t('home.quietCloseTitle')}</Text>
+        <Text style={styles.quietCloseBody}>{t('home.quietCloseBody')}</Text>
       </View>
     );
   }
   return (
     <View style={styles.sequenceControls}>
       <SequenceButton
-        label={openMoment === 'resonance' ? 'Resonance is open' : 'Feel personal resonance'}
+        label={openMoment === 'resonance' ? t('home.seqResonanceOpen') : t('home.seqResonance')}
         disabled={openMoment === 'resonance'}
         onPress={() => onOpen('resonance')}
       />
       <SequenceButton
-        label={openMoment === 'reflection' ? 'Reflection is open' : 'Continue reflection'}
+        label={openMoment === 'reflection' ? t('home.seqReflectionOpen') : t('home.seqReflection')}
         disabled={openMoment === 'reflection'}
         onPress={() => onOpen('reflection')}
       />
       <SequenceButton
-        label={isPremium ? 'Open deeper sky' : 'Continue deeper'}
+        label={isPremium ? t('home.seqDeeperPremium') : t('home.seqDeeper')}
         disabled={openMoment === 'deeper'}
         onPress={() => onOpen('deeper')}
       />
@@ -774,9 +805,9 @@ function HomeSequenceControls({
         style={({ pressed }) => [styles.closeSequenceButton, pressed && styles.pressed]}
         onPress={onClose}
         accessibilityRole="button"
-        accessibilityLabel="Close tonight's ritual"
+        accessibilityLabel={t('home.seqCloseA11y')}
       >
-        <Text style={styles.closeSequenceText}>Close softly</Text>
+        <Text style={styles.closeSequenceText}>{t('home.seqClose')}</Text>
       </Pressable>
     </View>
   );
@@ -898,23 +929,24 @@ function RitualCompletionSheet({
   completion: DailyRitualCompletion;
   reducedMotion: boolean;
 }): ReactElement {
+  const { t } = useI18n();
   const milestone = completion.milestoneReached as StreakMilestone | null;
   const milestoneText = milestone ? milestoneExperience(milestone).copy : null;
   return (
     <View style={[styles.completionSheet, reducedMotion && styles.completionSheetReduced]}>
       <View style={styles.completionHalo} />
-      <Text style={styles.completionEyebrow}>Ritual complete</Text>
+      <Text style={styles.completionEyebrow}>{t('home.completionEyebrow')}</Text>
       <Text style={styles.completionTitle}>
-        {completion.currentStreak} дахь өдөр баталгаажлаа.
+        {t('home.completionTitle', { count: completion.currentStreak })}
       </Text>
       <Text style={styles.completionBody}>
-        {milestoneText ?? 'Та энэ жижиг зан үйлдээ дахин эргэн ирлээ.'}
+        {milestoneText ?? t('home.completionBody')}
       </Text>
       {completion.streakPreservedByFreeze ? (
-        <Text style={styles.completionMeta}>A safeguard protected your rhythm.</Text>
+        <Text style={styles.completionMeta}>{t('streak.preserved')}</Text>
       ) : null}
       {completion.streakFreezeAwarded ? (
-        <Text style={styles.completionMeta}>A safeguard was added for a future missed night.</Text>
+        <Text style={styles.completionMeta}>{t('streak.awarded')}</Text>
       ) : null}
     </View>
   );
@@ -951,9 +983,10 @@ function WhyThisReadingCard({
   horoscope: NonNullable<ReturnType<typeof useHoroscope>['horoscope']>;
   compact?: boolean;
 }): ReactElement {
+  const { t } = useI18n();
   return (
     <View style={styles.whyReading}>
-      <Text style={styles.whyReadingTitle}>Why this reading?</Text>
+      <Text style={styles.whyReadingTitle}>{t('home.whyReadingTitle')}</Text>
       <Text style={styles.whyReadingBody}>
         {compact ? strongestTransitCopy(horoscope) : whyThisReadingCopy(horoscope)}
       </Text>
@@ -1222,15 +1255,20 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(244, 217, 139, 0.34)',
-    backgroundColor: 'rgba(184, 168, 255, 0.14)',
-    marginTop: -spacing.md,
+    borderColor: 'rgba(244, 217, 139, 0.55)',
+    backgroundColor: '#1E1A45',
+    marginTop: spacing.md,
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
   dailyShareIcon: {
     color: '#f4d98b',
@@ -1302,11 +1340,16 @@ const styles = StyleSheet.create({
   },
   premiumContinuation: {
     borderWidth: 1,
-    borderColor: 'rgba(244, 217, 139, 0.26)',
+    borderColor: 'rgba(244, 217, 139, 0.32)',
     borderRadius: 22,
-    backgroundColor: 'rgba(24, 20, 43, 0.74)',
+    backgroundColor: '#1A1635',
     padding: spacing.lg,
     marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
   },
   premiumContinuationTitle: {
     color: '#f5f3ff',

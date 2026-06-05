@@ -50,3 +50,9 @@ export function goToPremium(source?: NonNullable<RootStackParamList['Premium']>[
     navigationRef.navigate('Premium', source ? { source } : undefined);
   }
 }
+
+export function goToReflectionCheckIn(params: RootStackParamList['ReflectionCheckIn']): void {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('ReflectionCheckIn', params);
+  }
+}

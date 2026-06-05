@@ -6,7 +6,7 @@ import { useI18n } from 'vue-i18n';
 import { useConsentStore } from '../stores/consent';
 
 const consent = useConsentStore();
-const { expanded, hasChoice } = storeToRefs(consent);
+const { expanded } = storeToRefs(consent);
 const { locale } = useI18n();
 
 const isMn = computed(() => locale.value.startsWith('mn'));
@@ -59,16 +59,6 @@ onMounted(consent.hydrate);
       <button type="button" class="primary" @click="consent.acceptAnalytics">{{ copy.allow }}</button>
     </div>
   </aside>
-
-  <button
-    v-else-if="hasChoice"
-    type="button"
-    class="privacy-pill"
-    :aria-label="copy.update"
-    @click="consent.openPreferences"
-  >
-    {{ copy.pill }}
-  </button>
 </template>
 
 <style scoped>
@@ -123,15 +113,6 @@ button {
 .secondary {
   border: 1px solid var(--glass-border-hover);
   background: transparent;
-  color: var(--text-secondary);
-}
-.privacy-pill {
-  position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 760;
-  border: 1px solid var(--glass-border-hover);
-  background: rgba(12, 10, 28, 0.82);
   color: var(--text-secondary);
 }
 @media (max-width: 720px) {

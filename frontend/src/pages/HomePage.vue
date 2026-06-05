@@ -4,10 +4,8 @@ import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth';
 import { useProfile } from '../composables/useProfile';
 import { useHoroscope } from '../composables/useHoroscope';
-import { ZODIAC_SIGNS } from '../lib/zodiac';
+import { ZODIAC_SIGNS, elementColor } from '../lib/zodiac';
 import type { ZodiacSign } from '../lib/types';
-import ZodiacCard from '../components/ZodiacCard.vue';
-import PredictionCard from '../components/PredictionCard.vue';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
@@ -168,69 +166,90 @@ const greeting = computed(() => {
 });
 
 const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.stargazer'));
+
+type PredictionKey = 'love' | 'career' | 'health';
+const activePrediction = ref<PredictionKey>('love');
+const predictionTabs = computed(() => [
+  { key: 'love' as const, title: t('home.love'), icon: '❤', accent: '#ff6b9c', body: horoscope.value?.love ?? '' },
+  { key: 'career' as const, title: t('home.career'), icon: '♃', accent: '#9ec6ff', body: horoscope.value?.career ?? '' },
+  { key: 'health' as const, title: t('home.health'), icon: '✚', accent: '#7bbf6a', body: horoscope.value?.health ?? '' },
+]);
+const activePredictionTab = computed(
+  () => predictionTabs.value.find((p) => p.key === activePrediction.value) ?? predictionTabs.value[0],
+);
 </script>
 
 <template>
-  <AppContainer size="lg">
+  <AppContainer size="md">
     <ScreenLayout class="home-page">
-    <header class="hero">
-      <p class="greeting">{{ greeting }}, {{ firstName }}</p>
-      <h1 class="title">{{ t('home.yourStarsToday') }}</h1>
-      <p class="date">{{ today }}</p>
-      <div v-if="sunSign" class="big-sign">
-        <span class="big-sign-symbol">{{ sunSignSymbol }}</span>
-        <span class="big-sign-name">{{ sunSignName }} {{ t('home.sunSuffix') }}</span>
+    <header class="hero glass-card">
+      <p class="hero-eyebrow">{{ greeting }}, {{ firstName }}</p>
+      <div v-if="sunSign" class="hero-sign">
+        <span class="hero-glyph">{{ sunSignSymbol }}</span>
+        <span class="hero-name">{{ sunSignName }}</span>
+      </div>
+      <div class="hero-meta">
+        <span class="meta-date">{{ today }}</span>
+        <span v-if="streakCount > 0" class="streak-chip">🔥 {{ streakCount }}</span>
       </div>
     </header>
 
-    <section class="zodiac-strip">
-      <p class="section-label">{{ t('home.browseAllSigns') }}</p>
-      <div class="zodiac-grid">
-        <ZodiacCard
-          v-for="sign in ZODIAC_SIGNS"
-          :key="sign.key"
-          :sign="sign"
-          compact
-          :active="selectedSign === sign.key"
-          @select="selectSign(sign.key)"
-        />
-      </div>
-    </section>
+    <nav class="sign-row mobile-scroll-x" :aria-label="t('home.browseAllSigns')">
+      <button
+        v-for="sign in ZODIAC_SIGNS"
+        :key="sign.key"
+        type="button"
+        class="sign-chip"
+        :class="{ active: selectedSign === sign.key }"
+        :aria-label="t(`zodiac.${sign.key}`)"
+        :aria-pressed="selectedSign === sign.key"
+        @click="selectSign(sign.key)"
+      >
+        <span class="sign-chip-glyph" :style="{ color: elementColor(sign.element) }">{{ sign.symbol }}</span>
+      </button>
+    </nav>
 
     <p v-if="profileError" class="api-error" role="alert">{{ profileError }}</p>
     <p v-else-if="horoscopeError" class="api-error" role="alert">{{ horoscopeError }}</p>
 
     <LoadingSpinner v-if="loading" :label="t('home.readingStars')" />
 
-    <section v-if="horoscope && !loading && !revealedToday" class="reveal-section">
-      <div class="overall-card glass-card reveal-card">
-        <p class="overall-eyebrow">{{ t('home.streakLabel', { count: streakCount }) }}</p>
-        <p class="overall-text">{{ t('home.readingReady') }}</p>
-        <button type="button" class="btn-celestial" :disabled="completionBusy" @click="revealTodayReading">
-          {{ completionBusy ? t('home.readingStars') : t('home.revealReading') }}
-        </button>
-        <p v-if="completionMessage" class="completion-message">{{ completionMessage }}</p>
-        <p v-if="completionError" class="share-error" role="alert">{{ completionError }}</p>
-      </div>
+    <section v-if="horoscope && !loading && !revealedToday" class="reveal-card glass-card">
+      <p class="reveal-text">{{ t('home.readingReady') }}</p>
+      <button type="button" class="btn-celestial reveal-btn" :disabled="completionBusy" @click="revealTodayReading">
+        {{ completionBusy ? t('home.readingStars') : t('home.revealReading') }}
+      </button>
+      <p v-if="completionError" class="share-error" role="alert">{{ completionError }}</p>
     </section>
 
-    <section v-if="horoscope && !loading && revealedToday" class="horoscope-section">
-      <div class="overall-card glass-card">
-        <p class="overall-eyebrow">{{ t('home.todayOverall') }}</p>
+    <section v-if="horoscope && !loading && revealedToday" class="reading">
+      <article class="overall glass-card">
         <p class="overall-text">{{ horoscope.overall }}</p>
         <button type="button" class="share-reading-btn" :disabled="shareBusy" @click="shareTodayReading">
-          {{ shareBusy ? t('home.sharePreparing') : t('home.shareTodayReading') }}
+          {{ shareBusy ? t('home.sharePreparing') : `↗ ${t('home.shareTodayReading')}` }}
         </button>
         <p v-if="shareError" class="share-error" role="alert">{{ shareError }}</p>
-        <p v-if="completionMessage" class="completion-message">{{ completionMessage }}</p>
-        <p v-if="completionError" class="share-error" role="alert">{{ completionError }}</p>
-      </div>
+      </article>
 
-      <div class="prediction-grid">
-        <PredictionCard :title="t('home.love')" icon="❤" accent="#ff6b9c" :body="horoscope.love" />
-        <PredictionCard :title="t('home.career')" icon="♃" accent="#9ec6ff" :body="horoscope.career" />
-        <PredictionCard :title="t('home.health')" icon="✚" accent="#7bbf6a" :body="horoscope.health" />
-      </div>
+      <article class="prediction-tabs glass-card">
+        <div class="tab-row" role="tablist">
+          <button
+            v-for="tab in predictionTabs"
+            :key="tab.key"
+            type="button"
+            role="tab"
+            class="tab"
+            :class="{ active: activePrediction === tab.key }"
+            :aria-selected="activePrediction === tab.key"
+            :style="activePrediction === tab.key ? { '--tab-accent': tab.accent } : {}"
+            @click="activePrediction = tab.key"
+          >
+            <span class="tab-icon" :style="{ color: tab.accent }">{{ tab.icon }}</span>
+            <span class="tab-label">{{ tab.title }}</span>
+          </button>
+        </div>
+        <p class="prediction-body" role="tabpanel">{{ activePredictionTab?.body }}</p>
+      </article>
 
       <div class="lucky-row">
         <div class="lucky-card glass-card">
@@ -249,7 +268,7 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
 
 <style scoped>
 .api-error {
-  margin: 0.75rem 0 0;
+  margin: 0;
   padding: 0.75rem 1rem;
   border-radius: 0.75rem;
   background: rgba(255, 90, 90, 0.12);
@@ -258,88 +277,101 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
   font-size: 0.9rem;
 }
 
-.home-page {
-  padding-top: 0.2rem;
-}
-.hero { text-align: center; margin-bottom: 2.5rem; }
-.greeting {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-.title {
-  font-family: var(--font-display);
-  font-size: 2.4rem;
-  font-weight: 700;
-  margin: 0.4rem 0 0.2rem;
-  letter-spacing: 1px;
-}
-.date { color: var(--text-secondary); font-size: 0.95rem; }
-.big-sign {
-  display: inline-flex;
+.home-page { padding-top: 0.2rem; }
+
+/* Hero */
+.hero {
+  margin-top: 1.5rem;
+  text-align: center;
+  padding: 1.75rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.7rem;
-  margin-top: 1.2rem;
-  padding: 0.5rem 1.5rem;
-  max-width: 100%;
-  border-radius: 999px;
+  gap: 0.55rem;
+}
+.hero-eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.hero-sign { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+.hero-glyph {
+  font-size: 3.4rem;
+  line-height: 1;
+  color: var(--gold);
+  filter: drop-shadow(0 0 18px var(--gold-glow));
+}
+.hero-name {
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+.hero-meta { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.15rem; }
+.meta-date { color: var(--text-secondary); font-size: 0.85rem; }
+.streak-chip {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gold-light);
   background: var(--gold-glow);
   border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 0.12rem 0.6rem;
 }
-.big-sign-symbol { font-size: 1.6rem; color: var(--gold); }
-.big-sign-name {
-  color: var(--text-primary);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  letter-spacing: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+/* Sign selector strip */
+.sign-row {
+  display: flex;
+  justify-content: safe center;
+  gap: 0.5rem;
+  padding: 0.15rem 0.1rem 0.4rem;
 }
-.zodiac-strip { margin-bottom: 2.4rem; }
-.section-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin-bottom: 0.9rem;
-}
-.zodiac-grid {
+.sign-chip {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: rgba(15, 15, 40, 0.55);
+  cursor: pointer;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
 }
-@media (max-width: 720px) { .zodiac-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 480px) { .zodiac-grid { grid-template-columns: repeat(3, 1fr); } }
-.horoscope-section {
+.sign-chip-glyph { font-size: 1.3rem; line-height: 1; }
+.sign-chip:hover { border-color: var(--glass-border-hover); transform: translateY(-2px); }
+.sign-chip.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 18px var(--gold-glow);
+  background: var(--gold-glow);
+}
+
+/* Reveal */
+.reveal-card {
+  text-align: center;
+  padding: 1.75rem 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-}
-.reveal-section {
-  display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 1rem;
 }
-.reveal-card .overall-text {
-  font-style: normal;
+.reveal-text {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  line-height: 1.45;
+  color: var(--text-primary);
 }
-.overall-card {
-  padding: 2rem;
-  text-align: center;
-}
-.overall-eyebrow {
-  font-size: 0.7rem;
-  color: var(--gold);
-  text-transform: uppercase;
-  letter-spacing: 3px;
-  margin-bottom: 0.9rem;
-}
+.reveal-btn { max-width: 340px; }
+
+/* Reading */
+.reading { display: flex; flex-direction: column; gap: 1rem; }
+.overall { padding: 1.75rem; text-align: center; }
 .overall-text {
   font-family: var(--font-display);
   font-size: 1.4rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--text-primary);
   font-style: italic;
 }
@@ -371,12 +403,53 @@ const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.
   color: #ffb4b4;
   font-size: 0.9rem;
 }
-.prediction-grid {
+.prediction-tabs {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+.tab-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: 0.4rem;
 }
-@media (max-width: 800px) { .prediction-grid { grid-template-columns: 1fr; } }
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.6rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.tab:hover { color: var(--text-secondary); }
+.tab.active {
+  color: var(--text-primary);
+  border-color: var(--tab-accent, var(--gold));
+  background: color-mix(in srgb, var(--tab-accent, var(--gold)) 16%, transparent);
+}
+.tab-icon { font-size: 1.1rem; line-height: 1; }
+.tab-label { white-space: nowrap; }
+.prediction-body {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  margin: 0;
+  min-height: 4.5rem;
+}
+@media (max-width: 480px) {
+  .tab { padding: 0.55rem 0.35rem; }
+  .tab-label { font-size: 0.8rem; }
+}
 .lucky-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -298,6 +298,15 @@ export type AnalyticsEventMap = {
     daysAgo?: number | null;
   };
   pattern_memory_opened: { source: 'home'; theme: string; kind: 'recent' | 'multiple' };
+  reflection_checkin_opened: { source: 'push' | 'home_card' | 'morning_catchup' };
+  reflection_checkin_submitted: {
+    readingDate: string;
+    resonance: 1 | 2 | 3;
+    source: 'push' | 'home_card' | 'morning_catchup';
+    alreadyExisted: boolean;
+  };
+  reflection_checkin_skipped: { source: 'push' | 'home_card' | 'morning_catchup' };
+  reflection_ack_viewed: { yesterdayResonance: 1 | 2 | 3 };
 };
 
 export type AnalyticsEvent = keyof AnalyticsEventMap;

@@ -11,6 +11,7 @@ import billingRoutes from './routes/billing';
 import notificationsRoutes from './routes/notifications';
 import accountRoutes from './routes/account';
 import ritualsRoutes from './routes/rituals';
+import reflectionsRoutes from './routes/reflections';
 import openApiRoutes from './routes/openapi';
 import { getDb } from './db/client';
 import { isAllowedCorsOrigin } from './env';
@@ -94,6 +95,7 @@ v1.route('/billing', billingRoutes);
 v1.route('/notifications', notificationsRoutes);
 v1.route('/account', accountRoutes);
 v1.route('/rituals', ritualsRoutes);
+v1.route('/reflections', reflectionsRoutes);
 v1.route('/', openApiRoutes);
 
 app.route('/api/v1', v1);
@@ -107,6 +109,7 @@ app.route('/api/billing', billingRoutes);
 app.route('/api/notifications', notificationsRoutes);
 app.route('/api/account', accountRoutes);
 app.route('/api/rituals', ritualsRoutes);
+app.route('/api/reflections', reflectionsRoutes);
 app.route('/api', openApiRoutes);
 app.route('/admin', adminRoutes);
 

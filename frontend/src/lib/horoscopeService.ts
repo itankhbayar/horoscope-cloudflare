@@ -1,5 +1,15 @@
 import { apiRequest } from './apiClient';
-import type { City, DailyHoroscope, DailyRitualCompletion, GlobalSkyToday, PersonalSkyLayer, ZodiacSign } from './types';
+import type {
+  City,
+  DailyHoroscope,
+  DailyRitualCompletion,
+  GlobalSkyToday,
+  PersonalSkyLayer,
+  ReflectionState,
+  ReflectionSubmitResult,
+  Resonance,
+  ZodiacSign,
+} from './types';
 
 export async function fetchDailyHoroscope(sign: ZodiacSign, date?: string): Promise<DailyHoroscope> {
   const query = date ? `?date=${encodeURIComponent(date)}` : '';
@@ -12,6 +22,21 @@ export async function fetchMyDailyHoroscope(): Promise<DailyHoroscope> {
 
 export async function completeDailyRitual(): Promise<DailyRitualCompletion> {
   return apiRequest<DailyRitualCompletion>('/api/rituals/daily/complete', { method: 'POST', auth: true });
+}
+
+// Accuracy Loop — evening check-in. Submit (or overwrite) how the reading landed.
+export async function submitReflection(readingDate: string, resonance: Resonance): Promise<ReflectionSubmitResult> {
+  return apiRequest<ReflectionSubmitResult>('/api/reflections/daily', {
+    method: 'POST',
+    auth: true,
+    body: { readingDate, resonance },
+  });
+}
+
+// Accuracy Loop — drives the morning acknowledgment block and the evening check-in card.
+export async function fetchReflectionState(date?: string): Promise<ReflectionState> {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return apiRequest<ReflectionState>(`/api/reflections/state${query}`, { auth: true });
 }
 
 export async function fetchGlobalSkyToday(date?: string): Promise<GlobalSkyToday> {

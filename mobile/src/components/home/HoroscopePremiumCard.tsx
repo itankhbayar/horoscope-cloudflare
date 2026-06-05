@@ -1,5 +1,5 @@
 import React, { type ReactElement, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { DailyHoroscope } from '@astralis/lib/types';
 import { getZodiacInfo } from '@astralis/lib/zodiac';
 import type { HoroscopePeriod } from './homeDateUtils';
@@ -31,6 +31,7 @@ export function HoroscopePremiumCard({
   void onLearnMore;
   const t = useSanctuaryTheme();
   const [expanded, setExpanded] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
 
   const art = useMemo(() => {
     if (!horoscope) return { sym: '✨', name: 'your sky' };
@@ -50,6 +51,13 @@ export function HoroscopePremiumCard({
   const detail = detailSections.length > 0 ? 'ready' : (error ?? undefined);
 
   const hasDetail = Boolean(detail);
+
+  // Keep selection valid as sections change (e.g. period switch); fall back to the first.
+  const activeKey =
+    activeSection && detailSections.some((s) => s.key === activeSection)
+      ? activeSection
+      : detailSections[0]?.key ?? null;
+  const activeDetail = detailSections.find((s) => s.key === activeKey) ?? null;
 
   return (
     <View
@@ -93,15 +101,47 @@ export function HoroscopePremiumCard({
       {/* Divider */}
       <View style={[styles.divider, { backgroundColor: t.cardBorder }]} />
 
-      {/* Expanded detail */}
+      {/* Expanded detail — pick a category, see only that text */}
       {expanded && detail ? (
         <View style={styles.detailStack}>
-          {detailSections.map((section) => (
-            <View key={section.key} style={styles.sectionBlock}>
-              <Text style={[styles.sectionTitle, { color: t.lavender }]}>{section.title}</Text>
-              <Text style={[styles.detail, { color: t.textMuted }]}>{section.body}</Text>
+          {detailSections.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipRow}
+            >
+              {detailSections.map((section) => {
+                const selected = section.key === activeKey;
+                return (
+                  <Pressable
+                    key={section.key}
+                    onPress={() => setActiveSection(section.key)}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      {
+                        borderColor: selected ? t.lavender : t.cardBorder,
+                        backgroundColor: selected ? 'rgba(184, 168, 255, 0.16)' : 'transparent',
+                      },
+                      pressed && styles.pressed,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={section.title}
+                  >
+                    <Text style={[styles.chipText, { color: selected ? t.text : t.textMuted }]}>
+                      {section.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+          {activeDetail ? (
+            <View style={styles.sectionBlock}>
+              <Text style={[styles.sectionTitle, { color: t.lavender }]}>{activeDetail.title}</Text>
+              <Text style={[styles.detail, { color: t.textMuted }]}>{activeDetail.body}</Text>
             </View>
-          ))}
+          ) : null}
         </View>
       ) : null}
 
@@ -205,6 +245,24 @@ const styles = StyleSheet.create({
   detailStack: {
     gap: spacing.md,
     marginBottom: spacing.md,
+  },
+  chipRow: {
+    gap: spacing.xs,
+    paddingVertical: 2,
+    paddingRight: spacing.md,
+  },
+  chip: {
+    minHeight: 36,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipText: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '900',
   },
   sectionBlock: {
     gap: 4,

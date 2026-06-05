@@ -7,6 +7,8 @@ import {
   bestSendHour,
   copyForKind,
   daysBetweenISO,
+  eveningReflectionCopy,
+  EVENING_REFLECTION_HOUR_LOCAL,
   isWithinQuietHours,
   localDateISOInTimezone,
   localHourInTimezone,
@@ -71,6 +73,12 @@ export interface EnqueueSummary {
   lifecycleEnqueued: number;
 }
 
+export interface EveningReflectionSummary {
+  considered: number;
+  enqueued: number;
+  skipped: number;
+}
+
 export interface DeliverSummary {
   claimed: number;
   sent: number;
@@ -87,6 +95,7 @@ export interface ReceiptSummary {
 
 export interface PipelineSummary {
   enqueue: EnqueueSummary;
+  eveningReflection: EveningReflectionSummary;
   deliver: DeliverSummary;
   receipts: ReceiptSummary;
 }
@@ -323,6 +332,105 @@ function preferenceEnabledForKind(row: CandidateRow, kind: RetentionNotification
   return Boolean(row.daily_reminder_enabled);
 }
 
+interface EveningCandidateRow {
+  id: string;
+  timezone: string | null;
+  quiet_hours_enabled: number;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+}
+
+/**
+ * Accuracy Loop evening pass. At the user's local evening hour, nudge only those who
+ * can act: revealed today's reading and have not yet checked in. Independent of the
+ * morning precedence chain (a different send window), gated on the master switch +
+ * the existing daily-reminder opt-out + an enabled token + quiet hours, and made
+ * idempotent by the `userId:evening_reflection:localDate` dedupe key.
+ */
+export async function enqueueEveningReflections(
+  db: DB,
+  env: Partial<AppBindings>,
+  options: { nowMs?: number } = {},
+): Promise<EveningReflectionSummary> {
+  const nowMs = options.nowMs ?? Date.now();
+  const now = new Date(nowMs);
+  const nowISO = now.toISOString();
+  const defaultTimezone = env.CRON_TIMEZONE ?? DEFAULT_TIMEZONE;
+
+  const rows = await db.all<EveningCandidateRow>(sql`
+    SELECT u.id, u.timezone,
+           p.quiet_hours_enabled, p.quiet_hours_start, p.quiet_hours_end
+    FROM users u
+    JOIN notification_preferences p ON p.user_id = u.id
+    WHERE p.all_enabled = 1 AND p.daily_reminder_enabled = 1
+      AND EXISTS (
+        SELECT 1 FROM push_tokens t WHERE t.user_id = u.id AND t.enabled = 1
+      )
+  `);
+
+  let considered = 0;
+  let enqueued = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    const timezone = row.timezone ?? defaultTimezone;
+    const localHour = localHourInTimezone(now, timezone);
+    if (localHour !== EVENING_REFLECTION_HOUR_LOCAL) continue;
+
+    considered += 1;
+    if (
+      isWithinQuietHours(localHour, {
+        enabled: Boolean(row.quiet_hours_enabled),
+        start: row.quiet_hours_start,
+        end: row.quiet_hours_end,
+      })
+    ) {
+      skipped += 1;
+      continue;
+    }
+
+    const localDate = localDateISOInTimezone(now, timezone);
+    const revealed = await db.all<{ one: number }>(sql`
+      SELECT 1 AS one FROM daily_ritual_history
+      WHERE user_id = ${row.id} AND ritual_date = ${localDate} LIMIT 1
+    `);
+    if (revealed.length === 0) {
+      skipped += 1;
+      continue;
+    }
+    const reflected = await db.all<{ one: number }>(sql`
+      SELECT 1 AS one FROM daily_reflections
+      WHERE user_id = ${row.id} AND reading_date = ${localDate} LIMIT 1
+    `);
+    if (reflected.length > 0) {
+      skipped += 1;
+      continue;
+    }
+
+    const dedupeKey = notificationDedupeKey(row.id, 'evening_reflection', localDate);
+    const copy = eveningReflectionCopy();
+    const data = JSON.stringify({ kind: 'evening_reflection', route: 'ReflectionCheckIn', localDate });
+    const result = await db.run(sql`
+      INSERT OR IGNORE INTO notification_jobs
+        (id, dedupe_key, kind, user_id, local_date, title, body, data, status, scheduled_for)
+      VALUES
+        (${crypto.randomUUID()}, ${dedupeKey}, 'evening_reflection', ${row.id}, ${localDate},
+         ${copy.title}, ${copy.body}, ${data}, 'pending', ${nowISO})
+    `);
+    if (changesFrom(result) > 0) enqueued += 1;
+    else skipped += 1;
+  }
+
+  log(env, 'info', 'evening_reflection_enqueue_completed', {
+    considered,
+    enqueued,
+    skipped,
+    candidates: rows.length,
+  });
+  metric(env, 'evening_reflection_enqueue', { considered, enqueued, skipped });
+  return { considered, enqueued, skipped };
+}
+
 /**
  * Claim due pending jobs, deliver them to every enabled device for the user, and
  * resolve outcomes: success, retry (bounded by max_attempts), or terminal failure.
@@ -494,9 +602,10 @@ export async function runRetentionPipeline(
 ): Promise<PipelineSummary> {
   const nowMs = options.nowMs ?? Date.now();
   const enqueue = await enqueueDueNotifications(db, env, { nowMs });
+  const eveningReflection = await enqueueEveningReflections(db, env, { nowMs });
   const deliver = await deliverPendingNotifications(db, env, { nowMs });
   const receipts = await pollNotificationReceipts(db, env, { nowMs });
-  return { enqueue, deliver, receipts };
+  return { enqueue, eveningReflection, deliver, receipts };
 }
 
 function safeParse(value: string): Record<string, unknown> | undefined {
