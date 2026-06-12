@@ -1,12 +1,12 @@
 import { sql } from 'drizzle-orm';
 import type { DB } from '../db/client';
+import { isoWeekKey } from './periodHoroscopeService';
 import { log, metric } from '../utils/logger';
 
 const DEFAULT_CHUNK_SIZE = 100;
 const EXPIRED_REFRESH_RETENTION_DAYS = 7;
 const REVOKED_REFRESH_RETENTION_DAYS = 30;
 const PROCESSED_WEBHOOK_RETENTION_DAYS = 30;
-const DAILY_HOROSCOPE_RETENTION_DAYS = 90;
 const TAROT_DAILY_RETENTION_DAYS = 45;
 const NOTIFICATION_JOB_RETENTION_DAYS = 14;
 
@@ -46,11 +46,24 @@ function cutoff(days: number): string {
   return `-${days} days`;
 }
 
+/** Period keys that should be RETAINED for a given reference date — everything older is purged. */
+function currentPeriodKeys(dateISO: string): { week: string; month: string; year: string } {
+  return {
+    week: isoWeekKey(dateISO),
+    month: dateISO.slice(0, 7),
+    year: dateISO.slice(0, 4),
+  };
+}
+
 export async function cleanupOperationalData(
   db: DB,
   env: Record<string, unknown> = {},
   chunkSize = DEFAULT_CHUNK_SIZE,
+  // The reading prewarm and this cleanup must agree on "today" so the cron never deletes the
+  // rows it just wrote at a timezone/midnight edge. Defaults to the current UTC date.
+  referenceDateISO: string = new Date().toISOString().slice(0, 10),
 ): Promise<CleanupResult> {
+  const periodKeys = currentPeriodKeys(referenceDateISO);
   const started = Date.now();
   const jobs: CleanupJobResult[] = [];
 
@@ -97,11 +110,26 @@ export async function cleanupOperationalData(
     )
   `);
 
+  // Daily readings live in D1 for a single day: keep only the current date, purge every prior day.
   await run('daily_horoscopes_old_cache', (limit) => sql`
     DELETE FROM daily_horoscopes
     WHERE id IN (
       SELECT id FROM daily_horoscopes
-      WHERE date < date('now', ${cutoff(DAILY_HOROSCOPE_RETENTION_DAYS)})
+      WHERE date < ${referenceDateISO}
+      LIMIT ${limit}
+    )
+  `);
+
+  // Period readings live for exactly their period: keep only the current week/month/year key,
+  // purge older keys. Keys are fixed-width and zero-padded, so a lexical < compares correctly
+  // within each period_type (including across year boundaries).
+  await run('period_horoscopes_old_cache', (limit) => sql`
+    DELETE FROM period_horoscopes
+    WHERE id IN (
+      SELECT id FROM period_horoscopes
+      WHERE (period_type = 'weekly'  AND period_key < ${periodKeys.week})
+         OR (period_type = 'monthly' AND period_key < ${periodKeys.month})
+         OR (period_type = 'yearly'  AND period_key < ${periodKeys.year})
       LIMIT ${limit}
     )
   `);

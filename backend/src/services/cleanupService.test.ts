@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DatabaseSync, type SQLInputValue, type StatementSync } from 'node:sqlite';
 import { getDb } from '../db/client';
 import { cleanupOperationalData } from './cleanupService';
+import { isoWeekKey } from './periodHoroscopeService';
 
 function createSqliteD1(db: DatabaseSync): D1Database {
   const toD1StatementWithParams = (statement: StatementSync, params: SQLInputValue[]) => ({
@@ -105,6 +106,21 @@ function createSchema(db: DatabaseSync) {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE period_horoscopes (
+      id TEXT PRIMARY KEY NOT NULL,
+      sign TEXT NOT NULL,
+      period_type TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      lang TEXT NOT NULL DEFAULT 'en',
+      overall TEXT NOT NULL,
+      love TEXT NOT NULL,
+      career TEXT NOT NULL,
+      health TEXT NOT NULL,
+      lucky_number INTEGER NOT NULL,
+      lucky_color TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE notification_jobs (
       id TEXT PRIMARY KEY NOT NULL,
       dedupe_key TEXT NOT NULL,
@@ -177,11 +193,27 @@ describe('cleanupOperationalData', () => {
         'INSERT INTO stripe_webhook_events (event_id, event_type, processed_at, status) VALUES (?, ?, ?, ?)',
       )
       .run('evt_old', 'checkout.session.completed', relativeDateTime(sqlite, '-40 days'), 'processed');
+    const today = relativeDate(sqlite, '+0 days');
     sqlite
       .prepare(
         'INSERT INTO daily_horoscopes (id, sign, date, lang, overall, love, career, health, lucky_number, lucky_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run('daily-old', 'aries', relativeDate(sqlite, '-120 days'), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+      .run('daily-old', 'aries', relativeDate(sqlite, '-1 days'), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+    sqlite
+      .prepare(
+        'INSERT INTO daily_horoscopes (id, sign, date, lang, overall, love, career, health, lucky_number, lucky_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run('daily-today', 'aries', today, 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+    const insertPeriod = sqlite.prepare(
+      'INSERT INTO period_horoscopes (id, sign, period_type, period_key, lang, overall, love, career, health, lucky_number, lucky_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    // Old keys (purged) and the current keys for today (retained).
+    insertPeriod.run('week-old', 'aries', 'weekly', '2000-W01', 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+    insertPeriod.run('month-old', 'aries', 'monthly', '2000-01', 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+    insertPeriod.run('year-old', 'aries', 'yearly', '2000', 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+    insertPeriod.run('week-now', 'aries', 'weekly', isoWeekKey(today), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+    insertPeriod.run('month-now', 'aries', 'monthly', today.slice(0, 7), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+    insertPeriod.run('year-now', 'aries', 'yearly', today.slice(0, 4), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
     sqlite
       .prepare(
         'INSERT INTO tarot_daily (id, date, timezone, sign, payload_json, energy_score) VALUES (?, ?, ?, ?, ?, ?)',
@@ -193,15 +225,17 @@ describe('cleanupOperationalData', () => {
       )
       .run('job-old', 'd1', 'daily_horoscope', 'user-1', relativeDate(sqlite, '-20 days'), 't', 'b', 'sent', relativeDateTime(sqlite, '-20 days'), relativeDateTime(sqlite, '-20 days'));
 
-    const result = await cleanupOperationalData(getDb(createSqliteD1(sqlite)), { APP_ENV: 'test' }, 1);
-    const again = await cleanupOperationalData(getDb(createSqliteD1(sqlite)), { APP_ENV: 'test' }, 1);
+    const result = await cleanupOperationalData(getDb(createSqliteD1(sqlite)), { APP_ENV: 'test' }, 1, today);
+    const again = await cleanupOperationalData(getDb(createSqliteD1(sqlite)), { APP_ENV: 'test' }, 1, today);
 
-    expect(result.deleted).toBe(6);
+    expect(result.deleted).toBe(9);
     expect(result.jobs.some((job) => job.chunks > 0)).toBe(true);
     expect(again.deleted).toBe(0);
     expect(count(sqlite, 'refresh_sessions')).toBe(1);
     expect(count(sqlite, 'stripe_webhook_events')).toBe(0);
-    expect(count(sqlite, 'daily_horoscopes')).toBe(0);
+    // Only today's daily reading and the current week/month/year periods remain.
+    expect(count(sqlite, 'daily_horoscopes')).toBe(1);
+    expect(count(sqlite, 'period_horoscopes')).toBe(3);
     expect(count(sqlite, 'tarot_daily')).toBe(0);
     expect(count(sqlite, 'notification_jobs')).toBe(0);
   });
@@ -221,7 +255,7 @@ describe('cleanupOperationalData', () => {
       .prepare(
         'INSERT INTO daily_horoscopes (id, sign, date, lang, overall, love, career, health, lucky_number, lucky_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run('daily-fresh', 'aries', relativeDate(sqlite, '-2 days'), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
+      .run('daily-fresh', 'aries', relativeDate(sqlite, '+0 days'), 'en', 'o', 'l', 'c', 'h', 1, 'blue');
 
     const result = await cleanupOperationalData(getDb(createSqliteD1(sqlite)), { APP_ENV: 'test' }, 10);
 

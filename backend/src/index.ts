@@ -237,7 +237,7 @@ const worker: ExportedHandler<AppBindings> = {
 
         try {
           const jobStarted = Date.now();
-          const cleanup = await cleanupOperationalData(db, env);
+          const cleanup = await cleanupOperationalData(db, env, undefined, dateISO);
           log(env, 'info', 'cron_operational_cleanup_completed', {
             deleted: cleanup.deleted,
             jobs: cleanup.jobs,

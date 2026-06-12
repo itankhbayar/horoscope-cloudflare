@@ -81,7 +81,7 @@ describe('scheduled handler', () => {
       '2026-05-20',
       'Asia/Ulaanbaatar',
     );
-    expect(mocks.cleanupOperationalData).toHaveBeenCalledWith({}, env);
+    expect(mocks.cleanupOperationalData).toHaveBeenCalledWith({}, env, undefined, '2026-05-20');
     expect(mocks.runRetentionPipeline).not.toHaveBeenCalled();
   });
 
