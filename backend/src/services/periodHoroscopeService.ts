@@ -101,6 +101,27 @@ export async function getOrCreatePeriodHoroscope(
 
   if (existing) return mapRow(existing);
 
+  // No row in the requested language. Readings are only Claude-generated for GENERATED_LANGS
+  // (currently Mongolian-only). Serve the real stored reading in a generated language before
+  // dropping to a template, so a non-generated language (e.g. English UI) still gets the
+  // canonical Claude copy for the period.
+  for (const genLang of GENERATED_LANGS) {
+    if (genLang === lang) continue;
+    const generatedRow = await db
+      .select()
+      .from(periodHoroscopes)
+      .where(
+        and(
+          eq(periodHoroscopes.sign, sign),
+          eq(periodHoroscopes.periodType, periodType),
+          eq(periodHoroscopes.periodKey, periodKey),
+          eq(periodHoroscopes.lang, genLang),
+        ),
+      )
+      .get();
+    if (generatedRow) return mapRow(generatedRow);
+  }
+
   // Fallback: reuse the daily template generator (seeded by the period key) so users never
   // hit an error before the cron has filled in the Claude reading. Returned in-memory and
   // deliberately NOT persisted — persisting a template row here used to lock the entire

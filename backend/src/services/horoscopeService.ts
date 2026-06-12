@@ -4,7 +4,7 @@ import { dailyHoroscopes, type DailyHoroscope } from '../db/schema';
 import { enrichDailyHoroscope, generateDailyHoroscope, type PersonalizedChartContext } from '../utils/horoscopeTemplates';
 import type { ZodiacSign } from '../utils/zodiac';
 import type { HookTheme } from '../utils/dailyHook';
-import type { Lang } from '../utils/lang';
+import { GENERATED_LANGS, type Lang } from '../utils/lang';
 import { safeDateISO } from '../utils/localDate';
 import { computeDailySkySnapshot, computeTransitToNatalAspects } from './astrologyService';
 
@@ -97,7 +97,27 @@ export async function getOrCreateDailyHoroscope(
     return mapToResponse(existing);
   }
 
-  // No stored row yet — the daily cron prewarm writes the canonical Claude reading.
+  // No row in the requested language. Readings are only Claude-generated for GENERATED_LANGS
+  // (currently Mongolian-only, to halve spend). Rather than serve a generic template to a
+  // non-generated language (e.g. an English-UI user), fall back to the real stored reading in
+  // a generated language so everyone sees the canonical Claude copy for the day.
+  for (const genLang of GENERATED_LANGS) {
+    if (genLang === lang) continue;
+    const generatedRow = await db
+      .select()
+      .from(dailyHoroscopes)
+      .where(
+        and(
+          eq(dailyHoroscopes.sign, sign),
+          eq(dailyHoroscopes.date, date),
+          eq(dailyHoroscopes.lang, genLang),
+        ),
+      )
+      .get();
+    if (generatedRow) return mapToResponse(generatedRow);
+  }
+
+  // Nothing stored at all yet — the daily cron prewarm writes the canonical Claude reading.
   // Generate an ephemeral, sky-aware template reading for this request WITHOUT persisting
   // it. Persisting a template here previously created a row the cron then skipped (prewarm
   // runs force=false), permanently locking the day onto repetitive template copy. Leaving
