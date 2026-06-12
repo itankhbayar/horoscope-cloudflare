@@ -14,16 +14,24 @@ export function useHoroscope() {
 
   async function load(sign: ZodiacSign, date?: string): Promise<void> {
     const lang = getApiLocale();
-    const key = `${lang}:${sign}:${date ?? 'today'}`;
+    // Key by the resolved calendar date — never the literal "today". In a long-lived session
+    // (kept-open tab / installed PWA) a "today" key never rolls over, so the app would keep
+    // serving the reading it first fetched days ago. Using the actual date (UTC, matching the
+    // backend's default) makes the key change at midnight so a new day fetches fresh.
+    const resolvedDate = date ?? new Date().toISOString().slice(0, 10);
+    const key = `${lang}:${sign}:${resolvedDate}`;
     if (cache.has(key)) {
       horoscope.value = cache.get(key)!;
-      track('horoscope_viewed', { sign, date: date ?? 'today', source: 'memory_cache' });
+      track('horoscope_viewed', { sign, date: resolvedDate, source: 'memory_cache' });
       return;
     }
     loading.value = true;
     error.value = null;
     try {
-      const data = await horoscopeService.fetchDailyHoroscope(sign, date);
+      // Send the explicit date so it lands in the request URL. Without it the URL is date-less
+      // and Cloudflare's edge cache (s-maxage 6h) keeps serving yesterday's reading for hours
+      // after midnight. A dated URL gives each day its own cache entry.
+      const data = await horoscopeService.fetchDailyHoroscope(sign, resolvedDate);
       cache.set(key, data);
       horoscope.value = data;
       track('horoscope_viewed', { sign, date: data.date, lang, source: 'api' });
