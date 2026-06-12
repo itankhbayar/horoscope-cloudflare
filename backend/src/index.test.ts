@@ -75,7 +75,7 @@ describe('scheduled handler', () => {
     await flush();
 
     expect(mocks.resolveCronDateISO).toHaveBeenCalledWith(1, 'Asia/Ulaanbaatar');
-    expect(mocks.prewarmDailyHoroscopes).toHaveBeenCalledWith({}, '2026-05-20', 'Asia/Ulaanbaatar');
+    expect(mocks.prewarmDailyHoroscopes).toHaveBeenCalledWith({}, '2026-05-20', 'Asia/Ulaanbaatar', undefined);
     expect(mocks.prewarmTarotForTimezoneDate).toHaveBeenCalledWith(
       {},
       '2026-05-20',

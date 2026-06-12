@@ -1,9 +1,11 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
 import { createRateLimitMiddleware } from '../middleware/rateLimit';
 import { consumeLegacyUpgradeRunState, getOrCreateDailyHoroscope, personalizeDailyHoroscope } from '../services/horoscopeService';
+import { getOrCreatePeriodHoroscope, currentPeriodKey, PERIOD_KEY_PATTERNS } from '../services/periodHoroscopeService';
+import type { PeriodType } from '../services/claudeHoroscopeService';
 import { buildGlobalSkyToday } from '../services/globalSkyService';
 import { buildPersonalSkyLayer } from '../services/personalSkyService';
 import type { NatalChartData } from '../services/astrologyService';
@@ -19,7 +21,7 @@ import { parseLang } from '../utils/lang';
 import { safeDateISO } from '../utils/localDate';
 import type { AppBindings, AppVariables } from '../types';
 import { metric } from '../utils/logger';
-import { citySearchQuerySchema, dailyHoroscopeParamsSchema, dailyHoroscopeQuerySchema, personalSkyQuerySchema } from '../schemas/horoscope';
+import { citySearchQuerySchema, dailyHoroscopeParamsSchema, dailyHoroscopeQuerySchema, periodHoroscopeQuerySchema, personalSkyQuerySchema } from '../schemas/horoscope';
 import { paginateItems } from '../schemas/common';
 import { parseParams, parseQuery, isResponse } from '../validators/request';
 import { fail, ok } from '../utils/apiResponse';
@@ -182,6 +184,36 @@ router.get('/daily/:sign', publicRateLimit, async (c) => {
   }
   return response;
 });
+
+async function respondPeriodHoroscope(
+  c: Context<{ Bindings: AppBindings; Variables: AppVariables }>,
+  periodType: PeriodType,
+): Promise<Response> {
+  const params = parseParams(c, dailyHoroscopeParamsSchema);
+  if (isResponse(params)) return params;
+  const query = parseQuery(c, periodHoroscopeQuerySchema);
+  if (isResponse(query)) return query;
+  const sign = params.sign;
+  if (!isZodiacSign(sign)) return fail(c, 400, 'BAD_REQUEST', 'Unknown sign');
+  const lang = parseLang(query.lang ?? c.req.header('Accept-Language'));
+
+  // Only accept a period that matches the route's granularity; otherwise use the current one.
+  const expected = PERIOD_KEY_PATTERNS[periodType];
+  const periodKey = query.period && expected.test(query.period)
+    ? query.period
+    : currentPeriodKey(periodType, 'UTC');
+
+  const db = getDb(c.env.horoscope_db);
+  const horoscope = await getOrCreatePeriodHoroscope(db, sign, periodType, periodKey, lang);
+  metric(c.env, 'period_horoscope_viewed', { sign, lang, periodType });
+  const response = ok(c, horoscope);
+  response.headers.set('Cache-Control', DAILY_HOROSCOPE_CACHE_CONTROL);
+  return response;
+}
+
+router.get('/weekly/:sign', publicRateLimit, (c) => respondPeriodHoroscope(c, 'weekly'));
+router.get('/monthly/:sign', publicRateLimit, (c) => respondPeriodHoroscope(c, 'monthly'));
+router.get('/yearly/:sign', publicRateLimit, (c) => respondPeriodHoroscope(c, 'yearly'));
 
 router.get('/daily', authMiddleware, async (c) => {
   c.header('Cache-Control', AUTHENTICATED_DAILY_HOROSCOPE_CACHE_CONTROL);

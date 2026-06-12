@@ -3,6 +3,13 @@ export type Lang = (typeof SUPPORTED_LANGS)[number];
 export const DEFAULT_LANG: Lang = 'en';
 
 /**
+ * Languages the daily/period cron actually generates with Claude. The app still
+ * *supports* every SUPPORTED_LANGS value (English requests fall back to templates),
+ * but we only pay to generate these. Mongolian-only keeps Claude spend ~halved.
+ */
+export const GENERATED_LANGS = ['mn'] as const;
+
+/**
  * Normalize `lang` query or `Accept-Language` to `en` | `mn`.
  * Handles BCP47 tags (`mn-MN`), lists (`mn,en;q=0.8`), and quality values.
  */

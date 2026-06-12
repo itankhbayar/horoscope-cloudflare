@@ -16,6 +16,7 @@ import openApiRoutes from './routes/openapi';
 import { getDb } from './db/client';
 import { isAllowedCorsOrigin } from './env';
 import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscopePrewarmService';
+import { prewarmPeriodHoroscopes, isoWeekKey } from './services/periodHoroscopeService';
 import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
 import { cleanupOperationalData } from './services/cleanupService';
 import { runRetentionPipeline } from './services/notificationQueueService';
@@ -174,7 +175,7 @@ const worker: ExportedHandler<AppBindings> = {
 
         try {
           const jobStarted = Date.now();
-          const horoscope = await prewarmDailyHoroscopes(db, dateISO, timezone);
+          const horoscope = await prewarmDailyHoroscopes(db, dateISO, timezone, env.ANTHROPIC_API_KEY);
           log(env, 'info', 'cron_horoscope_prewarm_completed', {
             ...horoscope,
             durationMs: Date.now() - jobStarted,
@@ -188,6 +189,32 @@ const worker: ExportedHandler<AppBindings> = {
           });
           metric(env, 'cron_horoscope_prewarm_failure', { dateISO });
           captureException(err, { cron: { job: 'horoscope_prewarm', dateISO, timezone } });
+        }
+
+        try {
+          const jobStarted = Date.now();
+          const weekKey = isoWeekKey(dateISO);
+          const monthKey = dateISO.slice(0, 7);
+          const yearKey = dateISO.slice(0, 4);
+          const weekly = await prewarmPeriodHoroscopes(db, 'weekly', weekKey, env.ANTHROPIC_API_KEY);
+          const monthly = await prewarmPeriodHoroscopes(db, 'monthly', monthKey, env.ANTHROPIC_API_KEY);
+          const yearly = await prewarmPeriodHoroscopes(db, 'yearly', yearKey, env.ANTHROPIC_API_KEY);
+          log(env, 'info', 'cron_period_horoscope_prewarm_completed', {
+            weekly,
+            monthly,
+            yearly,
+            durationMs: Date.now() - jobStarted,
+          });
+          metric(env, 'cron_period_horoscope_prewarm_success', {
+            weeklyGenerated: weekly.generated,
+            monthlyGenerated: monthly.generated,
+            yearlyGenerated: yearly.generated,
+            failed: weekly.failed + monthly.failed + yearly.failed,
+          });
+        } catch (err) {
+          log(env, 'error', 'cron_period_horoscope_prewarm_failed', { dateISO, error: String(err) });
+          metric(env, 'cron_period_horoscope_prewarm_failure', { dateISO });
+          captureException(err, { cron: { job: 'period_horoscope_prewarm', dateISO, timezone } });
         }
 
         try {

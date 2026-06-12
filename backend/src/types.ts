@@ -17,6 +17,8 @@ export type AppBindings = {
   /** When true and HIBP checks are enabled, reject registration if the check is unavailable. */
   PWNED_PASSWORD_FAIL_CLOSED?: string;
   CRON_TIMEZONE?: string;
+  /** Anthropic API key (secret) used by the daily cron to generate horoscopes with Claude Sonnet. When unset, the cron falls back to templates. */
+  ANTHROPIC_API_KEY?: string;
   AVATAR_PUBLIC_BASE_URL?: string;
   ADMIN_SECRET?: string;
   STRIPE_SECRET_KEY?: string;

@@ -30,24 +30,36 @@ const FIRE_OVERALL_EN = [
   'A spark of inspiration lights up your path; trust your instincts.',
   'You keep calling it readiness, but the real question is what desire costs when it becomes visible.',
   'Your inner flame guides important decisions today.',
+  'Momentum is on your side—start before you feel completely ready.',
+  'Courage today is quiet: one honest move matters more than ten loud ones.',
+  'Your energy is contagious; aim it at what actually deserves the heat.',
 ];
 const EARTH_OVERALL_EN = [
   'Stability and structure favor you today; build for tomorrow.',
   'Patience and persistence open the door to lasting reward.',
   'The cosmos supports careful planning; lay strong foundations.',
   'Grounded confidence carries you through any challenge.',
+  'Small, consistent effort compounds into something solid today.',
+  'Tend to what is already yours before reaching for more.',
+  'Slow is not behind; steady hands finish what restless ones drop.',
 ];
 const AIR_OVERALL_EN = [
   'Ideas flow freely today; share them with someone who listens.',
   'A breath of new perspective changes your outlook entirely.',
   'Curiosity is your guide—follow it where it leads.',
   'Communication unlocks doors that strength alone could not open.',
+  'A single clear question cuts through the noise faster than any plan.',
+  'Say the thing plainly; clarity is the kindest move you can make today.',
+  'Let curiosity, not pressure, set the direction of your day.',
 ];
 const WATER_OVERALL_EN = [
   'Your intuition runs deep today; trust the feelings rising within.',
   'Emotions reveal a truth you have been avoiding; let it surface.',
   'A wave of empathy connects you to the people around you.',
   'Dreams carry messages; pay attention to what your heart whispers.',
+  'What you feel is information, not weakness—read it before you react.',
+  'Give the quiet undercurrent room and it will tell you what it needs.',
+  'Tenderness today is strength wearing softer clothes.',
 ];
 
 const PER_SIGN_EN: Record<ZodiacSign, PerSignText> = {
@@ -276,24 +288,36 @@ const FIRE_OVERALL_MN = [
   'Урам зоригийн оч таны замыг гэрэлтүүлж байна; зөн совингоо итгэ.',
   'Орчлон эр зоригийг шагнадаг; тав тухтай бүсээсээ гар.',
   'Дотоод дөл чинь өнөөдрийн чухал шийдвэрүүдийг чиглүүлнэ.',
+  'Хүч чадал тал дээр чинь байна—бэлэн боллоо гэж хүлээлгүй эхэл.',
+  'Өнөөдрийн зориг чимээгүй: нэг үнэнч алхам арван чанга үгнээс илүү.',
+  'Эрч хүч чинь халдварлана; үнэхээр зохистой зүйл рүүгээ чиглүүл.',
 ];
 const EARTH_OVERALL_MN = [
   'Тогтвортой байдал, бүтэц өнөөдөр таны талд—маргаашийн тулд бүтээ.',
   'Тэвчээр, тууштай байдал удаан хүртэх шагналын хаалгыг нээнэ.',
   'Орчлон болгоомжтой төлөвлөлтийг дэмжиж байна; бат суурийг тавь.',
   'Газраас баттай итгэл чинь ямар ч сорилтыг даван туулна.',
+  'Жижиг ч тогтмол хүчин чармайлт өнөөдөр бат бөх үр дүн болж хуримтлагдана.',
+  'Шинийг хайхаасаа өмнө одоо байгаа зүйлээ нягтал.',
+  'Удаан нь хоцрогдол биш; тогтвортой гар эхлүүлсэн зүйлээ дуусгана.',
 ];
 const AIR_OVERALL_MN = [
   'Санаанууд чөлөөтэй урсаж байна; сонсож чадах хүнтэй хуваалц.',
   'Шинэ өнцгийн салхи таны үзэл бодлыг бүрэн өөрчилнө.',
   'Сониуч зан чинь жолоодогч—түүний хүссэн зам руу яв.',
   'Харилцаа ганц хүч чадлаар нээж чадаагүй хаалгыг нээнэ.',
+  'Нэг тодорхой асуулт ямар ч төлөвлөгөөнөөс хурдан замыг цэлмээнэ.',
+  'Хэлэх зүйлээ шууд хэл; тодорхой байх нь өнөөдрийн хамгийн эелдэг алхам.',
+  'Дарамт биш, сониуч зан өдрийн чиглэлийг тогтоог.',
 ];
 const WATER_OVERALL_MN = [
   'Зөн чинь өнөөдөр гүн ажиллана; дотроос гарч ирэх мэдрэмжид итгэ.',
   'Сэтгэл хөдлөл чинь зайлсхийж байсан үнэнийг гаргана; гарга.',
   'Энэрэн нигүүлсэх давалгаа таныг эргэн тойрны хүмүүстэй холбоно.',
   'Зүүд зурвас дамжуулна; зүрх чинь юу шивнэхийг анхаар.',
+  'Мэдрэмж чинь сул тал биш мэдээлэл—хариу үйлдэл хийхээсээ өмнө уншиж ав.',
+  'Дотоод нам гүм урсгалд зай өг, тэр чамд юу хэрэгтэйг хэлнэ.',
+  'Өнөөдрийн зөөлөн сэтгэл бол зөөлөн хувцас өмссөн хүч чадал.',
 ];
 
 const PER_SIGN_MN: Record<ZodiacSign, PerSignText> = {
@@ -687,23 +711,25 @@ export function enrichDailyHoroscope(
 ): DailyHoroscopeContent {
   debugContentShape('enrich-input', content, { sign, dateISO, lang, hasSky: !!options.sky });
   const seed = seedFromSignAndDate(sign, dateISO, identity);
-  let next: DailyHoroscopeContent;
-  let branch: string;
-  if (!options.sky) {
-    next = content;
-    branch = 'no-sky';
-  } else if (lang === 'en') {
-    next = buildAstronomyAwareReadingEn(sign, dateISO, content, options, identity);
-    branch = 'en';
-  } else if (lang === 'mn') {
-    next = buildAstronomyAwareReadingMn(sign, dateISO, content, options, identity);
-    branch = 'mn';
-  } else {
-    next = content;
-    branch = 'fallback-lang';
+  // Preserve the stored narrative verbatim. For real rows this is the Claude-written
+  // reading; regenerating overall/love/career/health from the small template pools here is
+  // exactly what made signed-in readings recur (identical day-to-day and across same-sign
+  // users). We now only layer additive sky metadata + the daily hook on top — the four
+  // narrative fields are never rewritten on the read/personalize path.
+  let next = content;
+  if (options.sky) {
+    const sun = options.sky.planets.find((p) => p.name === 'Sun');
+    const moon = options.sky.planets.find((p) => p.name === 'Moon');
+    if (sun && moon) {
+      const focusTransit = selectFocusTransit(options.transitAspects ?? []);
+      next = {
+        ...content,
+        skyContext: buildSkyContext(sun.sign, moon.sign, options.sky.moonPhase.name, focusTransit),
+      };
+    }
   }
   const framed = withDailyHook(applyPeriodAwareFrame(next, lang, dateISO, seed), sign, dateISO, lang, options.sky);
-  debugContentShape(`enrich-return-${branch}`, framed, { sign, dateISO, lang, branch });
+  debugContentShape('enrich-return', framed, { sign, dateISO, lang });
   return framed;
 }
 

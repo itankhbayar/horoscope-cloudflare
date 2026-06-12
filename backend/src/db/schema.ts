@@ -150,6 +150,39 @@ export const dailyHoroscopes = sqliteTable(
   }),
 );
 
+/**
+ * Monthly and yearly horoscopes. Mirrors daily_horoscopes but keyed by a period:
+ * `period_type` is 'monthly' | 'yearly' and `period_key` is 'YYYY-MM' | 'YYYY'.
+ */
+export const periodHoroscopes = sqliteTable(
+  'period_horoscopes',
+  {
+    id: text('id').primaryKey(),
+    sign: text('sign').notNull(),
+    periodType: text('period_type').notNull(),
+    periodKey: text('period_key').notNull(),
+    lang: text('lang').notNull().default('en'),
+    overall: text('overall').notNull(),
+    love: text('love').notNull(),
+    career: text('career').notNull(),
+    health: text('health').notNull(),
+    luckyNumber: integer('lucky_number').notNull(),
+    luckyColor: text('lucky_color').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    signTypeKeyLangIdx: uniqueIndex('period_horoscopes_sign_type_key_lang_idx').on(
+      t.sign,
+      t.periodType,
+      t.periodKey,
+      t.lang,
+    ),
+    typeKeyIdx: index('period_horoscopes_type_key_idx').on(t.periodType, t.periodKey),
+  }),
+);
+
 export const dailyRitualHistory = sqliteTable(
   'daily_ritual_history',
   {
@@ -361,6 +394,8 @@ export type NatalChart = typeof natalCharts.$inferSelect;
 export type NewNatalChart = typeof natalCharts.$inferInsert;
 export type DailyHoroscope = typeof dailyHoroscopes.$inferSelect;
 export type NewDailyHoroscope = typeof dailyHoroscopes.$inferInsert;
+export type PeriodHoroscope = typeof periodHoroscopes.$inferSelect;
+export type NewPeriodHoroscope = typeof periodHoroscopes.$inferInsert;
 export type DailyRitualHistory = typeof dailyRitualHistory.$inferSelect;
 export type NewDailyRitualHistory = typeof dailyRitualHistory.$inferInsert;
 export type UserThemeHistory = typeof userThemeHistory.$inferSelect;

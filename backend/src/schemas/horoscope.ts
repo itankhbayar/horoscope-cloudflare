@@ -34,6 +34,12 @@ export const personalSkyQuerySchema = dailyHoroscopeQuerySchema
     message: 'Provide either sign or birthDate',
   });
 
+export const periodHoroscopeQuerySchema = z.object({
+  /** Optional explicit period: 'YYYY-Www' (weekly), 'YYYY-MM' (monthly) or 'YYYY' (yearly). Defaults to the current period. */
+  period: z.string().trim().regex(/^\d{4}(-W?\d{2})?$/).optional(),
+  lang: z.string().trim().min(1).max(16).optional(),
+});
+
 export const citySearchQuerySchema = paginationSchema.extend({
   q: z.string().trim().max(120).default(''),
   limit: z.coerce.number().int().positive().max(25).default(10),

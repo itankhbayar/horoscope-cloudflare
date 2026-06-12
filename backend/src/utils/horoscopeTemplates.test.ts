@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeDailySkySnapshot, computeNatalChart, computeTransitToNatalAspects } from '../services/astrologyService';
-import { generateDailyHoroscope } from './horoscopeTemplates';
+import { generateDailyHoroscope, enrichDailyHoroscope } from './horoscopeTemplates';
 import { allJoltLines, buildDailyHook } from './dailyHook';
 import type { DailySkySnapshot, PlanetPosition, TransitToNatalAspect } from '../services/astrologyService';
 
@@ -287,6 +287,44 @@ describe('generateDailyHoroscope', () => {
       const count = hooks.filter((h) => h === hook).length;
       expect(count).toBeLessThanOrEqual(6);
     }
+  });
+
+  it('preserves the stored (Claude) narrative on the personalize path and only adds sky metadata', () => {
+    const sky = computeDailySkySnapshot('2026-05-20');
+    const transitAspects = computeTransitToNatalAspects(sky.planets, chart.planets);
+    const base = {
+      overall: 'CLAUDE_OVERALL: a unique stored paragraph that templates must not overwrite.',
+      love: 'CLAUDE_LOVE: a unique stored love paragraph.',
+      career: 'CLAUDE_CAREER: a unique stored career paragraph.',
+      health: 'CLAUDE_HEALTH: a unique stored health paragraph.',
+      luckyNumber: 7,
+      luckyColor: 'Цэнхэр',
+    };
+
+    const enriched = enrichDailyHoroscope(
+      base,
+      'gemini',
+      '2026-05-20',
+      'mn',
+      { sky, natalChart: chart, transitAspects },
+      'user-123',
+    );
+
+    // The four narrative fields keep the stored Claude text verbatim (the hook is only
+    // prepended to `overall`), instead of being regenerated from the template pools.
+    expect(enriched.overall.endsWith(base.overall)).toBe(true);
+    expect(enriched.love).toBe(base.love);
+    expect(enriched.career).toBe(base.career);
+    expect(enriched.health).toBe(base.health);
+    expect(enriched.luckyNumber).toBe(7);
+
+    // Additive sky metadata + hook are layered on; no template blocks overwrite the reading.
+    expect(enriched.skyContext).toMatchObject({
+      sunSign: sky.planets.find((p) => p.name === 'Sun')?.sign,
+      moonSign: sky.planets.find((p) => p.name === 'Moon')?.sign,
+      moonPhase: sky.moonPhase.name,
+    });
+    expect(enriched.hook).toBeDefined();
   });
 
   it('varies the public reading frame by date without changing the response contract', () => {

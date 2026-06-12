@@ -92,164 +92,18 @@ export async function getOrCreateDailyHoroscope(
     )
     .get();
   if (existing) {
-    // Temporary diagnostics: fields as loaded from DB row.
-    // eslint-disable-next-line no-console
-    console.log('[horoscope-service-db-read-existing-row]', {
-      sign,
-      lang,
-      date,
-      rowKeys: Object.keys(existing),
-      rowSummary: summarizeExtendedFields(existing as any),
-    });
-    let response = mapToResponse(existing);
-    const hadBlocksBefore = Array.isArray(response.blocks) && response.blocks.length > 0;
-    if (lang === 'mn' && !hadBlocksBefore) {
-      const regenerated = generateDailyHoroscope(sign, date, lang, { sky });
-      response = { ...response, ...regenerated };
-    }
-    // Temporary diagnostics: shape after DB row mapping.
-    // eslint-disable-next-line no-console
-    console.log('[horoscope-service-map-to-response-existing]', {
-      sign,
-      lang,
-      date,
-      responseKeys: Object.keys(response),
-      responseSummary: summarizeExtendedFields(response as any),
-    });
-    const enriched = { ...response, ...enrichDailyHoroscope(response, sign, date, lang, { sky }) };
-    // Temporary diagnostics: shape after enrich.
-    // eslint-disable-next-line no-console
-    console.log('[horoscope-service-after-enrich-existing]', {
-      sign,
-      lang,
-      date,
-      enrichedKeys: Object.keys(enriched),
-      enrichedSummary: summarizeExtendedFields(enriched as any),
-    });
-    if (shouldUpgradeLegacyMnContent(lang, existing)) {
-      legacyUpgradeRunState.set(debugKey, true);
-      const upgraded = generateDailyHoroscope(sign, date, lang, { sky });
-      // Temporary diagnostics: generated upgrade payload before DB update.
-      // eslint-disable-next-line no-console
-      console.log('[horoscope-service-before-db-update-upgrade]', {
-        sign,
-        lang,
-        date,
-        generatedKeys: Object.keys(upgraded),
-        generatedSummary: summarizeExtendedFields(upgraded as any),
-      });
-      await db
-        .update(dailyHoroscopes)
-        .set({
-          overall: upgraded.overall,
-          love: upgraded.love,
-          career: upgraded.career,
-          health: upgraded.health,
-          luckyNumber: upgraded.luckyNumber,
-          luckyColor: upgraded.luckyColor,
-        })
-        .where(
-          and(
-            eq(dailyHoroscopes.sign, sign),
-            eq(dailyHoroscopes.date, date),
-            eq(dailyHoroscopes.lang, lang),
-          ),
-        )
-        .run();
-      // Temporary diagnostics: returned object shape after upgrade path.
-      // eslint-disable-next-line no-console
-      console.log('[horoscope-service-return-upgrade]', {
-        sign,
-        lang,
-        date,
-        returnKeys: Object.keys({ ...response, ...upgraded }),
-        returnSummary: summarizeExtendedFields({ ...response, ...upgraded } as any),
-      });
-      return { ...response, ...upgraded };
-    }
-    // Temporary diagnostics: returned object shape for existing-row path.
-    // eslint-disable-next-line no-console
-    console.log('[horoscope-service-return-existing]', {
-      sign,
-      lang,
-      date,
-      returnKeys: Object.keys(enriched),
-      returnSummary: summarizeExtendedFields(enriched as any),
-    });
-    return enriched;
+    // Serve the stored reading as-is. It's written by Claude (rich and unique per
+    // sign+day), so we no longer regenerate from the limited templates on read.
+    return mapToResponse(existing);
   }
 
+  // No stored row yet — the daily cron prewarm writes the canonical Claude reading.
+  // Generate an ephemeral, sky-aware template reading for this request WITHOUT persisting
+  // it. Persisting a template here previously created a row the cron then skipped (prewarm
+  // runs force=false), permanently locking the day onto repetitive template copy. Leaving
+  // the table untouched lets the next prewarm write the real Claude row. The generated
+  // reading is deterministic for the date, so concurrent/repeat reads stay consistent.
   const generated = generateDailyHoroscope(sign, date, lang, { sky });
-  // Temporary diagnostics: generated payload before DB insert.
-  // eslint-disable-next-line no-console
-  console.log('[horoscope-service-before-db-insert-generated]', {
-    sign,
-    lang,
-    date,
-    generatedKeys: Object.keys(generated),
-    generatedSummary: summarizeExtendedFields(generated as any),
-  });
-  const id = crypto.randomUUID();
-  await db
-    .insert(dailyHoroscopes)
-    .values({
-      id,
-      sign,
-      date,
-      lang,
-      overall: generated.overall,
-      love: generated.love,
-      career: generated.career,
-      health: generated.health,
-      luckyNumber: generated.luckyNumber,
-      luckyColor: generated.luckyColor,
-    })
-    .onConflictDoNothing();
-
-  const persisted = await db
-    .select()
-    .from(dailyHoroscopes)
-    .where(
-      and(
-        eq(dailyHoroscopes.sign, sign),
-        eq(dailyHoroscopes.date, date),
-        eq(dailyHoroscopes.lang, lang),
-      ),
-    )
-    .get();
-
-  if (persisted) {
-    // Temporary diagnostics: fields as loaded from persisted DB row.
-    // eslint-disable-next-line no-console
-    console.log('[horoscope-service-db-read-persisted-row]', {
-      sign,
-      lang,
-      date,
-      rowKeys: Object.keys(persisted),
-      rowSummary: summarizeExtendedFields(persisted as any),
-    });
-    const response = mapToResponse(persisted);
-    const enriched = { ...response, ...enrichDailyHoroscope(response, sign, date, lang, { sky }) };
-    // Temporary diagnostics: returned object shape after persisted-row enrich.
-    // eslint-disable-next-line no-console
-    console.log('[horoscope-service-return-persisted]', {
-      sign,
-      lang,
-      date,
-      returnKeys: Object.keys(enriched),
-      returnSummary: summarizeExtendedFields(enriched as any),
-    });
-    return enriched;
-  }
-  // Temporary diagnostics: fallback return shape if row isn't persisted.
-  // eslint-disable-next-line no-console
-  console.log('[horoscope-service-return-in-memory-generated]', {
-    sign,
-    lang,
-    date,
-    returnKeys: Object.keys({ sign, date, lang, ...generated }),
-    returnSummary: summarizeExtendedFields({ sign, date, lang, ...generated } as any),
-  });
   return { sign, date, lang, ...generated };
 }
 
@@ -306,20 +160,6 @@ function mapToResponse(row: DailyHoroscope): HoroscopeResponse {
     luckyNumber: row.luckyNumber,
     luckyColor: row.luckyColor,
   };
-}
-
-function shouldUpgradeLegacyMnContent(lang: Lang, row: DailyHoroscope): boolean {
-  if (lang !== 'mn') return false;
-  return (
-    wordCount(row.overall) < 90
-    || wordCount(row.love) < 55
-    || wordCount(row.career) < 55
-    || wordCount(row.health) < 35
-  );
-}
-
-function wordCount(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
 export function consumeLegacyUpgradeRunState(sign: ZodiacSign, lang: Lang, date: string): boolean {
