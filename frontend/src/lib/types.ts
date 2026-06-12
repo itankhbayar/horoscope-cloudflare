@@ -224,6 +224,21 @@ export interface PatternMemory {
   body: string;
 }
 
+export type PeriodType = 'weekly' | 'monthly' | 'yearly';
+
+export interface PeriodHoroscope {
+  sign: ZodiacSign;
+  periodType: PeriodType;
+  periodKey: string;
+  lang: string;
+  overall: string;
+  love: string;
+  career: string;
+  health: string;
+  luckyNumber: number;
+  luckyColor: string;
+}
+
 export interface DailyRitualCompletion {
   currentStreak: number;
   longestStreak: number;

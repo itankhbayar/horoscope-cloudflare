@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const distDir = join(process.cwd(), 'dist');
@@ -273,7 +273,7 @@ function writeOgImages() {
 
 function writeSitemap() {
   const routes = [
-    '/',
+    '/welcome',
     '/login',
     '/register',
     '/premium',
@@ -336,14 +336,21 @@ function landingStaticMarkup() {
   </main>`;
 }
 
-function injectLandingIntoRoot() {
-  const indexPath = join(distDir, 'index.html');
-  const html = readFileSync(indexPath, 'utf8');
-  if (!html.includes('<div id="app"></div>')) return;
-  writeFileSync(indexPath, html.replace('<div id="app"></div>', `<div id="app">${landingStaticMarkup()}</div>`), 'utf8');
+// The marketing page is no longer the entry point — the root SPA boots straight to
+// the daily reading (/today). We still publish the landing as a standalone static
+// page at /welcome so it remains available for campaigns and search.
+function welcomeHtml() {
+  return html({
+    title: 'Astralis — Astrology mapped to the real sky',
+    description:
+      'Astralis maps real planetary positions, your birth time, and the sky above your birthplace into calm, emotionally precise daily guidance.',
+    canonical: `${siteUrl}/welcome`,
+    structuredData: [websiteLd()],
+    body: landingStaticMarkup(),
+  });
 }
 
-injectLandingIntoRoot();
+writeFileRoute('/welcome', welcomeHtml());
 writeOgImages();
 for (const sign of zodiacSigns) {
   writeFileRoute(`/horoscope/${sign.slug}`, horoscopeHtml(sign));

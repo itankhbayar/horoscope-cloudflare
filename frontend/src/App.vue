@@ -166,9 +166,9 @@ watch(
         <span class="brand-text">{{ t('app.name') }}</span>
       </router-link>
       <div class="nav-right">
+        <LanguageSwitcher />
         <router-link to="/login" class="guest-link">{{ t('auth.signIn') }}</router-link>
         <router-link to="/register" class="guest-cta">{{ t('landing.ctaPrimary') }}</router-link>
-        <LanguageSwitcher />
       </div>
     </nav>
 

@@ -4,6 +4,8 @@ import type {
   DailyHoroscope,
   DailyRitualCompletion,
   GlobalSkyToday,
+  PeriodHoroscope,
+  PeriodType,
   PersonalSkyLayer,
   ReflectionState,
   ReflectionSubmitResult,
@@ -18,6 +20,15 @@ export async function fetchDailyHoroscope(sign: ZodiacSign, date?: string): Prom
 
 export async function fetchMyDailyHoroscope(): Promise<DailyHoroscope> {
   return apiRequest<DailyHoroscope>('/api/horoscope/daily', { auth: true });
+}
+
+export async function fetchPeriodHoroscope(
+  sign: ZodiacSign,
+  periodType: PeriodType,
+  period?: string,
+): Promise<PeriodHoroscope> {
+  const query = period ? `?period=${encodeURIComponent(period)}` : '';
+  return apiRequest<PeriodHoroscope>(`/api/horoscope/${periodType}/${sign}${query}`);
 }
 
 export async function completeDailyRitual(): Promise<DailyRitualCompletion> {

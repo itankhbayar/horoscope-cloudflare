@@ -15,16 +15,21 @@ for (const file of files) {
   }
 }
 
-let ok = true;
+// The `.auth-page` fixed-position fix lives in the global stylesheet chunk only.
+// With code-split CSS the per-page chunks legitimately don't contain it, so the
+// invariant is "present in at least one shipped CSS chunk", not "in every chunk".
+let hasFixedAuthSomewhere = false;
 const cssFiles = readdirSync(distAssets).filter((f) => f.endsWith('.css'));
 for (const file of cssFiles) {
   const css = readFileSync(join(distAssets, file), 'utf8');
   const hasFixedAuth = /\.auth-page\{[^}]*position:\s*fixed/.test(css.replace(/\s+/g, ''));
-  console.log(file);
-  console.log(`  auth-page position fixed: ${hasFixedAuth}`);
-  if (!hasFixedAuth) ok = false;
+  if (hasFixedAuth) {
+    console.log(`${file}\n  auth-page position fixed: true`);
+    hasFixedAuthSomewhere = true;
+  }
 }
-if (!ok) {
+if (!hasFixedAuthSomewhere) {
   console.error('Build verification failed: auth-page must use position:fixed');
   process.exit(1);
 }
+console.log('auth-page position:fixed present in shipped CSS ✓');

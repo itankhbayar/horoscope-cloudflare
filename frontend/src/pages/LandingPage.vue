@@ -24,7 +24,7 @@ const skyItems = computed(() => [
 useDocumentMeta({
   title: t('landing.seoTitle'),
   description: t('landing.seoDescription'),
-  canonicalPath: '/',
+  canonicalPath: '/welcome',
   type: 'website',
 });
 </script>

@@ -1,139 +1,68 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useLocale } from '../composables/useLocale';
 import type { AppLocale } from '../i18n';
 
-const { locale, setLocale, supported, labels, flags } = useLocale();
-const open = ref(false);
-const root = ref<HTMLElement | null>(null);
-
-function toggle(): void {
-  open.value = !open.value;
-}
+const { locale, setLocale, supported, labels } = useLocale();
 
 function pick(next: AppLocale): void {
-  setLocale(next);
-  open.value = false;
+  if (next !== locale.value) setLocale(next);
 }
-
-function handleOutside(e: MouseEvent): void {
-  if (!root.value) return;
-  if (!root.value.contains(e.target as Node)) open.value = false;
-}
-
-onMounted(() => document.addEventListener('click', handleOutside));
-onBeforeUnmount(() => document.removeEventListener('click', handleOutside));
 </script>
 
 <template>
-  <div ref="root" class="lang-switcher">
-    <button class="lang-trigger" @click="toggle" :aria-expanded="open">
-      <span class="flag" :class="{ 'flag-code': flags[locale].length <= 3 }">{{ flags[locale] }}</span>
-      <span class="label">{{ labels[locale] }}</span>
-      <span class="chevron" :class="{ open }">▾</span>
+  <div class="lang-toggle" role="group" aria-label="Language">
+    <button
+      v-for="code in supported"
+      :key="code"
+      type="button"
+      class="lang-opt"
+      :class="{ active: code === locale }"
+      :aria-pressed="code === locale"
+      :aria-label="labels[code]"
+      :title="labels[code]"
+      :lang="code"
+      @click="pick(code)"
+    >
+      {{ code.toUpperCase() }}
     </button>
-    <transition name="lang-fade">
-      <ul v-if="open" class="lang-menu">
-        <li
-          v-for="code in supported"
-          :key="code"
-          class="lang-option"
-          :class="{ active: code === locale }"
-          @click="pick(code)"
-        >
-          <span class="flag" :class="{ 'flag-code': flags[code].length <= 3 }">{{ flags[code] }}</span>
-          <span class="label">{{ labels[code] }}</span>
-          <span v-if="code === locale" class="check">✓</span>
-        </li>
-      </ul>
-    </transition>
   </div>
 </template>
 
 <style scoped>
-.lang-switcher { position: relative; display: inline-flex; }
-.lang-trigger {
+.lang-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  min-height: 2.25rem;
-  padding: 0 0.72rem;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--text-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 2px;
+  padding: 2px;
   border-radius: 999px;
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  transition:
-    color 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
-.lang-trigger:hover {
-  color: var(--gold-light);
-  border-color: rgba(212, 175, 55, 0.3);
-  background: rgba(212, 175, 55, 0.07);
-}
-.lang-trigger:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 3px;
-}
-.flag { font-size: 1rem; line-height: 1; }
-.flag-code {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-}
-.label { letter-spacing: 0.3px; }
-.chevron {
-  font-size: 0.7rem;
-  transition: transform 0.25s ease;
-  color: var(--text-muted);
-}
-.chevron.open { transform: rotate(-180deg); }
-.lang-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  list-style: none;
-  margin: 0;
-  padding: 0.35rem;
-  min-width: 168px;
-  background: rgba(8, 8, 24, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1rem;
-  z-index: 60;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-}
-.lang-option {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 0.7rem;
-  cursor: pointer;
-  border-radius: 0.7rem;
-  font-size: 0.85rem;
+/* Override the global 44px button floor so the toggle matches the nav pills. */
+.lang-toggle .lang-opt {
+  min-height: 1.95rem;
+  padding: 0 0.62rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
   color: var(--text-secondary);
-  transition:
-    color 0.2s ease,
-    background 0.2s ease;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
 }
-.lang-option:hover {
-  background: rgba(212, 175, 55, 0.08);
+.lang-toggle .lang-opt:hover {
   color: var(--gold-light);
 }
-.lang-option.active {
+.lang-toggle .lang-opt.active {
   color: #151326;
   background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  box-shadow: 0 6px 18px rgba(212, 175, 55, 0.18);
 }
-.check {
-  margin-left: auto;
-  color: currentColor;
-  font-size: 0.8rem;
+.lang-toggle .lang-opt:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
-.lang-fade-enter-active, .lang-fade-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
-.lang-fade-enter-from, .lang-fade-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>

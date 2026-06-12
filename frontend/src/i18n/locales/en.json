@@ -162,7 +162,15 @@
     "ritualComplete": "Your daily ritual is complete.",
     "shareTodayReading": "Share today's reading",
     "sharePreparing": "Preparing card...",
-    "shareError": "Could not prepare the share card. Please try again."
+    "shareError": "Could not prepare the share card. Please try again.",
+    "periodDaily": "Daily",
+    "periodWeekly": "Weekly",
+    "periodMonthly": "Monthly",
+    "periodYearly": "Yearly",
+    "guestTitle": "Reading as a guest",
+    "guestBody": "Create a free account to get readings shaped by your full birth chart — and to unlock Premium.",
+    "guestCreate": "Create free account",
+    "guestSignIn": "I already have an account"
   },
   "profile": {
     "castingChart": "Casting your chart…",

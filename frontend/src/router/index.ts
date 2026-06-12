@@ -33,8 +33,11 @@ function runWhenIdle(task: () => void): void {
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', name: 'landing', component: pages.LandingPage, meta: { seoCritical: true } },
-    { path: '/today', name: 'home', component: pages.HomePage, meta: { requiresAuth: true } },
+    // Home (the daily reading) is the entry point for everyone — guests and signed-in
+    // users alike. The marketing landing lives at /welcome for campaigns/SEO.
+    { path: '/', redirect: '/today' },
+    { path: '/welcome', name: 'landing', component: pages.LandingPage, meta: { seoCritical: true } },
+    { path: '/today', name: 'home', component: pages.HomePage, meta: { guestAllowed: true } },
     { path: '/chart', name: 'chart', component: pages.ChartPage, meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: pages.ProfilePage, meta: { requiresAuth: true } },
     { path: '/compatibility', name: 'compatibility', component: pages.CompatibilityPage, meta: { requiresAuth: true } },

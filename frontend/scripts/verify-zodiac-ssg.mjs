@@ -60,7 +60,7 @@ const compatibilityHtml = assertSeoHtml(
 assert(compatibilityHtml.includes('Aries and Leo Compatibility'), 'compatibility page missing content');
 assert(compatibilityHtml.includes('birthplace-aware chart overlays'), 'compatibility page missing chart-overlay positioning');
 
-const landingHtml = assertSeoHtml(join(distDir, 'index.html'), 'landing');
+const landingHtml = assertSeoHtml(join(distDir, 'welcome', 'index.html'), 'landing');
 assert(landingHtml.includes('Astrology mapped to the real sky.'), 'landing page missing hero content');
 assert(landingHtml.includes('Why Astralis feels different'), 'landing page missing differentiation content');
 assert(landingHtml.includes('Birthplace-aware charting'), 'landing page missing birthplace content');
