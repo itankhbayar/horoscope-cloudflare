@@ -44,6 +44,21 @@ router.post('/prewarm', async (c) => {
   const forceParam = c.req.query('force');
   const force = forceParam === '1' || forceParam === 'true';
 
+  // Fast path: purge today's edge-cached daily readings without regenerating. Useful after a
+  // force re-run times out before its own purge step (12 Claude calls can exceed the request budget).
+  if (c.req.query('purgeCacheOnly') === '1') {
+    if (typeof caches !== 'undefined') {
+      const cache = caches.default;
+      await Promise.all(
+        ZODIAC_SIGNS.flatMap((s) =>
+          SUPPORTED_LANGS.map((lang) => cache.delete(dailyHoroscopeCacheKey(s.key as ZodiacSign, dateISO, lang))),
+        ),
+      );
+    }
+    logFromContext(c, 'info', 'admin_horoscope_cache_purged', { dateISO });
+    return c.json({ success: true, purgedCacheOnly: true, date: dateISO });
+  }
+
   logFromContext(c, 'info', 'admin_horoscope_prewarm_started', { timezone, dateISO, force });
 
   try {
