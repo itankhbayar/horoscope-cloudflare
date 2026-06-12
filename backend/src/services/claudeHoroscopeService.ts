@@ -39,6 +39,42 @@ const MN_SIGN_NAMES: Record<ZodiacSign, string> = {
   pisces: 'Загас',
 };
 
+/** Per-sign distinguishing context fed to the model so each sign reads differently. */
+const MN_ELEMENT: Record<string, string> = { fire: 'галт', earth: 'шороон', air: 'агаарын', water: 'усан' };
+const MN_MODALITY: Record<string, string> = {
+  cardinal: 'манлайлагч (эхлэл тавьдаг)',
+  fixed: 'тогтвортой (бат барьдаг)',
+  mutable: 'уян хатан (дасан зохицдог)',
+};
+const SIGN_ESSENCE_MN: Record<ZodiacSign, string> = {
+  aries: 'эрч хүч, зориг, шууд үйлдэл, тэргүүлэх тэмүүлэл',
+  taurus: 'тогтвортой байдал, тэвчээр, материаллаг аюулгүй байдал, тав тух',
+  gemini: 'сониуч зан, мэдээлэл солилцоо, санаа, ярианы уран чадвар',
+  cancer: 'мэдрэмж, гэр бүл, харьяалагдах хүсэл, халамж',
+  leo: 'бүтээлч чанар, өөртөө итгэх итгэл, нэр хүнд, өгөөмөр сэтгэл',
+  virgo: 'нямбай байдал, шинжилгээ, үйлчлэл, өөрийгөө сайжруулах',
+  libra: 'тэнцвэр, харилцаа, шударга ёс, гоо зүй',
+  scorpio: 'гүн гүнзгий байдал, эрчим, итгэл, дотоод хувирал',
+  sagittarius: 'эрх чөлөө, аялал, утга учир, өөдрөг үзэл',
+  capricorn: 'сахилга бат, эрмэлзэл, бүтэц, хариуцлага',
+  aquarius: 'шинэлэг сэтгэлгээ, бие даасан байдал, нийгэмлэг, үзэл санаа',
+  pisces: 'уран сэтгэмж, энэрэл, зөн совин, мэдрэмтгий чанар',
+};
+const SIGN_ESSENCE_EN: Record<ZodiacSign, string> = {
+  aries: 'initiative, courage, direct action, restlessness with delay',
+  taurus: 'steadiness, patience, material security, sensual comfort',
+  gemini: 'curiosity, communication, ideas, mental quickness',
+  cancer: 'emotion, home, belonging, protectiveness',
+  leo: 'creativity, confidence, recognition, generosity',
+  virgo: 'precision, analysis, service, self-improvement',
+  libra: 'balance, relationships, fairness, aesthetics',
+  scorpio: 'depth, intensity, trust, transformation',
+  sagittarius: 'freedom, exploration, meaning, optimism',
+  capricorn: 'discipline, ambition, structure, responsibility',
+  aquarius: 'innovation, independence, community, ideals',
+  pisces: 'imagination, compassion, intuition, sensitivity',
+};
+
 interface RawHoroscope {
   overall: string;
   love: string;
@@ -66,12 +102,17 @@ function buildPrompt(sign: ZodiacSign, dateISO: string, lang: Lang): { system: s
         'гадаад хэлний хуулбар хэллэг, зохиомол үг огт бүү хэрэглэ. ' +
         'Уншигчид та гэж шууд хандаж бич. Өгүүлбэрүүдээ өөр өөр бүтэцтэй, урсамтгай бич. ' +
         'Ерөнхий зөгнөл биш — өдөр тутмын амьдралд хэрэгжүүлж болох тодорхой, бодитой зөвлөгөө өг. ' +
-        'Хэт ерөнхий, хоосон, давтагдсан хэллэгээс зайлсхий. ' +
+        'ХАМГИЙН ЧУХАЛ: Орд бүр өөрийн гэсэн өвөрмөц зан чанартай. Тайлал чинь ЗӨВХӨН тухайн ордод л ' +
+        'тохирох ёстой — бүх ордод адилхан тохирох ерөнхий зөвлөгөө (жишээ нь "хойшлуулсан ажлаа дуусга", ' +
+        '"сонсох чадвараа ашигла", "импульсээ барь") бүү бич. Өгүүлбэр болгоныг тухайн ордын мөн чанарт нааш. ' +
         'Хариултаа ЗӨВХӨН доор тайлбарласан JSON объект хэлбэрээр буцаа — өөр ямар ч текст бүү нэм.',
       user:
         `Огноо: ${dateISO}\n` +
-        `Орд: ${mnName} (${info.name})\n\n` +
-        'Дараах талбар бүрд баялаг, давтагдашгүй, тус бүр 4-6 өгүүлбэртэй бүтэн догол мөр бичиж, доорх JSON бүтцээр буцаа:\n' +
+        `Орд: ${mnName} (${info.name})\n` +
+        `Энэ ордын мөн чанар: ${MN_ELEMENT[info.element]} орд, ${MN_MODALITY[info.modality]} төлөв. ` +
+        `Гол шинж: ${SIGN_ESSENCE_MN[sign]}.\n\n` +
+        `Доорх талбар бүрийг ЗӨВХӨН ${mnName} ордын дээрх мөн чанар, гол шинжид нааж, бусад ороос тод ` +
+        'ялгаатай, өвөрмөц байдлаар бич. Тус бүр 4-6 өгүүлбэртэй бүтэн догол мөр болгож доорх JSON бүтцээр буцаа:\n' +
         '{\n' +
         '  "overall": "тухайн өдрийн ерөнхий байдал",\n' +
         '  "love": "хайр дурлал, харилцаа",\n' +
@@ -88,11 +129,17 @@ function buildPrompt(sign: ZodiacSign, dateISO: string, lang: Lang): { system: s
       'You are an experienced, warm, encouraging professional astrologer who writes ' +
       'daily horoscopes broken into categories. Write natural, vivid, specific English — ' +
       'avoid generic, empty, or repetitive filler. ' +
+      'CRITICAL: each sign has a distinct archetype; the reading must fit ONLY this sign and ' +
+      'must never be generic advice that would fit any sign (e.g. "finish your postponed task", ' +
+      '"use your listening skills"). Anchor every sentence to this sign\'s specific nature. ' +
       'Respond with ONLY the JSON object described below and no other text.',
     user:
       `Date: ${dateISO}\n` +
-      `Sign: ${info.name} (${info.element} sign, ruled by ${info.rulingPlanet})\n\n` +
-      'Write a rich, varied paragraph of 4-6 sentences for each field and return exactly this JSON shape:\n' +
+      `Sign: ${info.name} (${info.element} sign, ${info.modality} modality, ruled by ${info.rulingPlanet})\n` +
+      `Core traits: ${SIGN_ESSENCE_EN[sign]}.\n\n` +
+      `Ground every section in ${info.name}'s specific ${info.element}/${info.modality} nature and core ` +
+      'traits, clearly different from other signs. Write a rich, varied paragraph of 4-6 sentences for ' +
+      'each field and return exactly this JSON shape:\n' +
       '{\n' +
       '  "overall": "general outlook for the day",\n' +
       '  "love": "love and relationships",\n' +
