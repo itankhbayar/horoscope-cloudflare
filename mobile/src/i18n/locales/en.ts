@@ -490,8 +490,6 @@ export const en = {
   'allSigns.exploreCardSub': 'All 12 signs',
   'allSigns.errorLoad': 'Could not load this reading.',
   'allSigns.retry': 'Try again',
-  'allSigns.viewing': 'Viewing {sign}',
-  'allSigns.showMine': 'My sign',
 
   'period.today': 'Today',
   'period.weekly': 'Week',

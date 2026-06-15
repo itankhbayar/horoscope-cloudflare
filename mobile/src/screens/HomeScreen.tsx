@@ -83,10 +83,14 @@ export function HomeScreen(): ReactElement {
     if (paramSign) setSelectedSign(paramSign);
   }, [route.params?.sign]);
 
-  const showMySign = (): void => {
-    setSelectedSign(null);
-    navigation.setParams({ sign: undefined });
-  };
+  // Tapping the Home tab returns to your own reading (clears any sign picked from All Signs).
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      setSelectedSign(null);
+      navigation.setParams({ sign: undefined });
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   // Premium flag is sourced from auth session (kept fresh by billing refresh flow).
   // Fall back to profile payload when auth user is not ready yet.
@@ -501,24 +505,6 @@ export function HomeScreen(): ReactElement {
           </Text>
         </Pressable>
       </Animated.View>
-
-      {!isOwnSign && displaySign ? (
-        <Pressable
-          style={({ pressed }) => [
-            styles.viewingBanner,
-            { borderColor: theme.cardBorder, backgroundColor: theme.surfaceTint },
-            pressed && styles.pressed,
-          ]}
-          onPress={showMySign}
-          accessibilityRole="button"
-          accessibilityLabel={t('allSigns.showMine')}
-        >
-          <Text style={[styles.viewingText, { color: theme.text }]}>
-            {t('allSigns.viewing', { sign: t(`zodiac.${displaySign}` as TranslationKey) })}
-          </Text>
-          <Text style={[styles.viewingReset, { color: theme.lavender }]}>{t('allSigns.showMine')}</Text>
-        </Pressable>
-      ) : null}
 
       {displaySign ? <PeriodTabs value={horoscopePeriod} onChange={onHoroscopePeriodChange} /> : null}
 
@@ -942,25 +928,6 @@ const styles = StyleSheet.create({
   },
   allSignsChevron: {
     fontSize: 20,
-    fontWeight: '800',
-  },
-  viewingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  viewingText: {
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  viewingReset: {
-    fontSize: 13,
     fontWeight: '800',
   },
   periodTabs: {

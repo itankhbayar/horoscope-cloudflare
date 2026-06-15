@@ -492,8 +492,6 @@ export const mn: Record<TranslationKey, string> = {
   'allSigns.exploreCardSub': 'Бүх 12 орд',
   'allSigns.errorLoad': 'Уншлагыг ачаалж чадсангүй.',
   'allSigns.retry': 'Дахин оролдох',
-  'allSigns.viewing': '{sign} харж байна',
-  'allSigns.showMine': 'Миний орд',
 
   'period.today': 'Өнөөдөр',
   'period.weekly': '7 хоног',
