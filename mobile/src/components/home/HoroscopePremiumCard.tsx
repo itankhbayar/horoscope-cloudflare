@@ -16,6 +16,10 @@ type Props = {
   loading: boolean;
   error: string | null;
   onLearnMore?: () => void;
+  /** Eyebrow label above the headline (defaults to "today's reading"). Periods pass their own. */
+  eyebrow?: string;
+  /** Render fully expanded with no teaser headline and no expand/collapse toggle (used by periods). */
+  alwaysExpanded?: boolean;
 };
 
 export function HoroscopePremiumCard({
@@ -26,12 +30,15 @@ export function HoroscopePremiumCard({
   loading,
   error,
   onLearnMore,
+  eyebrow,
+  alwaysExpanded = false,
 }: Props): ReactElement {
   void onPeriodChange;
   void onLearnMore;
   const t = useSanctuaryTheme();
   const [expanded, setExpanded] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const isExpanded = alwaysExpanded || expanded;
 
   const art = useMemo(() => {
     if (!horoscope) return { sym: '✨', name: 'your sky' };
@@ -76,7 +83,7 @@ export function HoroscopePremiumCard({
 
       {/* Header row: eyebrow + sign badge */}
       <View style={styles.headerRow}>
-        <Text style={[styles.eyebrow, { color: t.textMuted }]}>✦ Өнөөдрийн уншлага</Text>
+        <Text style={[styles.eyebrow, { color: t.textMuted }]}>✦ {eyebrow ?? 'Өнөөдрийн уншлага'}</Text>
         <View style={[styles.signBadge, { borderColor: t.artWellBorder, backgroundColor: t.artWellBg }]}>
           {loading ? (
             <ActivityIndicator color={t.lavender} size="small" accessibilityLabel="Loading" />
@@ -93,16 +100,20 @@ export function HoroscopePremiumCard({
         </View>
       </View>
 
-      {/* Main headline — the hero text */}
-      <Text style={[styles.headline, { color: t.text }]}>
-        {error ? 'Уншлага одоохондоо тогтсонгүй.' : headline}
-      </Text>
+      {/* Main headline — the hero teaser. Shown only when collapsed (or on error): once
+          expanded, the full Overall section below carries the same text, so keeping the
+          truncated teaser here too read as a duplicated paragraph. */}
+      {!isExpanded || error ? (
+        <Text style={[styles.headline, { color: t.text }]}>
+          {error ? 'Уншлага одоохондоо тогтсонгүй.' : headline}
+        </Text>
+      ) : null}
 
       {/* Divider */}
       <View style={[styles.divider, { backgroundColor: t.cardBorder }]} />
 
       {/* Expanded detail — pick a category, see only that text */}
-      {expanded && detail ? (
+      {isExpanded && detail ? (
         <View style={styles.detailStack}>
           {detailSections.length > 1 ? (
             <ScrollView
@@ -145,8 +156,8 @@ export function HoroscopePremiumCard({
         </View>
       ) : null}
 
-      {/* Expand / collapse CTA */}
-      {hasDetail ? (
+      {/* Expand / collapse CTA — hidden when the card is forced open (periods) */}
+      {hasDetail && !alwaysExpanded ? (
         <Pressable
           style={({ pressed }) => [
             styles.expandButton,

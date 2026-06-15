@@ -25,7 +25,6 @@ vi.mock('../middleware/auth', () => ({
 }));
 
 vi.mock('../services/horoscopeService', () => ({
-  consumeLegacyUpgradeRunState: vi.fn(() => false),
   getOrCreateDailyHoroscope: mocks.mockGetOrCreateDailyHoroscope,
   personalizeDailyHoroscope: mocks.mockPersonalizeDailyHoroscope,
 }));

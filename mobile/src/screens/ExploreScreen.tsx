@@ -1,8 +1,14 @@
 import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { ScreenScroll } from '../components/ScreenScroll';
 import { screenTitleSize, spacing } from '../theme';
 import { useAppearance } from '../hooks/useAppearance';
+import { useI18n } from '../i18n';
+import { useSanctuaryTheme } from '../components/home/sanctuaryTheme';
+import { ZODIAC_SIGNS } from '@astralis/lib/zodiac';
+import type { RootStackNav } from '../navigation/types';
+import { track } from '../lib/analytics';
 
 type ExploreCategory = {
   title: string;
@@ -26,6 +32,9 @@ const EXPLORE_CATEGORIES: ExploreCategory[] = [
 export function ExploreScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
   const { palette, mode } = useAppearance();
+  const navigation = useNavigation<RootStackNav>();
+  const { t } = useI18n();
+  const theme = useSanctuaryTheme();
   const isLight = mode === 'light';
   const titleSize = useMemo(() => screenTitleSize(width), [width]);
 
@@ -37,6 +46,33 @@ export function ExploreScreen(): React.JSX.Element {
       <Text style={[styles.title, { fontSize: titleSize, color: palette.text }]} accessibilityRole="header">
         Explore
       </Text>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.heroCard,
+          { backgroundColor: theme.card, borderColor: theme.cardBorder },
+          pressed && styles.pressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={t('allSigns.exploreCard')}
+        onPress={() => {
+          void track('all_signs_opened', { source: 'explore' });
+          navigation.navigate('AllSigns');
+        }}
+      >
+        <View style={styles.heroText}>
+          <Text style={[styles.heroTitle, { color: theme.text }]}>{t('allSigns.exploreCard')}</Text>
+          <Text style={[styles.heroSub, { color: theme.textMuted }]}>{t('allSigns.exploreCardSub')}</Text>
+        </View>
+        <View style={styles.heroGlyphs}>
+          {ZODIAC_SIGNS.slice(0, 6).map((s) => (
+            <Text key={s.key} style={[styles.heroGlyph, { color: theme.lavender }]} allowFontScaling={false}>
+              {s.symbol}
+            </Text>
+          ))}
+        </View>
+      </Pressable>
+
       <View style={styles.grid}>
         {EXPLORE_CATEGORIES.map((category) => (
           <ExploreCard key={category.title} category={category} isLight={isLight} />
@@ -81,6 +117,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.2,
     marginBottom: spacing.xs,
+  },
+  heroCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  heroText: {
+    flexShrink: 1,
+    gap: 4,
+  },
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  heroSub: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  heroGlyphs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    maxWidth: 96,
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  heroGlyph: {
+    fontSize: 18,
+    lineHeight: 22,
   },
   grid: {
     flexDirection: 'row',

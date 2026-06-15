@@ -11,13 +11,9 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
   AccountSettings: undefined;
   AppAppearance: undefined;
+  AllSigns: undefined;
   ManageNotifications: undefined;
   DeleteAccount: undefined;
-  ReflectionCheckIn: {
-    readingDate: string;
-    hook?: string;
-    source?: 'push' | 'home_card' | 'morning_catchup';
-  };
   Premium: {
     source?:
       | 'locked_preview'
@@ -32,7 +28,7 @@ export type RootStackParamList = {
 };
 
 export type MainTabParamList = {
-  Home: undefined;
+  Home: { sign?: ZodiacSign } | undefined;
   Compatibility:
     | {
         sign1?: ZodiacSign;

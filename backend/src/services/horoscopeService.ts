@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import type { DB } from '../db/client';
 import { dailyHoroscopes, type DailyHoroscope } from '../db/schema';
 import { enrichDailyHoroscope, generateDailyHoroscope, type PersonalizedChartContext } from '../utils/horoscopeTemplates';
@@ -8,27 +8,17 @@ import { GENERATED_LANGS, type Lang } from '../utils/lang';
 import { safeDateISO } from '../utils/localDate';
 import { computeDailySkySnapshot, computeTransitToNatalAspects } from './astrologyService';
 
-const legacyUpgradeRunState = new Map<string, boolean>();
+/**
+ * How far back to reach for the last prewarmed Claude reading when the requested day has no row
+ * yet (reader's local day is ahead of the cron prewarm). Kept small so a genuinely stalled cron
+ * falls through to the template rather than serving a stale reading as if it were today's.
+ */
+const MAX_READING_FALLBACK_DAYS = 2;
 
-function summarizeExtendedFields(payload: {
-  blocks?: unknown;
-  finance?: unknown;
-  advice?: unknown;
-}): {
-  hasBlocks: boolean;
-  blockCount: number;
-  blockParagraphCounts: number[];
-  financeLength: number;
-  adviceLength: number;
-} {
-  const blocks = Array.isArray(payload.blocks) ? payload.blocks : [];
-  return {
-    hasBlocks: Array.isArray(payload.blocks),
-    blockCount: blocks.length,
-    blockParagraphCounts: blocks.map((b: any) => (Array.isArray(b?.paragraphs) ? b.paragraphs.length : 0)),
-    financeLength: typeof payload.finance === 'string' ? payload.finance.length : 0,
-    adviceLength: typeof payload.advice === 'string' ? payload.advice.length : 0,
-  };
+function subtractDaysISO(dateISO: string, days: number): string {
+  const date = new Date(`${dateISO}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
 }
 
 export interface HoroscopeResponse {
@@ -77,8 +67,6 @@ export async function getOrCreateDailyHoroscope(
   timezone?: string,
 ): Promise<HoroscopeResponse> {
   const date = dateISO ?? safeDateISO(timezone);
-  const debugKey = `${lang}:${sign}:${date}`;
-  legacyUpgradeRunState.set(debugKey, false);
   const sky = computeDailySkySnapshot(date);
   const existing = await db
     .select()
@@ -117,6 +105,33 @@ export async function getOrCreateDailyHoroscope(
     if (generatedRow) return mapToResponse(generatedRow);
   }
 
+  // Still nothing for *this* date. The canonical Claude reading is prewarmed once per day in
+  // CRON_TIMEZONE (Asia/Ulaanbaatar). A signed-in reader whose local calendar day is already
+  // ahead of that prewarm — e.g. the window after they cross midnight but before the daily cron
+  // fires, most visibly for timezones east of Ulaanbaatar — would otherwise drop straight to the
+  // generic template below, while the web client (which pins the UTC day via the public route)
+  // still shows the rich Claude reading. That mismatch is exactly the "web fine, mobile generic"
+  // bug. To keep the clients in sync, serve the most recent stored Claude reading for this sign
+  // (any generated language) within a short look-back, relabeled to the requested date so the
+  // client's date-keyed reveal/streak/reflection logic stays aligned with the reader's own day.
+  // Bounded by MAX_READING_FALLBACK_DAYS so a stalled cron surfaces the honest (fresh-but-generic)
+  // template instead of silently serving a week-old reading as today's.
+  const fallbackCutoff = subtractDaysISO(date, MAX_READING_FALLBACK_DAYS);
+  const recentRow = await db
+    .select()
+    .from(dailyHoroscopes)
+    .where(
+      and(
+        eq(dailyHoroscopes.sign, sign),
+        inArray(dailyHoroscopes.lang, [...GENERATED_LANGS]),
+        lte(dailyHoroscopes.date, date),
+        gte(dailyHoroscopes.date, fallbackCutoff),
+      ),
+    )
+    .orderBy(desc(dailyHoroscopes.date))
+    .get();
+  if (recentRow) return { ...mapToResponse(recentRow), date };
+
   // Nothing stored at all yet — the daily cron prewarm writes the canonical Claude reading.
   // Generate an ephemeral, sky-aware template reading for this request WITHOUT persisting
   // it. Persisting a template here previously created a row the cron then skipped (prewarm
@@ -137,15 +152,6 @@ export function personalizeDailyHoroscope(
    */
   identity = '',
 ): HoroscopeResponse {
-  // Temporary diagnostics: shape entering personalize.
-  // eslint-disable-next-line no-console
-  console.log('[horoscope-service-personalize-input]', {
-    date: horoscope.date,
-    lang: horoscope.lang,
-    sign: horoscope.sign,
-    inputKeys: Object.keys(horoscope),
-    inputSummary: summarizeExtendedFields(horoscope as any),
-  });
   const sky = computeDailySkySnapshot(horoscope.date);
   const transitAspects = computeTransitToNatalAspects(sky.planets, chart.planets);
   const personalized = {
@@ -156,15 +162,6 @@ export function personalizeDailyHoroscope(
       transitAspects,
     }, identity),
   };
-  // Temporary diagnostics: shape exiting personalize.
-  // eslint-disable-next-line no-console
-  console.log('[horoscope-service-personalize-output]', {
-    date: personalized.date,
-    lang: personalized.lang,
-    sign: personalized.sign,
-    outputKeys: Object.keys(personalized),
-    outputSummary: summarizeExtendedFields(personalized as any),
-  });
   return personalized;
 }
 
@@ -182,9 +179,3 @@ function mapToResponse(row: DailyHoroscope): HoroscopeResponse {
   };
 }
 
-export function consumeLegacyUpgradeRunState(sign: ZodiacSign, lang: Lang, date: string): boolean {
-  const key = `${lang}:${sign}:${date}`;
-  const value = legacyUpgradeRunState.get(key) ?? false;
-  legacyUpgradeRunState.delete(key);
-  return value;
-}

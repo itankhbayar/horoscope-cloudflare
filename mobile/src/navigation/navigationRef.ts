@@ -51,8 +51,8 @@ export function goToPremium(source?: NonNullable<RootStackParamList['Premium']>[
   }
 }
 
-export function goToReflectionCheckIn(params: RootStackParamList['ReflectionCheckIn']): void {
+export function goToAllSigns(): void {
   if (navigationRef.isReady()) {
-    navigationRef.navigate('ReflectionCheckIn', params);
+    navigationRef.navigate('AllSigns');
   }
 }

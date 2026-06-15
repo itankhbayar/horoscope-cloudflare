@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../db/client';
 import { authMiddleware, requireUserId } from '../middleware/auth';
 import { createRateLimitMiddleware } from '../middleware/rateLimit';
-import { consumeLegacyUpgradeRunState, getOrCreateDailyHoroscope, personalizeDailyHoroscope } from '../services/horoscopeService';
+import { getOrCreateDailyHoroscope, personalizeDailyHoroscope } from '../services/horoscopeService';
 import { getOrCreatePeriodHoroscope, currentPeriodKey, PERIOD_KEY_PATTERNS } from '../services/periodHoroscopeService';
 import type { PeriodType } from '../services/claudeHoroscopeService';
 import { buildGlobalSkyToday } from '../services/globalSkyService';
@@ -38,21 +38,6 @@ const publicRateLimit = createRateLimitMiddleware({
   binding: 'PUBLIC_RATE_LIMITER',
 });
 
-function wordCount(text: string | undefined): number {
-  if (!text) return 0;
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
-
-function summarizeBlocks(blocks: unknown): Array<{ id: string; paragraphCount: number; wordCount: number }> {
-  if (!Array.isArray(blocks)) return [];
-  return blocks.map((b: any) => ({
-    id: String(b?.id ?? 'unknown'),
-    paragraphCount: Array.isArray(b?.paragraphs) ? b.paragraphs.length : 0,
-    wordCount: Array.isArray(b?.paragraphs)
-      ? b.paragraphs.join(' ').trim().split(/\s+/).filter(Boolean).length
-      : 0,
-  }));
-}
 
 export function dailyHoroscopeCacheKey(sign: ZodiacSign, dateISO: string, lang: string): Request {
   const url = new URL('/api/horoscope/daily', DAILY_HOROSCOPE_CACHE_ORIGIN);
@@ -155,27 +140,6 @@ router.get('/daily/:sign', publicRateLimit, async (c) => {
 
   const db = getDb(c.env.horoscope_db);
   const horoscope = await getOrCreateDailyHoroscope(db, sign, lang, dateISO);
-  const upgraded = consumeLegacyUpgradeRunState(sign, lang, dateISO);
-  // Temporary runtime diagnostics for MN depth rollout.
-  // eslint-disable-next-line no-console
-  console.log('[daily-horoscope-response]', {
-    route: 'public',
-    lang,
-    sign,
-    date: dateISO,
-    hasBlocks: Array.isArray((horoscope as any).blocks),
-    blockCount: Array.isArray((horoscope as any).blocks) ? (horoscope as any).blocks.length : 0,
-    blocks: summarizeBlocks((horoscope as any).blocks),
-    sectionWordCounts: {
-      overall: wordCount(horoscope.overall),
-      love: wordCount(horoscope.love),
-      career: wordCount(horoscope.career),
-      health: wordCount(horoscope.health),
-      finance: wordCount((horoscope as any).finance),
-      advice: wordCount((horoscope as any).advice),
-    },
-    legacyUpgradeRan: upgraded,
-  });
   metric(c.env, 'horoscope_viewed', { sign, lang, variant: 'free' });
   const response = ok(c, horoscope);
   response.headers.set('Cache-Control', DAILY_HOROSCOPE_CACHE_CONTROL);
@@ -231,7 +195,6 @@ router.get('/daily', authMiddleware, async (c) => {
     .get();
   const dateISO = safeDateISO(user?.timezone ?? 'UTC');
   const baseHoroscope = await getOrCreateDailyHoroscope(db, chart.sunSign as ZodiacSign, lang, dateISO);
-  const upgraded = consumeLegacyUpgradeRunState(chart.sunSign as ZodiacSign, lang, dateISO);
   const horoscope = personalizeDailyHoroscope(baseHoroscope, {
     sunSign: chart.sunSign as ZodiacSign,
     moonSign: chart.moonSign as ZodiacSign,
@@ -286,26 +249,6 @@ router.get('/daily', authMiddleware, async (c) => {
   }
 
   metric(c.env, 'horoscope_viewed', { sign: chart.sunSign, lang, variant: 'authenticated' });
-  // Temporary runtime diagnostics for MN depth rollout.
-  // eslint-disable-next-line no-console
-  console.log('[daily-horoscope-response]', {
-    route: 'authenticated',
-    lang,
-    sign: chart.sunSign,
-    date: dateISO,
-    hasBlocks: Array.isArray((horoscope as any).blocks),
-    blockCount: Array.isArray((horoscope as any).blocks) ? (horoscope as any).blocks.length : 0,
-    blocks: summarizeBlocks((horoscope as any).blocks),
-    sectionWordCounts: {
-      overall: wordCount(horoscope.overall),
-      love: wordCount(horoscope.love),
-      career: wordCount(horoscope.career),
-      health: wordCount(horoscope.health),
-      finance: wordCount((horoscope as any).finance),
-      advice: wordCount((horoscope as any).advice),
-    },
-    legacyUpgradeRan: upgraded,
-  });
   const response = ok(c, {
     ...horoscope,
     sunSign: chart.sunSign,

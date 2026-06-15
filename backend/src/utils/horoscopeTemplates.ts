@@ -635,19 +635,6 @@ export interface PersonalizedChartContext {
   aspects: NatalChartData['aspects'] | Aspect[];
 }
 
-function debugContentShape(label: string, payload: DailyHoroscopeContent, meta: Record<string, unknown> = {}): void {
-  // Temporary runtime diagnostics for MN depth investigation.
-  // eslint-disable-next-line no-console
-  console.log(`[horoscope-template-${label}]`, {
-    ...meta,
-    keys: Object.keys(payload),
-    hasBlocks: Array.isArray(payload.blocks),
-    blockCount: Array.isArray(payload.blocks) ? payload.blocks.length : 0,
-    financeLength: typeof payload.finance === 'string' ? payload.finance.length : 0,
-    adviceLength: typeof payload.advice === 'string' ? payload.advice.length : 0,
-  });
-}
-
 export function generateDailyHoroscope(
   sign: ZodiacSign,
   dateISO: string,
@@ -709,13 +696,20 @@ export function enrichDailyHoroscope(
   options: DailyHoroscopeGenerationOptions,
   identity = '',
 ): DailyHoroscopeContent {
-  debugContentShape('enrich-input', content, { sign, dateISO, lang, hasSky: !!options.sky });
-  const seed = seedFromSignAndDate(sign, dateISO, identity);
+  void identity;
   // Preserve the stored narrative verbatim. For real rows this is the Claude-written
   // reading; regenerating overall/love/career/health from the small template pools here is
   // exactly what made signed-in readings recur (identical day-to-day and across same-sign
   // users). We now only layer additive sky metadata + the daily hook on top — the four
   // narrative fields are never rewritten on the read/personalize path.
+  //
+  // NOTE: `applyPeriodAwareFrame` is deliberately NOT called here. On weekly anchor dates
+  // (Mondays) and the 1st of each month it rewrites overall/love/career/health into generic
+  // weekly/monthly template copy (keeping only a fragment of the original). That violated the
+  // verbatim invariant above and made the signed-in daily reading diverge from the stored D1
+  // row that the public route serves raw — i.e. "web matches D1, mobile shows totally different
+  // text every Monday". The daily reading must stay the canonical daily Claude copy; weekly and
+  // monthly framing belong to the dedicated /weekly and /monthly period endpoints.
   let next = content;
   if (options.sky) {
     const sun = options.sky.planets.find((p) => p.name === 'Sun');
@@ -728,8 +722,21 @@ export function enrichDailyHoroscope(
       };
     }
   }
-  const framed = withDailyHook(applyPeriodAwareFrame(next, lang, dateISO, seed), sign, dateISO, lang, options.sky);
-  debugContentShape('enrich-return', framed, { sign, dateISO, lang });
+  // Attach the daily hook as ADDITIVE metadata only — do NOT prepend the jolt into `overall`
+  // or the overall block. The signed-in reading must stay byte-identical to the stored D1 row
+  // that the public route serves raw; prepending the jolt made the mobile headline
+  // (compressRitualCopy(overall)) open with a different sentence than web, which read as a
+  // "wrong/different" reading. `hookTheme` is still exposed for Premium Pattern Memory, and
+  // `hook` remains available for any push/share tease — they just no longer mutate the narrative.
+  const moon = options.sky?.planets.find((p) => p.name === 'Moon');
+  const { theme, jolt } = buildDailyHook({
+    sign,
+    dateISO,
+    lang,
+    moonSign: moon?.sign,
+    moonPhase: options.sky?.moonPhase.name,
+  });
+  const framed = { ...next, hook: jolt, hookTheme: theme };
   return framed;
 }
 
@@ -813,7 +820,6 @@ function buildAstronomyAwareReadingMn(
 ): DailyHoroscopeContent {
   const sky = options.sky;
   if (!sky) {
-    debugContentShape('mn-build-return-base-no-sky', base, { sign, dateISO });
     return base;
   }
   const sun = sky.planets.find((p) => p.name === 'Sun');
@@ -821,13 +827,6 @@ function buildAstronomyAwareReadingMn(
   const mercury = sky.planets.find((p) => p.name === 'Mercury');
   const venus = sky.planets.find((p) => p.name === 'Venus');
   if (!sun || !moon) {
-    debugContentShape('mn-build-return-base-missing-sun-moon', base, {
-      sign,
-      dateISO,
-      hasSun: !!sun,
-      hasMoon: !!moon,
-      planetNames: sky.planets.map((p) => p.name),
-    });
     return base;
   }
 
@@ -929,7 +928,6 @@ function buildAstronomyAwareReadingMn(
     advice: adviceParagraphs.join('\n\n'),
     blocks,
   };
-  debugContentShape('mn-build-return-rich', result, { sign, dateISO, planetCount: sky.planets.length });
   return result;
 }
 

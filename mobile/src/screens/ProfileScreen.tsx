@@ -26,7 +26,7 @@ import { useI18n } from '../i18n';
 
 export function ProfileScreen(): React.JSX.Element {
   const { mode, palette } = useAppearance();
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const { profile, load, save, uploadAvatar, loading, avatarUploading, error } = useProfile();
   const { logout, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -278,6 +278,12 @@ export function ProfileScreen(): React.JSX.Element {
                 <SettingsItem icon="✎" label={t('profile.edit')} onPress={onStartEdit} />
                 <SettingsItem icon="↻" label={t('profile.account')} onPress={goToAccountSettings} />
                 <SettingsItem icon="🔔︎" label={t('profile.notifications')} onPress={goToManageNotifications} />
+                <SettingsItem
+                  icon="🌐︎"
+                  label={t('profile.language')}
+                  value={locale === 'mn' ? 'Монгол' : 'English'}
+                  onPress={() => void setLocale(locale === 'mn' ? 'en' : 'mn')}
+                />
                 <SettingsItem icon="◐" label={t('profile.appearance')} onPress={goToAppAppearance} last />
               </SettingsGroup>
               <PremiumAccessCard />
@@ -435,19 +441,32 @@ function SettingsItem({
   icon,
   label,
   onPress,
+  value,
   last = false,
 }: {
   icon: string;
   label: string;
   onPress: () => void;
+  /** Optional trailing text (e.g. the current language) shown right-aligned. */
+  value?: string;
   last?: boolean;
 }): React.JSX.Element {
   const { mode, palette } = useAppearance();
   const isLight = mode === 'light';
   return (
-    <Pressable style={({ pressed }) => [styles.settingsItem, pressed && styles.pressed]} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.settingsItem, pressed && styles.pressed]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={value ? `${label}: ${value}` : label}
+    >
       <Text style={[styles.settingsIcon, isLight && { color: '#6474ba' }]}>{icon}</Text>
       <Text style={[styles.settingsLabel, isLight && { color: palette.text }]}>{label}</Text>
+      {value ? (
+        <Text style={[styles.settingsValue, isLight && { color: '#6474ba' }]} numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
       {!last ? <View style={[styles.settingsDivider, isLight && { borderBottomColor: '#d8def8' }]} /> : null}
     </Pressable>
   );
@@ -692,6 +711,7 @@ const styles = StyleSheet.create({
   },
   settingsIcon: { width: 24, color: '#c7bbff', fontSize: 18, textAlign: 'center' },
   settingsLabel: { color: colors.text, fontSize: 17, fontWeight: '600', marginLeft: spacing.sm },
+  settingsValue: { color: '#c7bbff', fontSize: 15, fontWeight: '700', marginLeft: 'auto', paddingLeft: spacing.sm },
   settingsDivider: {
     position: 'absolute',
     left: spacing.md + 30,

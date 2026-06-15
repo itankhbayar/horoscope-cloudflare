@@ -4,12 +4,12 @@ import { getApiLocale } from '@astralis/lib/apiClient';
 import type { DailyHoroscope, DailyRitualCompletion, ZodiacSign } from '@astralis/lib/types';
 
 const cache = new Map<string, DailyHoroscope>();
-const HOROSCOPE_CACHE_VERSION = 'v2';
-
-function hasPremiumDepthBlocks(horoscope: DailyHoroscope, lang: string): boolean {
-  if (lang !== 'mn') return true;
-  return Array.isArray(horoscope.blocks) && horoscope.blocks.length >= 6;
-}
+// Bumped to v3: the previous version gated on `blocks.length >= 6` as a "premium depth" signal.
+// That was inverted — the canonical Claude reading carries its richness in overall/love/career/
+// health and ships with NO blocks, while only the generic template fallback emits blocks. The old
+// check therefore treated every real reading as "not deep enough", forcing a redundant second
+// fetch (loadMine) and a delete-then-set cache thrash (load). Dropping it aligns mobile with web.
+const HOROSCOPE_CACHE_VERSION = 'v3';
 
 export function useHoroscope(): {
   horoscope: DailyHoroscope | null;
@@ -26,19 +26,21 @@ export function useHoroscope(): {
 
   const load = useCallback(async (sign: ZodiacSign, date?: string) => {
     const lang = getApiLocale();
-    const key = `${HOROSCOPE_CACHE_VERSION}:${lang}:${sign}:${date ?? 'today'}`;
+    // Resolve the literal "today" to a concrete UTC calendar date (matching the backend default).
+    // Keying on the resolved date — and sending it in the request URL — means each day gets its
+    // own cache entry and its own edge-cache URL, so a kept-open app rolls over at midnight
+    // instead of serving the reading it first fetched days ago. Mirrors the web composable.
+    const resolvedDate = date ?? new Date().toISOString().slice(0, 10);
+    const key = `${HOROSCOPE_CACHE_VERSION}:${lang}:${sign}:${resolvedDate}`;
     const hit = cache.get(key);
-    if (hit && hasPremiumDepthBlocks(hit, lang)) {
+    if (hit) {
       setHoroscope(hit);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const data = await horoscopeService.fetchDailyHoroscope(sign, date);
-      if (lang === 'mn' && !hasPremiumDepthBlocks(data, lang)) {
-        cache.delete(key);
-      }
+      const data = await horoscopeService.fetchDailyHoroscope(sign, resolvedDate);
       cache.set(key, data);
       setHoroscope(data);
     } catch (e) {
@@ -49,17 +51,10 @@ export function useHoroscope(): {
   }, []);
 
   const loadMine = useCallback(async () => {
-    const lang = getApiLocale();
     setLoading(true);
     setError(null);
     try {
-      const data = await horoscopeService.fetchMyDailyHoroscope();
-      if (lang === 'mn' && !hasPremiumDepthBlocks(data, lang)) {
-        const retry = await horoscopeService.fetchMyDailyHoroscope();
-        setHoroscope(retry);
-        return;
-      }
-      setHoroscope(data);
+      setHoroscope(await horoscopeService.fetchMyDailyHoroscope());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load sky reading');
     } finally {

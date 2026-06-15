@@ -106,6 +106,9 @@ export type AnalyticsEventMap = {
   preview_birth_time_added: { surface: 'register' };
   preview_account_created: { method: 'email' | 'google' | 'apple'; hasBirthProfile: boolean };
   first_reading_viewed: { source: 'guest' | 'authenticated'; sign: string; date: string };
+  all_signs_opened: { source: 'explore' | 'home' };
+  all_signs_sign_opened: { sign: string };
+  all_signs_reading_viewed: { sign: string };
   onboarding_step_completed: { step: string; guest: boolean };
   guest_to_signup_conversion: { stage: string };
   emotional_feed_engaged: { source: 'guest' | 'authenticated'; depth: number };

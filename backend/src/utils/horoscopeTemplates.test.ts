@@ -310,21 +310,59 @@ describe('generateDailyHoroscope', () => {
       'user-123',
     );
 
-    // The four narrative fields keep the stored Claude text verbatim (the hook is only
-    // prepended to `overall`), instead of being regenerated from the template pools.
-    expect(enriched.overall.endsWith(base.overall)).toBe(true);
+    // The four narrative fields stay byte-identical to the stored Claude text — the daily hook
+    // is exposed as a separate field, NOT prepended into the narrative — so the signed-in
+    // reading matches the D1 row the public route serves raw (web parity).
+    expect(enriched.overall).toBe(base.overall);
     expect(enriched.love).toBe(base.love);
     expect(enriched.career).toBe(base.career);
     expect(enriched.health).toBe(base.health);
     expect(enriched.luckyNumber).toBe(7);
 
-    // Additive sky metadata + hook are layered on; no template blocks overwrite the reading.
+    // Additive sky metadata + hook are layered on as separate fields; the reading is untouched.
     expect(enriched.skyContext).toMatchObject({
       sunSign: sky.planets.find((p) => p.name === 'Sun')?.sign,
       moonSign: sky.planets.find((p) => p.name === 'Moon')?.sign,
       moonPhase: sky.moonPhase.name,
     });
     expect(enriched.hook).toBeDefined();
+    expect(enriched.hookTheme).toBeDefined();
+  });
+
+  it('keeps the stored daily narrative verbatim on a weekly-anchor date (Monday) instead of reframing it weekly', () => {
+    // Regression: the personalize path used to run applyPeriodAwareFrame, which on Mondays
+    // rewrote overall/love/career/health into generic weekly template copy. That made the
+    // signed-in daily reading diverge from the stored D1 row the public route serves raw —
+    // "web matches D1, mobile shows totally different text every Monday". The daily reading
+    // must stay the canonical daily Claude copy on anchor dates too.
+    const monday = '2026-06-15'; // Monday -> weekly anchor
+    const sky = computeDailySkySnapshot(monday);
+    const transitAspects = computeTransitToNatalAspects(sky.planets, chart.planets);
+    const base = {
+      overall: 'CLAUDE_OVERALL: a unique stored paragraph that weekly framing must not overwrite.',
+      love: 'CLAUDE_LOVE: a unique stored love paragraph.',
+      career: 'CLAUDE_CAREER: a unique stored career paragraph.',
+      health: 'CLAUDE_HEALTH: a unique stored health paragraph.',
+      luckyNumber: 7,
+      luckyColor: 'Цэнхэр',
+    };
+
+    const enriched = enrichDailyHoroscope(
+      base,
+      'gemini',
+      monday,
+      'mn',
+      { sky, natalChart: chart, transitAspects },
+      'user-123',
+    );
+
+    // No weekly template copy leaks in; the stored narrative is preserved byte-for-byte
+    // (the hook is a separate field, not prepended into the reading).
+    expect(enriched.overall).toBe(base.overall);
+    expect(enriched.overall).not.toMatch(/Энэ долоо хоног/);
+    expect(enriched.love).toBe(base.love);
+    expect(enriched.career).toBe(base.career);
+    expect(enriched.health).toBe(base.health);
   });
 
   it('varies the public reading frame by date without changing the response contract', () => {

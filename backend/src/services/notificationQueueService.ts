@@ -602,7 +602,10 @@ export async function runRetentionPipeline(
 ): Promise<PipelineSummary> {
   const nowMs = options.nowMs ?? Date.now();
   const enqueue = await enqueueDueNotifications(db, env, { nowMs });
-  const eveningReflection = await enqueueEveningReflections(db, env, { nowMs });
+  // Evening reflection ("How did today land?") push is retired — the Accuracy Loop check-in
+  // was removed from the app, so we no longer enqueue these nudges. Kept as a no-op summary so
+  // the pipeline contract is unchanged; `enqueueEveningReflections` remains available but dormant.
+  const eveningReflection: EveningReflectionSummary = { considered: 0, enqueued: 0, skipped: 0 };
   const deliver = await deliverPendingNotifications(db, env, { nowMs });
   const receipts = await pollNotificationReceipts(db, env, { nowMs });
   return { enqueue, eveningReflection, deliver, receipts };
