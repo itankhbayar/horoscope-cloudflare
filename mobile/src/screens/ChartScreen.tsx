@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useProfile } from '../hooks/useProfile';
 import { useHoroscope } from '../hooks/useHoroscope';
 import { LoadingBlock } from '../components/LoadingBlock';
@@ -8,47 +8,24 @@ import {
   bodyFontSize,
   bodyLineHeight,
   colors,
-  hitSlopComfortable,
   MIN_TOUCH,
   screenTitleSize,
   spacing,
 } from '../theme';
-import { planetSymbol } from '@astralis/lib/zodiac';
-import type { DailyHoroscope, NatalChart, PlanetPosition, ZodiacSign } from '@astralis/lib/types';
+import { aspectSymbol, planetSymbol } from '@astralis/lib/zodiac';
+import type { Aspect, AspectType, DailyHoroscope, NatalChart, PlanetPosition, ZodiacSign } from '@astralis/lib/types';
 import { useAppearance } from '../hooks/useAppearance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { currentSkySummary, strongestTransitCopy, whyThisReadingCopy } from '../components/home/homeContentUtils';
 import { useI18n } from '../i18n';
+import type { TranslationKey } from '../i18n';
 
 type ChartTab = 'chart' | 'houses' | 'planets';
 
-const HOUSE_DESCRIPTIONS: Record<number, { title: string; description: string }> = {
-  1: { title: 'Ego & self-image', description: 'How you show up and your first impression.' },
-  2: { title: 'Money & possessions', description: 'Values, resources, and material comfort.' },
-  3: { title: 'Communication', description: 'Thinking, learning, and close community.' },
-  4: { title: 'Home & roots', description: 'Family, emotional foundations, and sanctuary.' },
-  5: { title: 'Creativity & romance', description: 'Pleasure, play, passion, and expression.' },
-  6: { title: 'Health & routines', description: 'Daily work, habits, and body maintenance.' },
-  7: { title: 'Partnerships', description: 'One-to-one bonds, marriage, and contracts.' },
-  8: { title: 'Transformation', description: 'Shared assets, intimacy, and deep change.' },
-  9: { title: 'Belief & travel', description: 'Meaning, higher learning, and expansion.' },
-  10: { title: 'Career & reputation', description: 'Public role, recognition, and purpose.' },
-  11: { title: 'Community & goals', description: 'Networks, future vision, and allies.' },
-  12: { title: 'Inner world', description: 'Rest, healing, spirituality, and surrender.' },
-};
-
-const PLANET_KEYWORDS: Record<string, string> = {
-  Sun: 'identity',
-  Moon: 'emotion',
-  Mercury: 'communication',
-  Venus: 'values',
-  Mars: 'action',
-  Jupiter: 'expansion',
-  Saturn: 'structure',
-  Uranus: 'innovation',
-  Neptune: 'intuition',
-  Pluto: 'transformation',
-};
+const SIGN_ORDER: ZodiacSign[] = [
+  'aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo',
+  'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces',
+];
 
 const SIGN_SYMBOLS: Record<ZodiacSign, string> = {
   aries: '♈',
@@ -65,13 +42,25 @@ const SIGN_SYMBOLS: Record<ZodiacSign, string> = {
   pisces: '♓',
 };
 
+/** Mirrors the web `AspectList` palette so the two platforms read the same. */
+function aspectColor(type: AspectType): string {
+  switch (type) {
+    case 'conjunction': return '#e8d48b';
+    case 'trine': return '#7bbf6a';
+    case 'sextile': return '#9ec6ff';
+    case 'square': return '#ff8a5c';
+    case 'opposition': return '#ff6b6b';
+    default: return '#c9a84c';
+  }
+}
+
 export function ChartScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
   const { t } = useI18n();
   const { palette, mode } = useAppearance();
   const isLight = mode === 'light';
   const insets = useSafeAreaInsets();
-  const { profile, load, recompute, loading, error } = useProfile();
+  const { profile, load, loading, error } = useProfile();
   const { horoscope, loadMine } = useHoroscope();
   const [activeTab, setActiveTab] = useState<ChartTab>('chart');
 
@@ -84,10 +73,6 @@ export function ChartScreen(): React.JSX.Element {
     void loadMine();
   }, [loadMine, profile?.natalChart]);
 
-  const onRecompute = useCallback((): void => {
-    void recompute();
-  }, [recompute]);
-
   const chart = profile?.natalChart;
   const birthProfile = profile?.birthProfile;
   const titleSize = useMemo(() => screenTitleSize(width), [width]);
@@ -96,9 +81,27 @@ export function ChartScreen(): React.JSX.Element {
   const subtitle = useMemo(() => {
     if (!birthProfile) return t('chart.addBirth');
     const cityLine = [birthProfile.birthCity, birthProfile.birthCountry].filter(Boolean).join(', ');
-    const timeLine = birthProfile.birthTime ? `${birthProfile.birthDate} at ${birthProfile.birthTime}` : birthProfile.birthDate;
+    const timeLine = birthProfile.birthTime
+      ? t('chart.atTime', { date: birthProfile.birthDate, time: birthProfile.birthTime })
+      : birthProfile.birthDate;
     return `${timeLine}${cityLine ? ` · ${cityLine}` : ''}`;
-  }, [birthProfile]);
+  }, [birthProfile, t]);
+
+  const onShare = useCallback(async (): Promise<void> => {
+    if (!chart) return;
+    const lines = [
+      t('chart.title'),
+      `${t('chart.sun')}: ${t(`zodiac.${chart.sunSign}`)}`,
+      `${t('chart.moon')}: ${t(`zodiac.${chart.moonSign}`)}`,
+      `${t('chart.rising')}: ${chart.risingSign ? t(`zodiac.${chart.risingSign}`) : t('chart.unknown')}`,
+    ];
+    try {
+      await Share.share({ message: lines.join('\n') });
+    } catch {
+      // Sharing is best-effort; a dismissed/failed sheet must not surface an error.
+    }
+  }, [chart, t]);
+
   const glassCardStyle = useMemo(
     () => ({
       backgroundColor: isLight ? '#ffffff' : 'rgba(28, 30, 58, 0.68)',
@@ -135,14 +138,14 @@ export function ChartScreen(): React.JSX.Element {
             </View>
             <Pressable
               style={({ pressed }) => [styles.shareBtn, pressed && styles.pressed]}
+              onPress={() => void onShare()}
+              disabled={!chart}
               accessibilityRole="button"
               accessibilityLabel={t('chart.share')}
             >
               <Text style={[styles.shareIcon, { color: palette.text }]}>↗</Text>
             </Pressable>
           </View>
-
-          {chart ? <ChartSummaryCard chart={chart} glassCardStyle={glassCardStyle} palette={palette} /> : null}
 
           {chart && horoscope?.skyContext ? (
             <TodaySkyChartPanel horoscope={horoscope} glassCardStyle={glassCardStyle} palette={palette} />
@@ -163,25 +166,20 @@ export function ChartScreen(): React.JSX.Element {
             </View>
           ) : null}
 
-          <Pressable
-            style={({ pressed }) => [styles.cta, { backgroundColor: palette.accent }, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel={t('chart.explore')}
-          >
-            <Text style={styles.ctaText}>{t('chart.explore')}</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-            onPress={onRecompute}
-            disabled={loading}
-            accessibilityRole="button"
-            accessibilityLabel={t('chart.recompute')}
-            accessibilityState={{ disabled: loading }}
-            hitSlop={hitSlopComfortable}
-          >
-            <Text style={[styles.secondaryText, { color: palette.accent }]}>{t('chart.recompute')}</Text>
-          </Pressable>
+          {chart ? (
+            <View style={[styles.aspectsCard, glassCardStyle]}>
+              <Text style={[styles.sectionTitle, { color: palette.text }]} accessibilityRole="header">
+                {t('chart.aspects')}
+              </Text>
+              {chart.aspects.length === 0 ? (
+                <Text style={[styles.aspectEmpty, { color: palette.textMuted }]}>{t('chart.aspectsEmpty')}</Text>
+              ) : (
+                chart.aspects.map((aspect, index) => (
+                  <AspectRow key={`${aspect.body1}-${aspect.body2}-${index}`} aspect={aspect} palette={palette} />
+                ))
+              )}
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -213,10 +211,11 @@ function TodaySkyChartPanel({
   glassCardStyle: { backgroundColor: string; borderColor: string; borderWidth: number };
   palette: { text: string; textMuted: string; accent: string };
 }): React.JSX.Element {
+  const { t } = useI18n();
   const skyItems = currentSkySummary(horoscope);
   return (
     <View style={[styles.todaySkyPanel, glassCardStyle]}>
-      <Text style={[styles.todaySkyKicker, { color: palette.accent }]}>Today against your chart</Text>
+      <Text style={[styles.todaySkyKicker, { color: palette.accent }]}>{t('chart.todayAgainst')}</Text>
       <View style={styles.todaySkyPanelGrid}>
         {skyItems.map((item) => (
           <View key={item.label} style={styles.todaySkyPanelItem}>
@@ -279,41 +278,6 @@ function SegmentedTabControl({
   );
 }
 
-function ChartSummaryCard({
-  chart,
-  glassCardStyle,
-  palette,
-}: {
-  chart: NatalChart;
-  glassCardStyle: { backgroundColor: string; borderColor: string; borderWidth: number };
-  palette: { text: string; textMuted: string };
-}): React.JSX.Element {
-  return (
-    <View style={[styles.summaryCard, glassCardStyle]}>
-      <SummaryRow label="Sun" value={toTitle(chart.sunSign)} palette={palette} />
-      <SummaryRow label="Moon" value={toTitle(chart.moonSign)} palette={palette} />
-      <SummaryRow label="Rising" value={chart.risingSign ? toTitle(chart.risingSign) : 'Unknown'} palette={palette} />
-    </View>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  palette,
-}: {
-  label: string;
-  value: string;
-  palette: { text: string; textMuted: string };
-}): React.JSX.Element {
-  return (
-    <View style={styles.summaryRow}>
-      <Text style={[styles.summaryLabel, { color: palette.textMuted }]}>{label}</Text>
-      <Text style={[styles.summaryValue, { color: palette.text }]}>{value}</Text>
-    </View>
-  );
-}
-
 function BigThreeCard({
   label,
   sign,
@@ -325,10 +289,39 @@ function BigThreeCard({
   glassCardStyle: { backgroundColor: string; borderColor: string; borderWidth: number };
   palette: { text: string; textMuted: string };
 }): React.JSX.Element {
+  const { t } = useI18n();
   return (
     <View style={[styles.bigThreeCard, glassCardStyle]}>
       <Text style={[styles.bigThreeLabel, { color: palette.textMuted }]}>{label}</Text>
-      <Text style={[styles.bigThreeValue, { color: palette.text }]}>{sign ? toTitle(sign) : 'Unknown'}</Text>
+      <Text style={styles.bigThreeSymbol}>{sign ? SIGN_SYMBOLS[sign] : '—'}</Text>
+      <Text style={[styles.bigThreeValue, { color: palette.text }]}>
+        {sign ? t(`zodiac.${sign}`) : t('chart.unknown')}
+      </Text>
+    </View>
+  );
+}
+
+function AspectRow({
+  aspect,
+  palette,
+}: {
+  aspect: Aspect;
+  palette: { text: string; textMuted: string };
+}): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <View style={styles.aspectRow}>
+      <View style={styles.aspectGlyphs}>
+        <Text style={[styles.aspectPlanet, { color: palette.text }]}>{planetSymbol(aspect.body1)}</Text>
+        <Text style={[styles.aspectSymbol, { color: aspectColor(aspect.type) }]}>{aspectSymbol(aspect.type)}</Text>
+        <Text style={[styles.aspectPlanet, { color: palette.text }]}>{planetSymbol(aspect.body2)}</Text>
+      </View>
+      <Text style={[styles.aspectText, { color: palette.text }]} numberOfLines={2}>
+        {t(`planets.${aspect.body1}`)} {t(`aspects.types.${aspect.type}`)} {t(`planets.${aspect.body2}`)}
+      </Text>
+      <Text style={[styles.aspectOrb, { color: palette.textMuted }]}>
+        {t('chart.orb')} {aspect.orb.toFixed(1)}°
+      </Text>
     </View>
   );
 }
@@ -344,16 +337,18 @@ function HouseCard({
   glassCardStyle: { backgroundColor: string; borderColor: string; borderWidth: number };
   palette: { text: string; textMuted: string };
 }): React.JSX.Element {
-  const info = HOUSE_DESCRIPTIONS[houseNumber] ?? { title: 'House focus', description: 'Core area of life expression.' };
+  const { t } = useI18n();
+  const title = t(`chart.house.${houseNumber}.title` as TranslationKey);
+  const description = t(`chart.house.${houseNumber}.desc` as TranslationKey);
   return (
     <View style={[styles.houseCard, glassCardStyle]}>
       <View style={styles.houseBadge}>
         <Text style={styles.houseBadgeText}>{ordinal(houseNumber)}</Text>
       </View>
       <View style={styles.houseBody}>
-        <Text style={[styles.houseTitle, { color: palette.text }]}>{info.title}</Text>
-        <Text style={[styles.houseMeta, { color: palette.textMuted }]}>Ruled by {toTitle(sign)}</Text>
-        <Text style={[styles.houseDesc, { color: palette.text }]}>{info.description}</Text>
+        <Text style={[styles.houseTitle, { color: palette.text }]}>{title}</Text>
+        <Text style={[styles.houseMeta, { color: palette.textMuted }]}>{t('chart.ruledBy', { sign: t(`zodiac.${sign}`) })}</Text>
+        <Text style={[styles.houseDesc, { color: palette.text }]}>{description}</Text>
       </View>
     </View>
   );
@@ -368,6 +363,8 @@ function PlanetPlacementCard({
   glassCardStyle: { backgroundColor: string; borderColor: string; borderWidth: number };
   palette: { text: string; textMuted: string };
 }): React.JSX.Element {
+  const { t } = useI18n();
+  const signName = t(`zodiac.${planet.sign}`);
   return (
     <View style={[styles.planetCard, glassCardStyle]}>
       <View style={styles.planetIconWrap}>
@@ -375,15 +372,15 @@ function PlanetPlacementCard({
       </View>
       <View style={styles.planetBody}>
         <View style={styles.planetTitleRow}>
-          <Text style={[styles.planetName, { color: palette.text }]}>{planet.name}</Text>
-          <Text style={[styles.planetKeyword, { color: palette.textMuted }]}>{PLANET_KEYWORDS[planet.name] ?? 'influence'}</Text>
+          <Text style={[styles.planetName, { color: palette.text }]}>{t(`planets.${planet.name}`)}</Text>
+          <Text style={[styles.planetKeyword, { color: palette.textMuted }]}>{t(`chart.keyword.${planet.name}`)}</Text>
         </View>
         <Text style={[styles.planetLine, { color: palette.text }]}>
-          {toTitle(planet.sign)} {planet.degreeInSign.toFixed(1)}° {planet.retrograde ? '℞' : ''}
+          {signName} {planet.degreeInSign.toFixed(1)}° {planet.retrograde ? '℞' : ''}
         </Text>
         <View style={styles.chipsRow}>
-          <Chip label={toTitle(planet.sign)} />
-          <Chip label={`House ${planet.house ?? '—'}`} />
+          <Chip label={signName} />
+          <Chip label={t('chart.houseLabel', { house: planet.house ?? '—' })} />
         </View>
       </View>
     </View>
@@ -407,28 +404,45 @@ function ChartWheel({
 }): React.JSX.Element {
   const size = 286;
   const center = size / 2;
-  const hubRadius = 26;
-  const planetRadius = 104;
-  const signRadius = 132;
-  const dividerEndRadius = 124;
-  const dividerStartRadius = hubRadius + 10;
+  const signRadius = 120;
+  const planetRadius = 94;
+  const dividerOuter = 112;
+  const dividerInner = 34;
+  const houseNumRadius = 54;
+
+  // Anchor the Ascendant (1st-house cusp) to the left horizon and run the zodiac
+  // counterclockwise — the same orientation the web `NatalChartWheel` uses. `polar`
+  // works in screen space (y grows downward) so the `- sin` flips it counterclockwise.
+  const ascendant = chart.houses[0]?.longitude ?? 0;
+  const rotate = 180 - ascendant;
+  const polar = (deg: number, r: number): { x: number; y: number } => {
+    const rad = (deg * Math.PI) / 180;
+    return { x: center + r * Math.cos(rad), y: center - r * Math.sin(rad) };
+  };
 
   const houseDividers = chart.houses.map((house, index) => {
-    const angle = (house.longitude / 360) * Math.PI * 2 - Math.PI / 2;
-    const startX = center + Math.cos(angle) * dividerStartRadius;
-    const startY = center + Math.sin(angle) * dividerStartRadius;
-    const endX = center + Math.cos(angle) * dividerEndRadius;
-    const endY = center + Math.sin(angle) * dividerEndRadius;
-    const dx = endX - startX;
-    const dy = endY - startY;
+    const angle = house.longitude + rotate;
+    const start = polar(angle, dividerInner);
+    const end = polar(angle, dividerOuter);
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
     const length = Math.sqrt(dx * dx + dy * dy);
     const rotation = Math.atan2(dy, dx);
+    const next = chart.houses[(index + 1) % chart.houses.length];
+    const startDeg = house.longitude;
+    const endDeg = next ? next.longitude : house.longitude + 30;
+    const normalizedEnd = endDeg <= startDeg ? endDeg + 360 : endDeg;
+    const midDeg = (startDeg + normalizedEnd) / 2 + rotate;
+    const numPos = polar(midDeg, houseNumRadius);
     return {
       key: `${house.number}-${index}`,
-      left: (startX + endX) / 2 - length / 2,
-      top: (startY + endY) / 2,
+      left: (start.x + end.x) / 2 - length / 2,
+      top: (start.y + end.y) / 2,
       length,
       rotation,
+      number: house.number,
+      numLeft: numPos.x - 7,
+      numTop: numPos.y - 8,
     };
   });
 
@@ -456,27 +470,28 @@ function ChartWheel({
           />
         ))}
 
-        {chart.houses.map((house, index) => {
-          const next = chart.houses[(index + 1) % chart.houses.length];
-          const startAngle = (house.longitude / 360) * Math.PI * 2;
-          const endAngle = (next?.longitude ?? house.longitude) / 360 * Math.PI * 2;
-          const normalizedEnd = endAngle <= startAngle ? endAngle + Math.PI * 2 : endAngle;
-          const midAngle = (startAngle + normalizedEnd) / 2 - Math.PI / 2;
-          const x = center + Math.cos(midAngle) * signRadius;
-          const y = center + Math.sin(midAngle) * signRadius;
+        {houseDividers.map((divider) => (
+          <Text
+            key={`num-${divider.key}`}
+            style={[styles.houseNumber, isLight && styles.houseNumberLight, { left: divider.numLeft, top: divider.numTop }]}
+          >
+            {divider.number}
+          </Text>
+        ))}
+
+        {SIGN_ORDER.map((sign, i) => {
+          const pos = polar(i * 30 + 15 + rotate, signRadius);
           return (
-            <Text key={`sign-${house.number}`} style={[styles.zodiacGlyph, isLight && styles.zodiacGlyphLight, { left: x - 9, top: y - 10 }]}>
-              {SIGN_SYMBOLS[house.sign]}
+            <Text key={`sign-${sign}`} style={[styles.zodiacGlyph, isLight && styles.zodiacGlyphLight, { left: pos.x - 9, top: pos.y - 10 }]}>
+              {SIGN_SYMBOLS[sign]}
             </Text>
           );
         })}
 
         {chart.planets.slice(0, 10).map((planet, index) => {
-          const angle = (planet.longitude / 360) * Math.PI * 2 - Math.PI / 2;
-          const x = center + Math.cos(angle) * planetRadius;
-          const y = center + Math.sin(angle) * planetRadius;
+          const pos = polar(planet.longitude + rotate, planetRadius);
           return (
-            <Text key={`${planet.name}-${index}`} style={[styles.planetGlyph, isLight && styles.planetGlyphLight, { left: x - 9, top: y - 11 }]}>
+            <Text key={`${planet.name}-${index}`} style={[styles.planetGlyph, isLight && styles.planetGlyphLight, { left: pos.x - 9, top: pos.y - 11 }]}>
               {planetSymbol(planet.name)}
             </Text>
           );
@@ -484,11 +499,6 @@ function ChartWheel({
       </View>
     </View>
   );
-}
-
-function toTitle(value: string): string {
-  if (!value) return value;
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
 function ordinal(value: number): string {
@@ -569,10 +579,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(211, 213, 255, 0.22)',
   },
   shareIcon: { color: '#EAEAFE', fontSize: 19, fontWeight: '700' },
-  summaryCard: { borderRadius: 18, padding: spacing.md, gap: spacing.sm },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryLabel: { color: '#B7BDE8', fontWeight: '600', fontSize: 14 },
-  summaryValue: { color: '#F1F3FF', fontWeight: '700', fontSize: 16 },
   todaySkyPanel: { borderRadius: 18, padding: spacing.md, gap: spacing.sm },
   todaySkyKicker: {
     fontSize: 12,
@@ -683,6 +689,17 @@ const styles = StyleSheet.create({
   houseDividerLight: {
     backgroundColor: 'rgba(86, 94, 163, 0.3)',
   },
+  houseNumber: {
+    position: 'absolute',
+    color: 'rgba(255,255,255,0.42)',
+    fontSize: 10,
+    fontWeight: '700',
+    width: 14,
+    textAlign: 'center',
+  },
+  houseNumberLight: {
+    color: 'rgba(70, 78, 140, 0.6)',
+  },
   zodiacGlyph: {
     position: 'absolute',
     color: '#A8C9FF',
@@ -704,22 +721,26 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(113, 126, 214, 0.25)',
   },
   bigThreeRow: { flexDirection: 'row', gap: spacing.sm },
-  bigThreeCard: { flex: 1, borderRadius: 14, paddingVertical: spacing.sm, paddingHorizontal: spacing.sm },
+  bigThreeCard: { flex: 1, borderRadius: 14, paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, alignItems: 'center' },
   bigThreeLabel: { color: '#AEB6E9', fontSize: 12, marginBottom: 4, fontWeight: '700' },
+  bigThreeSymbol: { color: '#E8D48B', fontSize: 26, lineHeight: 30, marginBottom: 2 },
   bigThreeValue: { color: '#F4F6FF', fontSize: 15, fontWeight: '700' },
-  cta: {
-    marginTop: spacing.xs,
-    minHeight: MIN_TOUCH,
-    borderRadius: 999,
+  aspectsCard: { borderRadius: 18, padding: spacing.md, gap: spacing.xs },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: spacing.xs },
+  aspectEmpty: { fontSize: 14, fontWeight: '600' },
+  aspectRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#9E8BFF',
-    shadowOpacity: 0.34,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
+    gap: spacing.sm,
+    paddingVertical: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(176, 185, 236, 0.18)',
   },
-  ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  aspectGlyphs: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 58 },
+  aspectPlanet: { fontSize: 16 },
+  aspectSymbol: { fontSize: 15, fontWeight: '700' },
+  aspectText: { flex: 1, fontSize: 13, fontWeight: '600' },
+  aspectOrb: { fontSize: 12, fontWeight: '600' },
   error: { color: colors.danger, marginBottom: spacing.xs },
   houseCard: {
     borderRadius: 18,
@@ -777,17 +798,5 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   chipText: { color: '#E8ECFF', fontSize: 12, fontWeight: '600' },
-  secondary: {
-    marginTop: spacing.xs,
-    minHeight: MIN_TOUCH,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(176, 185, 236, 0.32)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryText: { color: colors.accent, fontWeight: '600', fontSize: 16 },
   pressed: { opacity: 0.85 },
 });

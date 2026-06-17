@@ -7,7 +7,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { CompatibilityScreen } from '../screens/CompatibilityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ChartScreen } from '../screens/ChartScreen';
-import { ExploreScreen } from '../screens/ExploreScreen';
+import { TarotScreen } from '../screens/TarotScreen';
 import { useSanctuaryTheme } from '../components/home/sanctuaryTheme';
 import { MIN_TOUCH, spacing } from '../theme';
 import { useAppearance } from '../hooks/useAppearance';
@@ -19,7 +19,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const GLYPH_HOME = '\u2302'; // ⌂
 const GLYPH_READINGS = '\u2726'; // ✦
 const GLYPH_CHART = '\u2299'; // ⊙
-const GLYPH_EXPLORE = '\u2606'; // ☆ outline star
+const GLYPH_TAROT = '\u2727'; // ☆ outline star
 
 type TabBarIconProps = { focused: boolean; color: string; size: number };
 
@@ -46,7 +46,7 @@ function tabIcon(glyph: string): (props: TabBarIconProps) => ReactElement {
 const iconHome = tabIcon(GLYPH_HOME);
 const iconReadings = tabIcon(GLYPH_READINGS);
 const iconChart = tabIcon(GLYPH_CHART);
-const iconExplore = tabIcon(GLYPH_EXPLORE);
+const iconTarot = tabIcon(GLYPH_TAROT);
 const iconProfile = tabIcon('\uD83D\uDC64');
 
 export function MainTabs(): ReactElement {
@@ -133,13 +133,13 @@ export function MainTabs(): ReactElement {
         }}
       />
       <Tab.Screen
-        name="Explore"
-        component={ExploreScreen}
+        name="Tarot"
+        component={TarotScreen}
         options={{
-          title: t('tabs.explore'),
-          tabBarLabel: t('tabs.explore'),
-          tabBarIcon: iconExplore,
-          tabBarAccessibilityLabel: t('tabs.exploreA11y'),
+          title: t('tabs.tarot'),
+          tabBarLabel: t('tabs.tarot'),
+          tabBarIcon: iconTarot,
+          tabBarAccessibilityLabel: t('tabs.tarotA11y'),
         }}
       />
       <Tab.Screen

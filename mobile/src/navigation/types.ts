@@ -39,7 +39,7 @@ export type MainTabParamList = {
     | undefined;
   Chart: undefined;
   Profile: undefined;
-  Explore: undefined;
+  Tarot: undefined;
 };
 
 export type RootStackNav = NativeStackNavigationProp<RootStackParamList>;

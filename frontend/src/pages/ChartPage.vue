@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useProfile } from '../composables/useProfile';
+import { useAuth } from '../composables/useAuth';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
+import GuestResultGate from '../components/GuestResultGate.vue';
 import NatalChartWheel from '../components/NatalChartWheel.vue';
 import PlanetTable from '../components/PlanetTable.vue';
 import AspectList from '../components/AspectList.vue';
@@ -9,9 +12,15 @@ import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
 import { getZodiacInfo } from '../lib/zodiac';
 
-const { profile, loading, error, load, recompute } = useProfile();
+const { t } = useI18n();
+const { profile, loading, error, load } = useProfile();
+const { isAuthenticated } = useAuth();
 
-onMounted(load);
+// The natal chart is built from the signed-in user's birth data, so guests see a
+// preview gate instead of an empty chart they could never compute.
+onMounted(() => {
+  if (isAuthenticated.value) void load();
+});
 
 const sunInfo = computed(() =>
   profile.value?.natalChart ? getZodiacInfo(profile.value.natalChart.sunSign) : null,
@@ -27,50 +36,53 @@ const risingInfo = computed(() =>
 <template>
   <AppContainer size="xl">
     <ScreenLayout class="chart-page">
-      <LoadingSpinner v-if="loading && !profile" label="Loading chart" />
+      <GuestResultGate v-if="!isAuthenticated" :message="t('guestGate.chartTitle')" />
+
+      <template v-else>
+      <LoadingSpinner v-if="loading && !profile" :label="t('chart.loading')" />
       <p v-if="error" class="state error">{{ error }}</p>
-      <p v-if="!loading && !profile && !error" class="state">No chart data available.</p>
+      <p v-if="!loading && !profile && !error" class="state">{{ t('chart.noData') }}</p>
 
       <template v-if="profile?.natalChart">
         <section class="glass-card chart-header">
-          <h1>Natal Chart</h1>
-          <button class="secondary-btn" :disabled="loading" @click="recompute">Recompute chart</button>
+          <h1>{{ t('chart.title') }}</h1>
         </section>
 
         <section class="big-three">
           <div class="big-card glass-card">
-            <p class="big-label">Sun</p>
+            <p class="big-label">{{ t('chart.sun') }}</p>
             <p class="big-symbol" :style="{ color: '#e8d48b' }">{{ sunInfo?.symbol }}</p>
-            <p class="big-sign-name">{{ sunInfo?.name || '' }}</p>
+            <p class="big-sign-name">{{ sunInfo ? t(`zodiac.${sunInfo.key}`) : '' }}</p>
           </div>
           <div class="big-card glass-card">
-            <p class="big-label">Moon</p>
+            <p class="big-label">{{ t('chart.moon') }}</p>
             <p class="big-symbol" :style="{ color: '#9ec6ff' }">{{ moonInfo?.symbol }}</p>
-            <p class="big-sign-name">{{ moonInfo?.name || '' }}</p>
+            <p class="big-sign-name">{{ moonInfo ? t(`zodiac.${moonInfo.key}`) : '' }}</p>
           </div>
           <div class="big-card glass-card">
-            <p class="big-label">Rising</p>
+            <p class="big-label">{{ t('chart.rising') }}</p>
             <p v-if="risingInfo" class="big-symbol" :style="{ color: '#ff8a5c' }">{{ risingInfo.symbol }}</p>
             <p v-else class="big-symbol muted">—</p>
-            <p class="big-sign-name">{{ risingInfo?.name || 'Unknown' }}</p>
+            <p class="big-sign-name">{{ risingInfo ? t(`zodiac.${risingInfo.key}`) : t('chart.unknown') }}</p>
           </div>
         </section>
 
         <section class="chart-grid">
           <div class="glass-card chart-section">
-            <h2 class="section-title">Natal chart wheel</h2>
+            <h2 class="section-title">{{ t('chart.wheel') }}</h2>
             <NatalChartWheel :chart="profile.natalChart" />
           </div>
           <div class="glass-card chart-section">
-            <h2 class="section-title">Planetary positions</h2>
+            <h2 class="section-title">{{ t('chart.positions') }}</h2>
             <PlanetTable :planets="profile.natalChart.planets" />
           </div>
         </section>
 
         <section class="glass-card aspect-section">
-          <h2 class="section-title">Aspects</h2>
+          <h2 class="section-title">{{ t('chart.aspects') }}</h2>
           <AspectList :aspects="profile.natalChart.aspects" />
         </section>
+      </template>
       </template>
     </ScreenLayout>
   </AppContainer>
@@ -93,18 +105,6 @@ const risingInfo = computed(() =>
   font-family: var(--font-display);
   font-size: 1.45rem;
   color: var(--text-primary);
-}
-.secondary-btn {
-  min-height: 42px;
-  padding: 0.62rem 1rem;
-  border-radius: 10px;
-  cursor: pointer;
-  border: 1px solid var(--gold);
-  font-size: 0.82rem;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  background: transparent;
-  color: var(--gold);
 }
 .big-three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 .big-card { padding: 1.4rem; text-align: center; }
