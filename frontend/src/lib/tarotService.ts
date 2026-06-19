@@ -1,5 +1,5 @@
 import { apiRequest, ApiClientError } from './apiClient';
-import type { TarotApiResponse, ZodiacSign } from './types';
+import type { TarotApiResponse, TarotPublicCard, ZodiacSign } from './types';
 
 export interface FetchTarotParams {
   sign: ZodiacSign;
@@ -29,6 +29,23 @@ export async function fetchTarotDaily(params: FetchTarotParams): Promise<TarotAp
     auth: true,
     localized: false,
   });
+}
+
+/**
+ * Free-draw ("ask the cards"): a fresh random card on every call. Not tied to a
+ * sign/date and never cached — the server reshuffles each request.
+ */
+export async function fetchTarotDraw(params?: { lang?: string }): Promise<TarotPublicCard> {
+  const q = new URLSearchParams();
+  if (params?.lang != null && String(params.lang).trim() !== '') {
+    q.set('lang', tarotApiLang(params.lang));
+  }
+  const qs = q.toString();
+  const res = await apiRequest<{ card: TarotPublicCard }>(`/api/tarot/draw${qs ? `?${qs}` : ''}`, {
+    auth: true,
+    localized: false,
+  });
+  return res.card;
 }
 
 export function isTarotNotFound(err: unknown): boolean {

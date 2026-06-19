@@ -291,6 +291,14 @@ export interface TarotPublicCard {
   arcana: 'Major' | 'Minor';
   orientation: 'Upright' | 'Reversed';
   core_meaning: string;
+  /** Card art URL (empty string when none). */
+  image: string;
+  /** Short keyword tags for the drawn card. */
+  keywords: string[];
+  /** One-line imagery/essence of the card. */
+  description: string;
+  /** Orientation-aware meaning (upright vs reversed). */
+  meaning: string;
 }
 
 /** Canonical alias for public tarot card DTO. */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useProfile } from '../composables/useProfile';
 import { useAuth } from '../composables/useAuth';
@@ -31,6 +31,9 @@ const moonInfo = computed(() =>
 const risingInfo = computed(() =>
   profile.value?.natalChart?.risingSign ? getZodiacInfo(profile.value.natalChart.risingSign) : null,
 );
+
+// Aspects are dense; let users collapse the list if they'd rather not see all of it.
+const showAspects = ref(true);
 </script>
 
 <template>
@@ -79,8 +82,18 @@ const risingInfo = computed(() =>
         </section>
 
         <section class="glass-card aspect-section">
-          <h2 class="section-title">{{ t('chart.aspects') }}</h2>
-          <AspectList :aspects="profile.natalChart.aspects" />
+          <div class="aspect-head">
+            <h2 class="section-title">{{ t('chart.aspects') }}</h2>
+            <button
+              type="button"
+              class="aspect-toggle"
+              :aria-expanded="showAspects"
+              @click="showAspects = !showAspects"
+            >
+              {{ showAspects ? t('chart.aspectsHide') : t('chart.aspectsShow') }}
+            </button>
+          </div>
+          <AspectList v-if="showAspects" :aspects="profile.natalChart.aspects" />
         </section>
       </template>
       </template>
@@ -121,6 +134,42 @@ const risingInfo = computed(() =>
   margin-bottom: 1rem;
   border-bottom: 1px solid var(--glass-border);
   padding-bottom: 0.5rem;
+}
+.aspect-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 0.5rem;
+}
+.aspect-head .section-title {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.aspect-toggle {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-bottom: 0.4rem;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: rgba(15, 15, 40, 0.55);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.aspect-toggle:hover {
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+}
+.aspect-toggle:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 @media (max-width: 900px) {
   .big-three, .chart-grid { grid-template-columns: 1fr; }

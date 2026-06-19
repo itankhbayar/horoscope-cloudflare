@@ -280,6 +280,20 @@ input.form-input {
   min-height: 44px;
 }
 
+/* Native <select> popups inherit the OS default (white) unless given a solid
+   background; use a solid elevated indigo (not black/white) for readability. */
+select.form-input {
+  background-color: #211f3d;
+  color: var(--text-primary);
+}
+select.form-input option {
+  background-color: #211f3d;
+  color: var(--text-primary);
+}
+select.form-input option:checked {
+  background-color: #2e2a52;
+}
+
 .screen-title {
   font-family: var(--font-display);
   font-size: var(--text-xl);

@@ -91,6 +91,13 @@ const copy = computed(() => ({
   invalidTime: isMn.value ? 'Төрсөн цаг HH:MM хэлбэртэй байх эсвэл хоосон үлдээж болно.' : 'Use HH:MM for birth time, or leave it blank.',
 }));
 
+// Preserve a guest's intended destination when they came from a locked feature.
+const redirectTarget = computed(() => {
+  const raw = route.query.redirect;
+  const path = Array.isArray(raw) ? raw[0] : raw;
+  return typeof path === 'string' && path.startsWith('/') && !path.startsWith('//') ? path : '';
+});
+
 const canReportMissingCity = computed(
   () => birthCity.value.trim().length >= 2 && !selectedCity.value && suggestions.value.length === 0 && showSuggestions.value,
 );
@@ -262,7 +269,7 @@ async function handleRegister(): Promise<void> {
     completed.value = true;
     track('account_created_after_value', { method: 'email', hasBirthProfile: true });
     track('preview_account_created', { method: 'email', hasBirthProfile: true });
-    router.push('/');
+    router.push(redirectTarget.value || '/');
   } catch (err) {
     errorMsg.value = formatRegisterApiError(err, locale.value);
   } finally {

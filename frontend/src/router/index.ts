@@ -38,11 +38,13 @@ const router = createRouter({
     { path: '/', redirect: '/today' },
     { path: '/welcome', name: 'landing', component: pages.LandingPage, meta: { seoCritical: true } },
     { path: '/today', name: 'home', component: pages.HomePage, meta: { guestAllowed: true } },
-    { path: '/chart', name: 'chart', component: pages.ChartPage, meta: { requiresAuth: true } },
+    // Guests may browse these features and fill in the inputs; the result itself is
+    // gated in-page (GuestResultGate) so they discover the value before signing up.
+    { path: '/chart', name: 'chart', component: pages.ChartPage, meta: { guestAllowed: true } },
     { path: '/profile', name: 'profile', component: pages.ProfilePage, meta: { requiresAuth: true } },
-    { path: '/compatibility', name: 'compatibility', component: pages.CompatibilityPage, meta: { requiresAuth: true } },
-    { path: '/tarot', name: 'tarot', component: pages.TarotPage, meta: { requiresAuth: true } },
-    { path: '/premium', name: 'premium', component: pages.PremiumPage, meta: { requiresAuth: true } },
+    { path: '/compatibility', name: 'compatibility', component: pages.CompatibilityPage, meta: { guestAllowed: true } },
+    { path: '/tarot', name: 'tarot', component: pages.TarotPage, meta: { guestAllowed: true } },
+    { path: '/premium', name: 'premium', component: pages.PremiumPage, meta: { guestAllowed: true } },
     {
       path: '/premium/success',
       name: 'premium-success',
@@ -69,7 +71,11 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
   if (!auth.initialized) await auth.bootstrap();
-  if (to.meta.requiresAuth && !auth.isAuthenticated) return { name: 'login' };
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    // Remember where the guest was headed so login/register can return them
+    // to the feature they tapped instead of dropping them on the daily reading.
+    return { name: 'login', query: { redirect: to.fullPath } };
+  }
   if (to.meta.guest && auth.isAuthenticated) {
     const validSession = await auth.validateGuestSession();
     if (validSession) return { name: 'home' };

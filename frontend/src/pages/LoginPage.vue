@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth';
 
 const router = useRouter();
+const route = useRoute();
 const { t } = useI18n();
 const { login } = useAuth();
 
@@ -13,12 +14,20 @@ const password = ref('');
 const errorMsg = ref('');
 const isLoading = ref(false);
 
+// A guest who tapped a locked feature arrives here with ?redirect=/that-feature.
+const redirectTarget = computed(() => {
+  const raw = route.query.redirect;
+  const path = Array.isArray(raw) ? raw[0] : raw;
+  // Only honor in-app paths so the query can't bounce users to an external URL.
+  return typeof path === 'string' && path.startsWith('/') && !path.startsWith('//') ? path : '';
+});
+
 async function handleLogin(): Promise<void> {
   errorMsg.value = '';
   isLoading.value = true;
   try {
     await login({ email: email.value, password: password.value });
-    router.push('/');
+    router.push(redirectTarget.value || '/');
   } catch (err) {
     errorMsg.value = (err as Error).message;
   } finally {
@@ -36,7 +45,9 @@ async function handleLogin(): Promise<void> {
       </div>
 
       <h1 class="auth-title">{{ t('auth.welcomeBack') }}</h1>
-      <p class="auth-subtitle">{{ t('auth.stepIntoCosmos') }}</p>
+      <p class="auth-subtitle">
+        {{ redirectTarget ? t('auth.signInToContinue') : t('auth.stepIntoCosmos') }}
+      </p>
 
       <form @submit.prevent="handleLogin" class="auth-form">
         <div class="form-group">
@@ -70,7 +81,9 @@ async function handleLogin(): Promise<void> {
 
       <p class="auth-link">
         {{ t('auth.newToStars') }}
-        <router-link to="/register">{{ t('auth.createAccount') }}</router-link>
+        <router-link :to="redirectTarget ? { name: 'register', query: { redirect: redirectTarget } } : '/register'">
+          {{ t('auth.createAccount') }}
+        </router-link>
       </p>
     </div>
   </div>

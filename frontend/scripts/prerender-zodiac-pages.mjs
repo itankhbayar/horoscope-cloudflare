@@ -331,7 +331,7 @@ function landingStaticMarkup() {
       <p class="kicker">Sample reading</p>
       <h2>A calmer way to read the day</h2>
       <p>With the Moon emphasizing reflection while the Sun steadies your daily rhythm, today may feel less like a push forward and more like a careful recalibration. Notice where your chart asks for precision before momentum.</p>
-      <p><a href="/register">Start your chart</a> <a href="/horoscope/aries/today">Explore today's sky</a></p>
+      <p><a href="/register">Login</a> <a href="/horoscope/aries/today">Explore today's sky</a></p>
     </section>
   </main>`;
 }

@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import LockedFeatureCard from '../components/LockedFeatureCard.vue';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
 import { usePremiumStore } from '../stores/premium';
+import { useAuth } from '../composables/useAuth';
 import { track, PAYWALL_CTA_EVENT } from '../lib/analytics';
 
 const { t } = useI18n();
+const router = useRouter();
+const { isAuthenticated } = useAuth();
 const premiumStore = usePremiumStore();
 const { checkoutLoading, error: checkoutError, isPremium } = storeToRefs(premiumStore);
 
@@ -24,6 +28,13 @@ const trialFeatures = computed(() => [
 ]);
 
 async function goPremium() {
+  // Checkout needs an account, so a guest tapping the trial CTA is routed to sign-up
+  // and returned to /premium afterwards to finish starting their trial.
+  if (!isAuthenticated.value) {
+    track(PAYWALL_CTA_EVENT, { source: 'premium_page', hasTrial: true, guest: true });
+    void router.push({ name: 'register', query: { redirect: '/premium' } });
+    return;
+  }
   // CTA tap only. The real `trial_started` is emitted by the Stripe webhook once the
   // subscription is confirmed `trialing`, so we never double-count from the client.
   track(PAYWALL_CTA_EVENT, { source: 'premium_page', hasTrial: true });
@@ -132,7 +143,9 @@ track('paywall_viewed', { isPremium: isPremium.value });
   grid-template-columns: repeat(3, 1fr);
   gap: 1.2rem;
 }
-@media (max-width: 800px) { .features-grid { grid-template-columns: 1fr; } }
+/* Keep the three Unlock Premium cards on a single row, tightening the gap on
+   narrow screens so they stay side by side instead of stacking. */
+@media (max-width: 800px) { .features-grid { gap: 0.6rem; } }
 .cta {
   text-align: center;
   padding: 2.5rem 2rem;
@@ -147,6 +160,8 @@ track('paywall_viewed', { isPremium: isPremium.value });
   margin-bottom: 1.5rem;
 }
 .cta .btn-celestial.go-premium {
+  display: block;
+  width: 100%;
   max-width: 320px;
   margin: 0 auto;
 }
@@ -159,10 +174,11 @@ track('paywall_viewed', { isPremium: isPremium.value });
   list-style: none;
   margin: 0 auto 1.5rem;
   padding: 0;
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.6rem;
-  text-align: left;
+  text-align: center;
 }
 .trial-features li {
   display: flex;
@@ -179,5 +195,37 @@ track('paywall_viewed', { isPremium: isPremium.value });
   margin-top: 1rem;
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+
+/* Compact the locked feature cards so all three fit on one row on phones. */
+@media (max-width: 800px) {
+  .features-grid :deep(.locked-card) {
+    padding: 1rem 0.6rem 1.1rem;
+    min-height: 0;
+  }
+  .features-grid :deep(.locked-card .icon) {
+    font-size: 1.7rem;
+  }
+  .features-grid :deep(.locked-card h3) {
+    font-size: 0.92rem;
+  }
+  .features-grid :deep(.locked-card p) {
+    font-size: 0.74rem;
+    line-height: 1.45;
+  }
+  .features-grid :deep(.lock-overlay) {
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.55rem;
+  }
+  .features-grid :deep(.lock-overlay .lock-icon) {
+    display: none;
+  }
+  .features-grid :deep(.upgrade-btn) {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.5px;
+  }
 }
 </style>

@@ -64,6 +64,13 @@ const navLinks = computed(() => [
   { to: '/profile', label: t('nav.profile'), icon: '☽' },
 ].map((link) => (link.to === '/' ? { ...link, to: '/today' } : link)));
 
+// Guests see the same feature links so they can discover what the app offers.
+// The "Profile" link is account-specific, so it's hidden until they sign in;
+// every other link routes through the auth guard, which prompts them to log in.
+const visibleNavLinks = computed(() =>
+  isAuthenticated.value ? navLinks.value : navLinks.value.filter((link) => link.to !== '/profile'),
+);
+
 const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? '');
 const isGuestRoute = computed(() => Boolean(route.meta.guest));
 const mobileMenuOpen = ref(false);
@@ -97,7 +104,7 @@ watch(
       <div class="nav-right" />
     </nav>
 
-    <nav v-else-if="isAuthenticated" class="navbar">
+    <nav v-else class="navbar">
       <router-link to="/today" class="nav-brand">
         <span class="brand-orb" aria-hidden="true">✦</span>
         <span class="brand-text">{{ t('app.name') }}</span>
@@ -105,7 +112,7 @@ watch(
 
       <div class="nav-center desktop-nav">
         <router-link
-          v-for="link in navLinks"
+          v-for="link in visibleNavLinks"
           :key="link.to"
           :to="link.to"
           class="nav-link"
@@ -119,11 +126,17 @@ watch(
       <div class="nav-right">
         <div class="nav-desktop-actions">
           <LanguageSwitcher />
-          <span class="nav-user">
-            <span class="user-icon">☽</span>
-            {{ firstName }}
-          </span>
-          <button @click="handleLogout" class="logout-btn">{{ t('nav.signOut') }}</button>
+          <template v-if="isAuthenticated">
+            <span class="nav-user">
+              <span class="user-icon">☽</span>
+              {{ firstName }}
+            </span>
+            <button @click="handleLogout" class="logout-btn">{{ t('nav.signOut') }}</button>
+          </template>
+          <template v-else>
+            <router-link to="/login" class="guest-link">{{ t('nav.login') }}</router-link>
+            <router-link to="/register" class="guest-cta">{{ t('nav.register') }}</router-link>
+          </template>
         </div>
 
         <button class="menu-btn" :aria-expanded="mobileMenuOpen" @click="toggleMobileMenu">
@@ -136,7 +149,7 @@ watch(
       <div v-if="mobileMenuOpen" class="mobile-menu">
         <div class="mobile-nav-links">
           <router-link
-            v-for="link in navLinks"
+            v-for="link in visibleNavLinks"
             :key="link.to"
             :to="link.to"
             class="mobile-nav-link"
@@ -149,26 +162,24 @@ watch(
 
         <div class="mobile-menu-actions">
           <LanguageSwitcher />
-          <span class="mobile-user">
-            <span class="user-icon">☽</span>
-            {{ firstName }}
-          </span>
-          <button @click="handleLogout" class="logout-btn mobile-logout">
-            {{ t('nav.signOut') }}
-          </button>
+          <template v-if="isAuthenticated">
+            <span class="mobile-user">
+              <span class="user-icon">☽</span>
+              {{ firstName }}
+            </span>
+            <button @click="handleLogout" class="logout-btn mobile-logout">
+              {{ t('nav.signOut') }}
+            </button>
+          </template>
+          <template v-else>
+            <router-link to="/login" class="guest-link mobile-guest-link">
+              {{ t('nav.login') }}
+            </router-link>
+            <router-link to="/register" class="guest-cta mobile-guest-cta">
+              {{ t('nav.register') }}
+            </router-link>
+          </template>
         </div>
-      </div>
-    </nav>
-
-    <nav v-else class="navbar guest-navbar">
-      <router-link to="/" class="nav-brand">
-        <span class="brand-icon">✦</span>
-        <span class="brand-text">{{ t('app.name') }}</span>
-      </router-link>
-      <div class="nav-right">
-        <LanguageSwitcher />
-        <router-link to="/login" class="guest-link">{{ t('auth.signIn') }}</router-link>
-        <router-link to="/register" class="guest-cta">{{ t('landing.ctaPrimary') }}</router-link>
       </div>
     </nav>
 
@@ -418,9 +429,13 @@ watch(
 
 .menu-btn {
   display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   width: 2.55rem;
   height: 2.55rem;
-  place-items: center;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
@@ -429,11 +444,24 @@ watch(
 
 .menu-btn span {
   display: block;
-  width: 1rem;
+  width: 1.15rem;
   height: 2px;
-  margin: 2px 0;
   border-radius: 999px;
   background: var(--text-secondary);
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+
+/* Morph the three bars into an X while the mobile menu is open. */
+.menu-btn[aria-expanded='true'] span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.menu-btn[aria-expanded='true'] span:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-btn[aria-expanded='true'] span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
 }
 
 .mobile-menu {
@@ -485,6 +513,10 @@ watch(
   font-size: 0.82rem;
 }
 
+.mobile-guest-link {
+  margin-left: auto;
+}
+
 .nav-brand:focus-visible,
 .nav-link:focus-visible,
 .guest-link:focus-visible,
@@ -520,7 +552,7 @@ watch(
   }
 
   .menu-btn {
-    display: inline-grid;
+    display: inline-flex;
   }
 
   .brand-text {

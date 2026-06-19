@@ -2,27 +2,22 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ZODIAC_SIGNS } from '../lib/zodiac';
-import type { ZodiacSign } from '../lib/types';
+import type { TarotPublicCard, ZodiacSign } from '../lib/types';
 import { useTarot } from '../composables/useTarot';
 import { useProfile } from '../composables/useProfile';
+import { useAuth } from '../composables/useAuth';
+import { track } from '../lib/analytics';
+import { tarotService } from '../lib';
 import LoadingSpinner from '../components/LoadingSpinner.vue';
+import GuestResultGate from '../components/GuestResultGate.vue';
+import TarotCardDisplay from '../components/TarotCardDisplay.vue';
 
 const { t, locale } = useI18n();
 const { profile, load: loadProfile } = useProfile();
-const { loading, error, empty, data, load, reset, hasReading } = useTarot();
-
-const showIdlePanel = computed(
-  () => !loading.value && !error.value && !empty.value && data.value === null,
-);
-
-const BASE_TZ = [
-  'Asia/Ulaanbaatar',
-  'UTC',
-  'America/New_York',
-  'Europe/London',
-  'Asia/Tokyo',
-  'Australia/Sydney',
-] as const;
+const { isAuthenticated } = useAuth();
+const { loading, error, empty, data, load, hasReading } = useTarot();
+// Guests can choose a sign, but the reading itself sits behind the gate.
+const showGuestGate = ref(false);
 
 function browserTimeZone(): string {
   try {
@@ -32,77 +27,112 @@ function browserTimeZone(): string {
   }
 }
 
-function localTodayPicker(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+/** Today's calendar date (YYYY-MM-DD) in the given IANA timezone. */
+function todayInTz(tz: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  } catch {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
 }
 
-const timezoneOptions = computed(() => {
-  const b = browserTimeZone();
-  const set = new Set<string>([b, ...BASE_TZ]);
-  return [...set];
-});
-
 const selectedSign = ref<ZodiacSign>('leo');
-const timezone = ref(browserTimeZone());
-const dateStr = ref(localTodayPicker());
 
 const sunSign = computed(() => profile.value?.natalChart?.sunSign ?? null);
 
-const matchesProfileSun = computed(
-  () => Boolean(sunSign.value && selectedSign.value === sunSign.value),
-);
-
-const displayDateLabel = computed(() => {
-  const parts = dateStr.value.split('-').map((x) => Number.parseInt(x, 10));
-  const [y, m, d] = parts;
-  if (!y || !m || !d) return dateStr.value;
-  const dt = new Date(y, m - 1, d);
-  const loc = locale.value === 'mn' ? 'mn-MN' : 'en-US';
-  try {
-    return new Intl.DateTimeFormat(loc, {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(dt);
-  } catch {
-    return dateStr.value;
-  }
-});
+// Reading is always for today, in the profile's timezone (falling back to the browser's).
+const resolvedTimezone = computed(() => profile.value?.user?.timezone?.trim() || browserTimeZone());
+const todayDate = computed(() => todayInTz(resolvedTimezone.value));
 
 onMounted(async () => {
-  await loadProfile();
-  if (sunSign.value) selectedSign.value = sunSign.value;
+  // Authenticated: default to the profile's sun sign before auto-loading today's reading.
+  if (isAuthenticated.value) {
+    await loadProfile();
+    if (sunSign.value) selectedSign.value = sunSign.value;
+  }
+  await reveal();
 });
 
+// Today's reading loads automatically — no manual "draw" step.
 async function reveal(): Promise<void> {
+  if (!isAuthenticated.value) {
+    showGuestGate.value = true;
+    track('guest_result_gate_shown', { surface: 'tarot' });
+    return;
+  }
+  showGuestGate.value = false;
   await load({
     sign: selectedSign.value,
-    timezone: timezone.value,
-    date: dateStr.value,
+    timezone: resolvedTimezone.value,
+    date: todayDate.value,
     lang: locale.value,
   });
 }
 
-watch([() => selectedSign.value, () => timezone.value, () => dateStr.value], () => {
-  reset();
+// Switching sign re-fetches that sign's reading right away.
+watch(() => selectedSign.value, () => {
+  void reveal();
 });
 
 watch(locale, async () => {
   if (hasReading.value) await reveal();
 });
 
-function arcanaLabel(v: 'Major' | 'Minor'): string {
-  return v === 'Major' ? t('tarot.major') : t('tarot.minor');
+// Two modes: the once-a-day card, and a free "ask the cards" draw that reshuffles
+// on every press (server-randomized, never cached).
+type TarotMode = 'daily' | 'draw';
+const mode = ref<TarotMode>('daily');
+const drawnCard = ref<TarotPublicCard | null>(null);
+const drawLoading = ref(false);
+const drawError = ref<string | null>(null);
+
+function selectMode(next: TarotMode): void {
+  if (mode.value === next) return;
+  mode.value = next;
+  if (next === 'draw') showGuestGate.value = !isAuthenticated.value;
+  else if (isAuthenticated.value) showGuestGate.value = false;
 }
 
-function orientationLabel(v: 'Upright' | 'Reversed'): string {
-  return v === 'Upright' ? t('tarot.upright') : t('tarot.reversed');
+async function drawCard(): Promise<void> {
+  if (!isAuthenticated.value) {
+    showGuestGate.value = true;
+    track('guest_result_gate_shown', { surface: 'tarot_draw' });
+    return;
+  }
+  showGuestGate.value = false;
+  drawLoading.value = true;
+  drawError.value = null;
+  try {
+    drawnCard.value = await tarotService.fetchTarotDraw({ lang: locale.value });
+    track('tarot_card_drawn', { surface: 'tarot' });
+  } catch (e) {
+    drawError.value = (e as Error).message ?? t('tarot.errorTitle');
+  } finally {
+    drawLoading.value = false;
+  }
 }
+
+// Re-draw in the new language so a drawn card isn't left in the previous locale.
+watch(locale, async () => {
+  if (mode.value === 'draw' && drawnCard.value) await drawCard();
+});
+
+// Reading is split into pickable sections (like the daily horoscope), so the user
+// chooses what to read instead of scrolling one long stack.
+type TarotSectionKey = 'overview' | 'love' | 'career' | 'energy';
+const activeSection = ref<TarotSectionKey>('overview');
+const sectionTabs = computed(() => [
+  { key: 'overview' as const, label: t('tarot.overview'), icon: '✦', accent: '#c9a84c' },
+  { key: 'love' as const, label: t('tarot.love'), icon: '♡', accent: '#ff6b9c' },
+  { key: 'career' as const, label: t('tarot.career'), icon: '✧', accent: '#9ec6ff' },
+  { key: 'energy' as const, label: t('tarot.energyNarrative'), icon: '⚡', accent: '#f4d98b' },
+]);
 
 </script>
 
@@ -110,130 +140,133 @@ function orientationLabel(v: 'Upright' | 'Reversed'): string {
   <div class="tarot-page">
     <header class="hero">
       <h1 class="title">{{ t('tarot.title') }}</h1>
-      <p class="subtitle">{{ t('tarot.subtitle') }}</p>
     </header>
 
-    <section v-if="showIdlePanel" class="idle-panel glass-card" aria-labelledby="tarot-idle-title">
-      <div class="idle-layout">
-        <div class="idle-visual" aria-hidden="true">
-          <span class="deck-card c1" />
-          <span class="deck-card c2" />
-          <span class="deck-card c3" />
-        </div>
-        <div class="idle-copy">
-          <h2 id="tarot-idle-title" class="idle-title">{{ t('tarot.beforeTitle') }}</h2>
-          <p class="idle-intro">{{ t('tarot.beforeIntro') }}</p>
-          <ol class="idle-steps">
-            <li>{{ t('tarot.beforeStep1') }}</li>
-            <li>{{ t('tarot.beforeStep2') }}</li>
-            <li>{{ t('tarot.beforeStep3') }}</li>
-          </ol>
-        </div>
-      </div>
-      <div class="selection-preview">
-        <span class="preview-label">{{ t('tarot.selectionTitle') }}</span>
-        <div class="preview-chips">
-          <span class="preview-chip">{{ t(`zodiac.${selectedSign}`) }}</span>
-          <span class="preview-chip">{{ displayDateLabel }}</span>
-          <span class="preview-chip">{{ timezone }}</span>
-        </div>
-      </div>
-    </section>
-
-    <form class="controls glass-card" @submit.prevent="reveal">
-      <div class="field">
-        <label class="label" id="tarot-sign-label">{{ t('tarot.signLabel') }}</label>
-        <p v-if="matchesProfileSun" class="profile-hint" role="status">
-          {{ t('tarot.profileSunHint') }}
-        </p>
-        <div class="sign-grid" role="group" aria-labelledby="tarot-sign-label">
-          <button
-            v-for="s in ZODIAC_SIGNS"
-            :key="s.key"
-            type="button"
-            class="sign-pill"
-            :class="{ active: selectedSign === s.key }"
-            :aria-pressed="selectedSign === s.key"
-            @click="selectedSign = s.key"
-          >
-            <span class="sym" aria-hidden="true">{{ s.symbol }}</span>
-            <span class="nm">{{ t(`zodiac.${s.key}`) }}</span>
-          </button>
-        </div>
-      </div>
-      <div class="row-2">
-        <div class="field grow">
-          <label class="label" for="tz">{{ t('tarot.timezoneLabel') }}</label>
-          <select id="tz" v-model="timezone" class="input-like">
-            <option v-for="tz in timezoneOptions" :key="tz" :value="tz">{{ tz }}</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="label" for="dt">{{ t('tarot.dateLabel') }}</label>
-          <input id="dt" v-model="dateStr" type="date" class="input-like" />
-        </div>
-      </div>
+    <nav class="mode-row" :aria-label="t('tarot.modeLabel')">
       <button
-        type="submit"
-        class="primary-btn"
-        :disabled="loading"
-        :aria-busy="loading"
-      >
-        {{ loading ? t('tarot.drawLoading') : t('tarot.draw') }}
-      </button>
-    </form>
+        type="button"
+        class="mode-tab"
+        :class="{ active: mode === 'daily' }"
+        :aria-pressed="mode === 'daily'"
+        @click="selectMode('daily')"
+      >{{ t('tarot.modeDaily') }}</button>
+      <button
+        type="button"
+        class="mode-tab"
+        :class="{ active: mode === 'draw' }"
+        :aria-pressed="mode === 'draw'"
+        @click="selectMode('draw')"
+      >{{ t('tarot.modeDraw') }}</button>
+    </nav>
 
-    <section v-if="loading" class="state-block" role="status" aria-live="polite">
-      <LoadingSpinner />
-      <p class="state-text">{{ t('tarot.loading') }}</p>
-    </section>
+    <GuestResultGate v-if="showGuestGate" :message="t('guestGate.tarotTitle')" />
 
-    <section v-else-if="error" class="state-block glass-card error-card" role="alert">
-      <p class="state-title">{{ t('tarot.errorTitle') }}</p>
-      <p class="state-text">{{ error }}</p>
-    </section>
-
-    <section v-else-if="empty" class="state-block glass-card">
-      <p class="state-title">{{ t('tarot.emptyTitle') }}</p>
-      <p class="state-text">{{ t('tarot.emptyHint') }}</p>
-    </section>
-
-    <section v-else-if="data" class="reading">
-      <div class="chips-row">
-        <span class="chip">{{ t('tarot.energy') }}: {{ data.energyScore }}</span>
-        <span class="chip source">{{ t('tarot.fromCache') }}</span>
+    <!-- Daily card: one precomputed card per sign per day. -->
+    <template v-if="mode === 'daily'">
+      <div class="controls glass-card">
+        <div class="field">
+          <label class="label" id="tarot-sign-label">{{ t('tarot.signLabel') }}</label>
+          <div class="sign-grid" role="group" aria-labelledby="tarot-sign-label">
+            <button
+              v-for="s in ZODIAC_SIGNS"
+              :key="s.key"
+              type="button"
+              class="sign-pill"
+              :class="{ active: selectedSign === s.key }"
+              :aria-pressed="selectedSign === s.key"
+              @click="selectedSign = s.key"
+            >
+              <span class="sym" aria-hidden="true">{{ s.symbol }}</span>
+              <span class="nm">{{ t(`zodiac.${s.key}`) }}</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <article class="card-block glass-card">
-        <h2 class="block-title">{{ t('tarot.cardTitle') }}</h2>
-        <p class="card-name">{{ data.card_of_the_day.name }}</p>
-        <div class="meta-row">
-          <span>{{ t('tarot.arcana') }}: {{ arcanaLabel(data.card_of_the_day.arcana) }}</span>
-          <span>{{ t('tarot.orientation') }}: {{ orientationLabel(data.card_of_the_day.orientation) }}</span>
-        </div>
-        <p class="core">{{ data.card_of_the_day.core_meaning }}</p>
-      </article>
+      <section v-if="loading" class="state-block" role="status" aria-live="polite">
+        <LoadingSpinner />
+        <p class="state-text">{{ t('tarot.loading') }}</p>
+      </section>
 
-      <article class="sections glass-card">
-        <h2 class="block-title">{{ t('tarot.sections') }}</h2>
-        <div class="sec">
-          <h3>{{ t('tarot.overview') }}</h3>
-          <p>{{ data.reading.overview }}</p>
+      <section v-else-if="error" class="state-block glass-card error-card" role="alert">
+        <p class="state-title">{{ t('tarot.errorTitle') }}</p>
+        <p class="state-text">{{ error }}</p>
+      </section>
+
+      <section v-else-if="empty" class="state-block glass-card">
+        <p class="state-title">{{ t('tarot.emptyTitle') }}</p>
+        <p class="state-text">{{ t('tarot.emptyHint') }}</p>
+      </section>
+
+      <section v-else-if="data" class="reading">
+        <TarotCardDisplay :card="data.card_of_the_day" :label="t('tarot.cardTitle')" />
+
+        <div class="energy-block glass-card">
+          <div class="energy-head">
+            <span class="energy-label">{{ t('tarot.energy') }}</span>
+            <span class="energy-value">{{ data.energyScore }}<span class="energy-max">/100</span></span>
+          </div>
+          <div
+            class="energy-track"
+            role="progressbar"
+            :aria-valuenow="data.energyScore"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div class="energy-fill" :style="{ width: data.energyScore + '%' }" />
+          </div>
         </div>
-        <div class="sec">
-          <h3>{{ t('tarot.love') }}</h3>
-          <p>{{ data.reading.love }}</p>
-        </div>
-        <div class="sec">
-          <h3>{{ t('tarot.career') }}</h3>
-          <p>{{ data.reading.career }}</p>
-        </div>
-        <div class="sec">
-          <h3>{{ t('tarot.energyNarrative') }}</h3>
-          <p>{{ data.reading.energy }}</p>
-        </div>
-      </article>
-    </section>
+
+        <article class="sections glass-card">
+          <h2 class="block-title">{{ t('tarot.sections') }}</h2>
+          <div class="tab-row" role="tablist">
+            <button
+              v-for="tab in sectionTabs"
+              :key="tab.key"
+              type="button"
+              role="tab"
+              class="tab"
+              :class="{ active: activeSection === tab.key }"
+              :aria-selected="activeSection === tab.key"
+              :style="activeSection === tab.key ? { '--tab-accent': tab.accent } : {}"
+              @click="activeSection = tab.key"
+            >
+              <span class="tab-icon" :style="{ color: tab.accent }" aria-hidden="true">{{ tab.icon }}</span>
+              <span class="tab-label">{{ tab.label }}</span>
+            </button>
+          </div>
+          <p class="section-body" role="tabpanel">{{ data.reading[activeSection] }}</p>
+        </article>
+      </section>
+    </template>
+
+    <!-- Ask the cards: a fresh random card on every press. -->
+    <template v-else>
+      <section class="draw-block glass-card">
+        <button
+          type="button"
+          class="btn-celestial draw-btn"
+          :disabled="drawLoading"
+          @click="drawCard"
+        >
+          {{ drawLoading ? t('tarot.drawLoading') : (drawnCard ? t('tarot.drawAgain') : t('tarot.drawCta')) }}
+        </button>
+      </section>
+
+      <section v-if="drawLoading" class="state-block" role="status" aria-live="polite">
+        <LoadingSpinner />
+        <p class="state-text">{{ t('tarot.loading') }}</p>
+      </section>
+
+      <section v-else-if="drawError" class="state-block glass-card error-card" role="alert">
+        <p class="state-title">{{ t('tarot.errorTitle') }}</p>
+        <p class="state-text">{{ drawError }}</p>
+      </section>
+
+      <section v-else-if="drawnCard" class="reading">
+        <TarotCardDisplay :card="drawnCard" :label="t('tarot.drawnCardTitle')" />
+      </section>
+    </template>
   </div>
 </template>
 
@@ -254,10 +287,45 @@ function orientationLabel(v: 'Upright' | 'Reversed'): string {
   letter-spacing: 1px;
   margin: 0 0 0.35rem;
 }
-.subtitle {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  margin: 0;
+.mode-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+.mode-tab {
+  flex: 0 0 auto;
+  padding: 0.45rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: rgba(15, 15, 40, 0.55);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.mode-tab:hover { border-color: var(--glass-border-hover); }
+.mode-tab:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.mode-tab.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-glow);
+}
+.draw-block {
+  padding: 1.5rem 1.25rem;
+  margin-bottom: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  text-align: center;
+}
+.draw-btn {
+  max-width: 340px;
 }
 .controls {
   padding: 1.25rem 1.25rem 1.5rem;
@@ -304,190 +372,34 @@ function orientationLabel(v: 'Upright' | 'Reversed'): string {
   cursor: pointer;
   font-family: var(--font-body);
   font-size: 0.65rem;
-  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+.sign-pill:hover {
+  border-color: rgba(201, 168, 76, 0.4);
+  transform: translateY(-1px);
+}
+.sign-pill:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 .sign-pill .sym {
-  font-size: 1rem;
+  font-size: 1.05rem;
   color: var(--gold-dim);
+  transition: color 0.2s, transform 0.2s;
 }
 .sign-pill.active {
-  border-color: var(--glass-border-hover);
+  border-color: rgba(201, 168, 76, 0.55);
   background: var(--gold-glow);
   color: var(--text-primary);
+  box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.35), 0 4px 16px rgba(201, 168, 76, 0.18);
 }
 .sign-pill.active .sym {
   color: var(--gold);
+  transform: scale(1.12);
 }
 .sign-pill .nm {
   line-height: 1.1;
   text-align: center;
-}
-.row-2 {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-@media (min-width: 560px) {
-  .row-2 {
-    flex-direction: row;
-    align-items: flex-end;
-  }
-}
-.input-like {
-  width: 100%;
-  padding: 0.55rem 0.65rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--input-border);
-  background: var(--input-bg);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-}
-.profile-hint {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--gold-light);
-  letter-spacing: 0.02em;
-}
-.primary-btn {
-  align-self: stretch;
-  padding: 0.7rem 1.4rem;
-  border-radius: 999px;
-  border: 1px solid var(--glass-border);
-  background: linear-gradient(135deg, rgba(201, 168, 76, 0.25), rgba(201, 168, 76, 0.08));
-  color: var(--gold-light);
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  cursor: pointer;
-  letter-spacing: 0.5px;
-  transition: opacity 0.2s, transform 0.15s;
-}
-@media (min-width: 560px) {
-  .primary-btn {
-    align-self: flex-start;
-    min-width: 11rem;
-  }
-}
-.primary-btn:not(:disabled):hover {
-  border-color: var(--glass-border-hover);
-}
-.primary-btn:not(:disabled):active {
-  transform: scale(0.98);
-}
-.primary-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.idle-panel {
-  padding: 1.35rem 1.25rem 1.4rem;
-  margin-bottom: 1.25rem;
-}
-.idle-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-@media (min-width: 640px) {
-  .idle-layout {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 1.5rem;
-  }
-}
-.idle-visual {
-  position: relative;
-  flex-shrink: 0;
-  width: 140px;
-  height: 100px;
-  margin: 0 auto;
-}
-@media (min-width: 640px) {
-  .idle-visual {
-    margin: 0;
-  }
-}
-.deck-card {
-  position: absolute;
-  width: 72px;
-  height: 96px;
-  border-radius: 8px;
-  border: 1px solid rgba(201, 168, 76, 0.45);
-  background: linear-gradient(145deg, rgba(30, 24, 40, 0.95), rgba(12, 10, 18, 0.98));
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-}
-.deck-card.c1 {
-  left: 0;
-  top: 4px;
-  transform: rotate(-14deg);
-  z-index: 1;
-}
-.deck-card.c2 {
-  left: 34px;
-  top: 0;
-  transform: rotate(0deg);
-  z-index: 2;
-  border-color: rgba(201, 168, 76, 0.65);
-}
-.deck-card.c3 {
-  left: 68px;
-  top: 4px;
-  transform: rotate(14deg);
-  z-index: 1;
-}
-.idle-title {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem;
-  color: var(--text-primary);
-  letter-spacing: 0.04em;
-}
-.idle-intro {
-  margin: 0 0 0.85rem;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
-}
-.idle-steps {
-  margin: 0;
-  padding-left: 1.2rem;
-  color: var(--text-secondary);
-  font-size: 0.86rem;
-  line-height: 1.65;
-}
-.idle-steps li {
-  margin-bottom: 0.35rem;
-}
-.idle-steps li:last-child {
-  margin-bottom: 0;
-}
-.selection-preview {
-  margin-top: 1.25rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-.preview-label {
-  display: block;
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--text-muted);
-  margin-bottom: 0.55rem;
-}
-.preview-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-.preview-chip {
-  font-size: 0.78rem;
-  padding: 0.4rem 0.65rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.22);
-  color: var(--text-secondary);
-  max-width: 100%;
-  line-height: 1.3;
 }
 .state-block {
   text-align: center;
@@ -509,25 +421,61 @@ function orientationLabel(v: 'Upright' | 'Reversed'): string {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  animation: reading-in 0.45s ease both;
 }
-.chips-row {
+@keyframes reading-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reading {
+    animation: none;
+  }
+}
+.energy-block {
+  padding: 1rem 1.25rem 1.1rem;
+}
+.energy-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
 }
-.chip {
-  font-size: 0.75rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: 999px;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-secondary);
-}
-.chip.source {
-  margin-left: auto;
+.energy-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
   color: var(--text-muted);
 }
-.card-block,
+.energy-value {
+  font-family: var(--font-body);
+  font-size: 1.35rem;
+  color: var(--gold);
+  line-height: 1;
+}
+.energy-max {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.energy-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.energy-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  box-shadow: 0 0 12px rgba(201, 168, 76, 0.5);
+  transition: width 0.6s ease;
+}
 .sections {
   padding: 1.35rem 1.25rem;
 }
@@ -538,50 +486,51 @@ function orientationLabel(v: 'Upright' | 'Reversed'): string {
   color: var(--gold);
   margin: 0 0 0.75rem;
 }
-.card-name {
-  font-family: var(--font-display);
-  font-size: 1.65rem;
-  margin: 0 0 0.75rem;
-  color: var(--text-primary);
+.tab-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 1.2rem;
 }
-.meta-row {
+.tab {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.25rem;
-  font-size: 0.82rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.55rem 0.4rem;
+  border-radius: var(--radius-sm, 12px);
+  border: 1px solid var(--glass-border);
+  background: transparent;
   color: var(--text-muted);
-  margin-bottom: 0.85rem;
-}
-.core {
-  font-size: 1rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
-  margin: 0;
-}
-.sections h3 {
+  font-family: var(--font-body);
   font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--text-muted);
-  margin: 0 0 0.35rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
 }
-.sections .sec {
-  margin-bottom: 1.1rem;
+.tab:hover { color: var(--text-secondary); }
+.tab:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
-.sections .sec:last-child {
-  margin-bottom: 0;
+.tab.active {
+  color: var(--text-primary);
+  border-color: var(--tab-accent, var(--gold));
+  background: color-mix(in srgb, var(--tab-accent, var(--gold)) 16%, transparent);
 }
-.sections p {
+.tab-icon { font-size: 1.05rem; line-height: 1; }
+.tab-label { white-space: nowrap; }
+.section-body {
   margin: 0;
   color: var(--text-secondary);
-  line-height: 1.55;
-  font-size: 0.95rem;
+  line-height: 1.7;
+  font-size: 0.98rem;
+  min-height: 4.5rem;
 }
-.sections .caution p {
-  color: #e8a0a0;
-}
-.sections .affirm p {
-  font-style: italic;
-  color: var(--gold-light);
+@media (max-width: 480px) {
+  .tab { padding: 0.5rem 0.25rem; font-size: 0.68rem; }
+  .tab-label { font-size: 0.66rem; }
 }
 </style>

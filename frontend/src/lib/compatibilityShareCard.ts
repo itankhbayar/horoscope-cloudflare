@@ -10,7 +10,6 @@ export type CompatibilityShareCard = {
   themeTitle: string;
   themeSummary: string;
   metricLine: string;
-  cta: string;
   shareText: string;
   shareUrl: string;
 };
@@ -62,7 +61,6 @@ export function buildCompatibilityShareCard(
       ? `Хайр ${result.loveScore}% · Нөхөрлөл ${result.friendshipScore}% · Харилцаа ${result.communicationScore}%`
       : `Love ${result.loveScore}% · Friendship ${result.friendshipScore}% · Communication ${result.communicationScore}%`;
   const scoreLabel = locale === 'mn' ? `${result.overallScore}% зохицол` : `${result.overallScore}% match`;
-  const cta = locale === 'mn' ? 'Үүнийг хуваалцаад тэд юу гэж бодохыг хараарай' : 'Share this and see what they think';
   const shareText =
     locale === 'mn'
       ? `${pairLabel}: ${scoreLabel}. ${theme.title}. Astralis дээр үзэх: ${shareUrl}`
@@ -74,7 +72,6 @@ export function buildCompatibilityShareCard(
     themeTitle: theme.title,
     themeSummary: theme.summary,
     metricLine,
-    cta,
     shareText,
     shareUrl,
   };

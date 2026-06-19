@@ -189,7 +189,7 @@ const greeting = computed(() => {
   return t('home.greetingEvening');
 });
 
-const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? t('home.stargazer'));
+const firstName = computed(() => user.value?.fullName?.split(' ')[0] ?? '');
 
 // The reading currently on screen: the daily horoscope, or the loaded monthly/yearly one.
 const activeReading = computed(() => (period.value === 'daily' ? horoscope.value : periodReading.value));
@@ -223,7 +223,7 @@ const activePredictionTab = computed(
   <AppContainer size="md">
     <ScreenLayout class="home-page">
     <header class="hero glass-card">
-      <p class="hero-eyebrow">{{ greeting }}, {{ firstName }}</p>
+      <p class="hero-eyebrow">{{ firstName ? `${greeting}, ${firstName}` : greeting }}</p>
       <div v-if="sunSign" class="hero-sign">
         <span class="hero-glyph">{{ sunSignSymbol }}</span>
         <span class="hero-name">{{ sunSignName }}</span>

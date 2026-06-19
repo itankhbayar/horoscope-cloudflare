@@ -55,6 +55,7 @@ defineProps<{
 .lock-icon { font-size: 0.85rem; }
 .premium-tag { font-weight: 600; }
 .content {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.7rem;

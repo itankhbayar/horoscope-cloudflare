@@ -132,8 +132,8 @@ export function buildOnboardingPreview(
         : 'Over time, Astralis can reveal recurring themes in your readings.',
     saveTitle:
       locale === 'mn'
-        ? 'Өнөөдрийн уншлагаа хадгалахын тулд үнэгүй бүртгэл үүсгээрэй.'
-        : "Create a free account to save today's reading.",
+        ? 'Өнөөдрийн уншлагаа хадгалахын тулд бүртгэл үүсгээрэй.'
+        : "Create an account to save today's reading.",
     saveBody:
       locale === 'mn'
         ? 'Уншлагаа хадгалаад хувийн тэнгэрийн түүхээ аажмаар бүтээ.'

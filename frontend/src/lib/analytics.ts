@@ -6,6 +6,7 @@ type AnalyticsEvent =
   | 'horoscope_viewed'
   | 'compatibility_viewed'
   | 'paywall_viewed'
+  | 'guest_result_gate_shown'
   | 'checkout_started'
   | 'premium_purchased'
   /**
