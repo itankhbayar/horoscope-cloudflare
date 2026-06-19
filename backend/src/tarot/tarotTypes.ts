@@ -4,6 +4,8 @@
  * Keep aligned with `frontend/src/lib/types.ts`.
  */
 export type TarotLocaleText = { en: string; mn: string };
+/** Bilingual list (e.g. keyword tags). Each locale is its own array. */
+export type TarotLocaleList = { en: string[]; mn: string[] };
 
 export interface TarotPersistedPayload {
   /** Present on newly generated rows; missing or stale → cache refresh. */
@@ -17,6 +19,16 @@ export interface TarotPersistedPayload {
     arcana: 'Major' | 'Minor';
     orientation: 'Upright' | 'Reversed';
     core_meaning: TarotLocaleText;
+    /** Card art URL (from tarot_cards.json). Single value, not localized. Optional for legacy rows. */
+    image?: string;
+    /**
+     * Richer card data (added in copyRev 4). Optional so pre-rev-4 rows still
+     * validate and read; the GET/prewarm refresh regenerates them with these set.
+     */
+    keywords?: TarotLocaleList;
+    description?: TarotLocaleText;
+    /** Orientation-specific meaning chosen at generation time (upright vs reversed). */
+    meaning?: TarotLocaleText;
   };
   reading: {
     overview: TarotLocaleText;
@@ -32,6 +44,14 @@ export interface TarotPublicCard {
   arcana: 'Major' | 'Minor';
   orientation: 'Upright' | 'Reversed';
   core_meaning: string;
+  /** Card art URL (empty string for legacy rows without one). */
+  image: string;
+  /** Short keyword tags for the drawn card. */
+  keywords: string[];
+  /** One-line imagery/essence of the card. */
+  description: string;
+  /** Orientation-aware meaning (upright vs reversed). Falls back to core_meaning for legacy rows. */
+  meaning: string;
 }
 
 export interface TarotPublicReading {

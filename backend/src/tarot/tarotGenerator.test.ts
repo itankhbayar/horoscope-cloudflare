@@ -16,6 +16,23 @@ describe('generateTarotReading', () => {
     const v = validateTarotPayload(payload);
     expect(v.ok).toBe(true);
   });
+
+  it('emits richer bilingual card fields with an orientation-aware meaning', async () => {
+    // Scan a handful of dates so we exercise both upright and reversed orientations.
+    const seen = new Set<string>();
+    for (let d = 1; d <= 20 && seen.size < 2; d += 1) {
+      const date = `2026-01-${String(d).padStart(2, '0')}`;
+      const { payload } = await generateTarotReading('leo', date, 'UTC');
+      const card = payload.card_of_the_day;
+      expect(card.keywords?.en.length).toBeGreaterThan(0);
+      expect(card.keywords?.mn.length).toBe(card.keywords?.en.length);
+      expect(card.description?.en && card.description?.mn).toBeTruthy();
+      // meaning must track orientation: same shape as a non-empty bilingual block.
+      expect(card.meaning?.en && card.meaning?.mn).toBeTruthy();
+      seen.add(card.orientation);
+    }
+    expect(seen.size).toBe(2);
+  });
 });
 
 function hex(u: Uint8Array): string {

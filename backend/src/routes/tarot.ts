@@ -5,6 +5,7 @@ import { requirePremium } from '../middleware/premium';
 import { createRateLimitMiddleware } from '../middleware/rateLimit';
 import { parseTarotQueryParams } from '../tarot/tarotQuery';
 import { getCachedTarotDaily } from '../services/tarotService';
+import { drawRandomCard } from '../tarot/tarotDraw';
 import { parseLang } from '../utils/lang';
 import type { AppBindings, AppVariables } from '../types';
 import { tarotQuerySchema } from '../schemas/tarot';
@@ -39,6 +40,15 @@ router.get('/', authMiddleware, premiumReadRateLimit, requirePremium, async (c) 
     return fail(c, 503, 'SERVICE_UNAVAILABLE', 'Tarot reading unavailable', result.body);
   }
   return ok(c, result.body);
+});
+
+/**
+ * Free-draw: a fresh random card on every press ("ask the cards"). Not cached or
+ * persisted, and not tied to a sign or date — same premium gating as the daily card.
+ */
+router.get('/draw', authMiddleware, premiumReadRateLimit, requirePremium, (c) => {
+  const lang = parseLang(c.req.query('lang') ?? c.req.header('Accept-Language'));
+  return ok(c, { card: drawRandomCard(lang) });
 });
 
 export default router;

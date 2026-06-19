@@ -67,6 +67,8 @@
 	"vars": {
 	  "APP_PUBLIC_URL": "https://horoscope-frontend.pages.dev",
 	  "CRON_TIMEZONE": "Asia/Ulaanbaatar",
+	  // Claude reading generation is PAUSED. Set to "0" (or remove) and redeploy to resume.
+	  "PAUSE_AI_READINGS": "1",
 	},
 	// In production, replace ADMIN_SECRET with a real secret via:
 	//   npx wrangler secret put ADMIN_SECRET

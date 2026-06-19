@@ -27,6 +27,7 @@ import { captureException, sentryOptions } from './utils/sentry';
 import { log, logFromContext, metric } from './utils/logger';
 import { requestHardeningMiddleware } from './middleware/requestHardening';
 import { fail, ok } from './utils/apiResponse';
+import { anthropicKeyForPrewarm, isAiReadingsPaused } from './utils/aiReadings';
 export { RateLimitBucket } from './rateLimitBucket';
 
 const DEFAULT_TIMEZONE = 'Asia/Ulaanbaatar';
@@ -160,9 +161,13 @@ const worker: ExportedHandler<AppBindings> = {
           dateISO,
         });
 
+        if (isAiReadingsPaused(env)) {
+          log(env, 'info', 'cron_ai_readings_paused', { dateISO, note: 'Claude generation paused; prewarm uses templates' });
+        }
+
         try {
           const jobStarted = Date.now();
-          const horoscope = await prewarmDailyHoroscopes(db, dateISO, timezone, env.ANTHROPIC_API_KEY);
+          const horoscope = await prewarmDailyHoroscopes(db, dateISO, timezone, anthropicKeyForPrewarm(env));
           log(env, 'info', 'cron_horoscope_prewarm_completed', {
             ...horoscope,
             durationMs: Date.now() - jobStarted,
@@ -183,9 +188,9 @@ const worker: ExportedHandler<AppBindings> = {
           const weekKey = isoWeekKey(dateISO);
           const monthKey = dateISO.slice(0, 7);
           const yearKey = dateISO.slice(0, 4);
-          const weekly = await prewarmPeriodHoroscopes(db, 'weekly', weekKey, env.ANTHROPIC_API_KEY);
-          const monthly = await prewarmPeriodHoroscopes(db, 'monthly', monthKey, env.ANTHROPIC_API_KEY);
-          const yearly = await prewarmPeriodHoroscopes(db, 'yearly', yearKey, env.ANTHROPIC_API_KEY);
+          const weekly = await prewarmPeriodHoroscopes(db, 'weekly', weekKey, anthropicKeyForPrewarm(env));
+          const monthly = await prewarmPeriodHoroscopes(db, 'monthly', monthKey, anthropicKeyForPrewarm(env));
+          const yearly = await prewarmPeriodHoroscopes(db, 'yearly', yearKey, anthropicKeyForPrewarm(env));
           log(env, 'info', 'cron_period_horoscope_prewarm_completed', {
             weekly,
             monthly,

@@ -18,6 +18,7 @@ import { captureException } from '../utils/sentry';
 import { logFromContext } from '../utils/logger';
 import { adminPrewarmTarotQuerySchema } from '../schemas/admin';
 import { parseQuery, isResponse } from '../validators/request';
+import { anthropicKeyForPrewarm } from '../utils/aiReadings';
 import { fail } from '../utils/apiResponse';
 
 const router = new Hono<{ Bindings: AppBindings; Variables: AppVariables }>();
@@ -62,7 +63,7 @@ router.post('/prewarm', async (c) => {
   logFromContext(c, 'info', 'admin_horoscope_prewarm_started', { timezone, dateISO, force });
 
   try {
-    const result = await prewarmDailyHoroscopes(db, dateISO, timezone, c.env.ANTHROPIC_API_KEY, force);
+    const result = await prewarmDailyHoroscopes(db, dateISO, timezone, anthropicKeyForPrewarm(c.env), force);
     // A force re-run replaces existing rows, so purge the edge cache too — otherwise
     // already-viewed signs keep serving the stale (pre-regeneration) reading for hours.
     if (force && typeof caches !== 'undefined') {
@@ -195,7 +196,7 @@ router.post('/prewarm-period', async (c) => {
       const expected = PERIOD_KEY_PATTERNS[periodType];
       const periodKey =
         periodParam && expected.test(periodParam) ? periodParam : currentPeriodKey(periodType, timezone);
-      results.push(await prewarmPeriodHoroscopes(db, periodType, periodKey, c.env.ANTHROPIC_API_KEY, force));
+      results.push(await prewarmPeriodHoroscopes(db, periodType, periodKey, anthropicKeyForPrewarm(c.env), force));
     }
     logFromContext(c, 'info', 'admin_period_prewarm_completed', { results });
     return c.json({ success: true, results });

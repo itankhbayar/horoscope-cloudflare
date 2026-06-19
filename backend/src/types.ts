@@ -19,6 +19,12 @@ export type AppBindings = {
   CRON_TIMEZONE?: string;
   /** Anthropic API key (secret) used by the daily cron to generate horoscopes with Claude Sonnet. When unset, the cron falls back to templates. */
   ANTHROPIC_API_KEY?: string;
+  /**
+   * Kill switch for Claude reading generation. When truthy ("1"/"true"/"on"), the
+   * prewarm cron and admin force-prewarm skip Claude and fall back to local templates,
+   * without touching the ANTHROPIC_API_KEY secret. Flip back to resume AI readings.
+   */
+  PAUSE_AI_READINGS?: string;
   AVATAR_PUBLIC_BASE_URL?: string;
   ADMIN_SECRET?: string;
   STRIPE_SECRET_KEY?: string;

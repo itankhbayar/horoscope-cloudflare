@@ -8,18 +8,34 @@ import { TAROT_COPY_REV } from './tarotCopyRev';
 import type { TarotGeneratorResult, TarotPersistedPayload } from './tarotTypes';
 import { validateTarotPayload } from './tarotValidator';
 import { seedUint32, tarotSeedBytes } from './tarotSeed';
-import cardsJson from '../../data/cards.json';
+import tarotCardsJson from '../../data/tarot_cards.json';
 import moodsJson from '../../data/moods.json';
 import templatesJson from '../../data/templates.json';
-
-interface CardEntry {
-  name: { en: string; mn: string };
-  core_meaning: { en: string; mn: string };
-}
 
 interface Bilingual {
   en: string;
   mn: string;
+}
+
+interface BilingualList {
+  en: string[];
+  mn: string[];
+}
+
+interface CardEntry {
+  id: string;
+  label: string;
+  arcana: 'Major' | 'Minor';
+  suit: string | null;
+  image: string;
+  name: Bilingual;
+  core_meaning: Bilingual;
+  keywords: BilingualList;
+  description: Bilingual;
+  upright: Bilingual;
+  reversed: Bilingual;
+  /** Verbatim Rider–Waite reference text (EN). Reference only; not surfaced in readings. */
+  lore: string;
 }
 
 interface TemplatesFile {
@@ -29,7 +45,11 @@ interface TemplatesFile {
   energy: Bilingual[];
 }
 
-const cards = cardsJson as { major: CardEntry[]; minor: CardEntry[] };
+const allCards = tarotCardsJson as CardEntry[];
+const cards = {
+  major: allCards.filter((c) => c.arcana === 'Major'),
+  minor: allCards.filter((c) => c.arcana === 'Minor'),
+};
 const moods = moodsJson as { moods: Bilingual[]; keywords: Bilingual[]; themes: Bilingual[] };
 const templates = templatesJson as TemplatesFile;
 
@@ -73,6 +93,7 @@ export async function generateTarotReading(
   const upright = (seedUint32(bytes, 1) & 1) === 0;
   const orientation = upright ? 'Upright' : 'Reversed';
   const arcana = isMajor ? 'Major' : 'Minor';
+  const meaning = upright ? card.upright : card.reversed;
 
   const mood = moods.moods[seedUint32(bytes, 2) % moods.moods.length]!;
   const theme = moods.themes[seedUint32(bytes, 7) % moods.themes.length]!;
@@ -128,7 +149,15 @@ export async function generateTarotReading(
       name: { en: card.name.en.trim(), mn: card.name.mn.trim() },
       arcana,
       orientation,
+      image: card.image.trim(),
       core_meaning: { en: card.core_meaning.en.trim(), mn: card.core_meaning.mn.trim() },
+      keywords: {
+        en: card.keywords.en.map((k) => k.trim()),
+        mn: card.keywords.mn.map((k) => k.trim()),
+      },
+      // Full bilingual Waite description from tarot_cards.json (EN verbatim + MN translation).
+      description: { en: card.description.en.trim(), mn: card.description.mn.trim() },
+      meaning: { en: meaning.en.trim(), mn: meaning.mn.trim() },
     },
     reading: {
       overview: {

@@ -1,9 +1,12 @@
-import type { TarotLocaleText, TarotPersistedPayload } from './tarotTypes';
+import type { TarotLocaleList, TarotLocaleText, TarotPersistedPayload } from './tarotTypes';
 
 const MAX_TIMEZONE_LEN = 120;
 const MAX_SIGN_LEN = 24;
 const MAX_DATE_LEN = 16;
 const MAX_LOCALE_BLOCK = 4500;
+const MAX_KEYWORD_LEN = 80;
+const MAX_KEYWORDS = 12;
+const MAX_IMAGE_URL_LEN = 500;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -14,6 +17,17 @@ function keysExact(obj: Record<string, unknown>, allowed: Set<string>): boolean 
   if (keys.length !== allowed.size) return false;
   for (const k of keys) {
     if (!allowed.has(k)) return false;
+  }
+  return true;
+}
+
+/** Every own key is in `allowed`, and every key in `required` is present. */
+function keysWithin(obj: Record<string, unknown>, allowed: Set<string>, required: Set<string>): boolean {
+  for (const k of Object.keys(obj)) {
+    if (!allowed.has(k)) return false;
+  }
+  for (const k of required) {
+    if (!(k in obj)) return false;
   }
   return true;
 }
@@ -34,6 +48,31 @@ function validateLocaleText(raw: unknown, field: string): { ok: true; value: Tar
     return { ok: false, error: `${field}.mn must be a non-empty string within length limits` };
   }
   return { ok: true, value: { en: raw.en.trim(), mn: raw.mn.trim() } };
+}
+
+function validateLocaleList(raw: unknown, field: string): { ok: true; value: TarotLocaleList } | { ok: false; error: string } {
+  if (!isPlainObject(raw)) return { ok: false, error: `${field} must be an object` };
+  if (!keysExact(raw, new Set(['en', 'mn']))) {
+    return { ok: false, error: `${field} must contain only en and mn` };
+  }
+  const slice = (arr: unknown, locale: string): { ok: true; value: string[] } | { ok: false; error: string } => {
+    if (!Array.isArray(arr) || arr.length === 0 || arr.length > MAX_KEYWORDS) {
+      return { ok: false, error: `${field}.${locale} must be a non-empty array up to ${MAX_KEYWORDS} items` };
+    }
+    const out: string[] = [];
+    for (const item of arr) {
+      if (!isNonEmptyString(item, MAX_KEYWORD_LEN)) {
+        return { ok: false, error: `${field}.${locale} items must be non-empty strings within length limits` };
+      }
+      out.push(item.trim());
+    }
+    return { ok: true, value: out };
+  };
+  const en = slice(raw.en, 'en');
+  if (!en.ok) return en;
+  const mn = slice(raw.mn, 'mn');
+  if (!mn.ok) return mn;
+  return { ok: true, value: { en: en.value, mn: mn.value } };
 }
 
 /**
@@ -63,7 +102,13 @@ export function validateTarotPayload(raw: unknown): { ok: true; value: TarotPers
 
   const cod = raw.card_of_the_day;
   if (!isPlainObject(cod)) return { ok: false, error: 'card_of_the_day must be an object' };
-  if (!keysExact(cod, new Set(['name', 'arcana', 'orientation', 'core_meaning']))) {
+  if (
+    !keysWithin(
+      cod,
+      new Set(['name', 'arcana', 'orientation', 'core_meaning', 'image', 'keywords', 'description', 'meaning']),
+      new Set(['name', 'arcana', 'orientation', 'core_meaning']),
+    )
+  ) {
     return { ok: false, error: 'card_of_the_day has invalid or extra properties' };
   }
   const nameVal = validateLocaleText(cod.name, 'card_of_the_day.name');
@@ -76,6 +121,34 @@ export function validateTarotPayload(raw: unknown): { ok: true; value: TarotPers
   }
   const core = validateLocaleText(cod.core_meaning, 'card_of_the_day.core_meaning');
   if (!core.ok) return core;
+
+  let image: string | undefined;
+  if (cod.image !== undefined) {
+    if (!isNonEmptyString(cod.image, MAX_IMAGE_URL_LEN)) {
+      return { ok: false, error: 'card_of_the_day.image must be a non-empty string within length limits' };
+    }
+    image = cod.image.trim();
+  }
+
+  // New richer fields (copyRev 4+): optional for legacy rows, validated when present.
+  let keywords: TarotLocaleList | undefined;
+  if (cod.keywords !== undefined) {
+    const kw = validateLocaleList(cod.keywords, 'card_of_the_day.keywords');
+    if (!kw.ok) return kw;
+    keywords = kw.value;
+  }
+  let description: TarotLocaleText | undefined;
+  if (cod.description !== undefined) {
+    const ds = validateLocaleText(cod.description, 'card_of_the_day.description');
+    if (!ds.ok) return ds;
+    description = ds.value;
+  }
+  let meaning: TarotLocaleText | undefined;
+  if (cod.meaning !== undefined) {
+    const mg = validateLocaleText(cod.meaning, 'card_of_the_day.meaning');
+    if (!mg.ok) return mg;
+    meaning = mg.value;
+  }
 
   const reading = raw.reading;
   if (!isPlainObject(reading)) return { ok: false, error: 'reading must be an object' };
@@ -102,6 +175,10 @@ export function validateTarotPayload(raw: unknown): { ok: true; value: TarotPers
       arcana: cod.arcana,
       orientation: cod.orientation,
       core_meaning: core.value,
+      ...(image !== undefined ? { image } : {}),
+      ...(keywords !== undefined ? { keywords } : {}),
+      ...(description !== undefined ? { description } : {}),
+      ...(meaning !== undefined ? { meaning } : {}),
     },
     reading: {
       overview: ov.value,
