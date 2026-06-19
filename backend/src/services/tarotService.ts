@@ -6,6 +6,7 @@ import { validateTarotPayload } from '../tarot/tarotValidator';
 import { flattenTarotPayload } from '../tarot/tarotFlatten';
 import { legacyPayloadToPersisted, looseFlatTarotToPersisted } from '../tarot/tarotLegacy';
 import { tarotPayloadNeedsBilingualRefresh } from '../tarot/tarotPayloadQuality';
+import { calendarTodayInTimezone } from '../tarot/tarotQuery';
 import type { TarotApiResponse, TarotPersistedPayload } from '../tarot/tarotTypes';
 import type { Lang } from '../utils/lang';
 import type { ZodiacSign } from '../utils/zodiac';
@@ -22,6 +23,14 @@ export async function getTarotDailyRow(
     .from(tarotDaily)
     .where(and(eq(tarotDaily.sign, sign), eq(tarotDaily.timezone, timezone), eq(tarotDaily.date, date)))
     .get();
+}
+
+/** True when two YYYY-MM-DD calendar dates are at most one day apart (either direction). */
+function isWithinOneDay(dateA: string, dateB: string): boolean {
+  const a = Date.parse(`${dateA}T00:00:00Z`);
+  const b = Date.parse(`${dateB}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return false;
+  return Math.abs(a - b) <= 86_400_000;
 }
 
 function parseStoredPayloadJson(raw: unknown): unknown {
@@ -119,10 +128,36 @@ export async function getCachedTarotDaily(
 ): Promise<TarotApiResult> {
   let row = await getTarotDailyRow(db, sign, timezone, date);
   if (!row) {
-    return {
-      status: 404,
-      body: { error: 'Tarot reading not found', sign, date, timezone },
-    };
+    // Cache miss. The daily prewarm only covers CRON_TIMEZONE, so a client whose calendar
+    // timezone differs (commonly UTC when the profile timezone is unset) would otherwise 404.
+    // Generate-and-persist the deterministic reading on demand (seeded by sign+date+timezone —
+    // no AI/network) so tarot works for every timezone without per-tz prewarm coverage. Bounded
+    // to the requested timezone's current day (±1 for clock/rollover skew) so the premium GET
+    // can't be used to fill D1 with arbitrary-date rows.
+    if (!isWithinOneDay(date, calendarTodayInTimezone(timezone))) {
+      return {
+        status: 404,
+        body: { error: 'Tarot reading not found', sign, date, timezone },
+      };
+    }
+    try {
+      await upsertTarotDaily(db, sign, timezone, date);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log({}, 'error', 'tarot_on_demand_generation_failed', { sign, date, timezone, error: msg });
+      return {
+        status: 503,
+        body: { error: 'Tarot reading unavailable', details: msg, sign, date, timezone },
+      };
+    }
+    const generated = await getTarotDailyRow(db, sign, timezone, date);
+    if (!generated) {
+      return {
+        status: 404,
+        body: { error: 'Tarot reading not found', sign, date, timezone },
+      };
+    }
+    row = generated;
   }
 
   const resolved = resolvePersistedPayload(row);

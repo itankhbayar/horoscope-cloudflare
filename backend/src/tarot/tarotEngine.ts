@@ -1,5 +1,8 @@
 /**
- * Stable entry point for **tarot generation** (cron + admin upsert only — never from public GET).
+ * Stable entry point for **tarot generation** (cron prewarm, admin upsert, and on-demand
+ * generate-on-miss from the public GET — see `getCachedTarotDaily`). The deterministic engine
+ * is cheap (seeded templates + local data, no AI/network), so serving a cache miss by generating
+ * is safe; the public path is premium-gated, rate-limited, and bounded to the requested day.
  *
  * **Phase 2 (AI):** implement `generateTarotReadingWithFallback()` here that:
  * 1) calls remote model → `validateTarotPayload` → on success return;
