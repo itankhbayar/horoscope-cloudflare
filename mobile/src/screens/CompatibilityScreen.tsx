@@ -243,7 +243,6 @@ export function CompatibilityScreen(): React.JSX.Element {
               <Text style={styles.storySummary}>{shareCard.themeSummary}</Text>
             </View>
             <Text style={styles.storyMetrics}>{shareCard.metricLine}</Text>
-            <Text style={styles.storyCta}>{shareCard.cta}</Text>
           </View>
 
           <CosmicCard title={t('compatibility.shareEyebrow')}>
@@ -386,7 +385,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  storyCta: { color: '#fff', fontWeight: '700', fontSize: 16, lineHeight: 22 },
   shareStatus: { marginTop: spacing.sm, fontWeight: '700' },
   pressed: { opacity: 0.88 },
 });

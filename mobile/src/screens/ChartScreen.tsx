@@ -8,6 +8,7 @@ import {
   bodyFontSize,
   bodyLineHeight,
   colors,
+  hitSlopComfortable,
   MIN_TOUCH,
   screenTitleSize,
   spacing,
@@ -63,6 +64,8 @@ export function ChartScreen(): React.JSX.Element {
   const { profile, load, loading, error } = useProfile();
   const { horoscope, loadMine } = useHoroscope();
   const [activeTab, setActiveTab] = useState<ChartTab>('chart');
+  // Aspects are dense; let users collapse the list if they'd rather not see all of it.
+  const [showAspects, setShowAspects] = useState(true);
 
   useEffect(() => {
     void load();
@@ -168,16 +171,35 @@ export function ChartScreen(): React.JSX.Element {
 
           {chart ? (
             <View style={[styles.aspectsCard, glassCardStyle]}>
-              <Text style={[styles.sectionTitle, { color: palette.text }]} accessibilityRole="header">
-                {t('chart.aspects')}
-              </Text>
-              {chart.aspects.length === 0 ? (
-                <Text style={[styles.aspectEmpty, { color: palette.textMuted }]}>{t('chart.aspectsEmpty')}</Text>
-              ) : (
-                chart.aspects.map((aspect, index) => (
-                  <AspectRow key={`${aspect.body1}-${aspect.body2}-${index}`} aspect={aspect} palette={palette} />
-                ))
-              )}
+              <View style={styles.aspectHead}>
+                <Text style={[styles.sectionTitle, { color: palette.text }]} accessibilityRole="header">
+                  {t('chart.aspects')}
+                </Text>
+                <Pressable
+                  onPress={() => setShowAspects((v) => !v)}
+                  style={({ pressed }) => [
+                    styles.aspectToggle,
+                    { borderColor: palette.border },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showAspects }}
+                  hitSlop={hitSlopComfortable}
+                >
+                  <Text style={[styles.aspectToggleText, { color: palette.textMuted }]}>
+                    {showAspects ? t('chart.aspectsHide') : t('chart.aspectsShow')}
+                  </Text>
+                </Pressable>
+              </View>
+              {showAspects
+                ? chart.aspects.length === 0
+                  ? (
+                    <Text style={[styles.aspectEmpty, { color: palette.textMuted }]}>{t('chart.aspectsEmpty')}</Text>
+                  )
+                  : chart.aspects.map((aspect, index) => (
+                    <AspectRow key={`${aspect.body1}-${aspect.body2}-${index}`} aspect={aspect} palette={palette} />
+                  ))
+                : null}
             </View>
           ) : null}
         </View>
@@ -726,6 +748,9 @@ const styles = StyleSheet.create({
   bigThreeSymbol: { color: '#E8D48B', fontSize: 26, lineHeight: 30, marginBottom: 2 },
   bigThreeValue: { color: '#F4F6FF', fontSize: 15, fontWeight: '700' },
   aspectsCard: { borderRadius: 18, padding: spacing.md, gap: spacing.xs },
+  aspectHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  aspectToggle: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
+  aspectToggleText: { fontSize: 13, fontWeight: '700' },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: spacing.xs },
   aspectEmpty: { fontSize: 14, fontWeight: '600' },
   aspectRow: {
