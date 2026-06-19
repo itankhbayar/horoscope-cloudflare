@@ -7,6 +7,7 @@ type AnalyticsEvent =
   | 'compatibility_viewed'
   | 'paywall_viewed'
   | 'guest_result_gate_shown'
+  | 'tarot_card_drawn'
   | 'checkout_started'
   | 'premium_purchased'
   /**
