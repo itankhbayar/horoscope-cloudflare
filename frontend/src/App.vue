@@ -55,10 +55,13 @@ onMounted(async () => {
   }
 });
 
+// Icons are deliberately monochrome celestial glyphs (not emoji) so every nav
+// item adopts the gold theme color and reads as one consistent set. Avoid emoji
+// like ❤/🃏 here — they force their own colors and break the visual rhythm.
 const navLinks = computed(() => [
   { to: '/', label: t('nav.home'), icon: '✨' },
-  { to: '/compatibility', label: t('nav.compatibility'), icon: '❤' },
-  { to: '/tarot', label: t('nav.tarot'), icon: '🃏' },
+  { to: '/compatibility', label: t('nav.compatibility'), icon: '♡' },
+  { to: '/tarot', label: t('nav.tarot'), icon: '✶' },
   { to: '/chart', label: 'Chart', icon: '◎' },
   { to: '/premium', label: t('nav.premium'), icon: '✦' },
   { to: '/profile', label: t('nav.profile'), icon: '☽' },
