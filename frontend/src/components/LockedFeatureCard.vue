@@ -8,6 +8,8 @@ defineProps<{
   description: string;
   icon: string;
 }>();
+
+const emit = defineEmits<{ unlock: [] }>();
 </script>
 
 <template>
@@ -20,7 +22,9 @@ defineProps<{
       <span class="icon">{{ icon }}</span>
       <h3>{{ title }}</h3>
       <p>{{ description }}</p>
-      <button class="upgrade-btn">{{ t('premium.unlock') }}</button>
+      <button type="button" class="upgrade-btn" @click="emit('unlock')">
+        {{ t('premium.unlock') }}
+      </button>
     </div>
   </div>
 </template>

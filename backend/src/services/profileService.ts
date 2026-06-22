@@ -24,6 +24,7 @@ export interface ProfilePayload {
     avatarUrl: string | null;
     timezone: string | null;
     createdAt: string;
+    isPremium: boolean;
     streakCount: number;
     longestStreakCount: number;
     streakFreezes: number;
@@ -102,6 +103,7 @@ export async function getFullProfile(db: DB, userId: string): Promise<ProfilePay
       avatarUrl: user.avatarUrl,
       timezone: user.timezone ?? null,
       createdAt: user.createdAt,
+      isPremium: Boolean(user.isPremium),
       streakCount: user.streakCount,
       longestStreakCount: user.longestStreakCount,
       streakFreezes: user.streakFreezes,

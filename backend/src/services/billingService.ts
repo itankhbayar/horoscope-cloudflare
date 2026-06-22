@@ -62,15 +62,11 @@ export async function createPremiumCheckoutSession(
     metadata: { userId },
     customer_email: customerEmail,
     /**
-     * Subscriptions start with a 7-day free trial. The trial subscription is created in
-     * `trialing` status, which `syncPremiumFromSubscription` and the premium middleware
-     * already treat as premium. `userId` is mirrored onto the subscription metadata so trial
-     * webhooks (created/updated/deleted) can resolve the user even before an invoice exists.
-     * Only valid for subscription mode — one-time `payment` sessions reject `subscription_data`.
+     * No free trial — the subscription is charged immediately for the first month. `userId` is
+     * mirrored onto the subscription metadata so webhooks can resolve the user. Only valid for
+     * subscription mode — one-time `payment` sessions reject `subscription_data`.
      */
-    ...(mode === 'subscription'
-      ? { subscription_data: { trial_period_days: PREMIUM_TRIAL_PERIOD_DAYS, metadata: { userId } } }
-      : {}),
+    ...(mode === 'subscription' ? { subscription_data: { metadata: { userId } } } : {}),
   });
 }
 
@@ -135,12 +131,9 @@ export async function createMobilePremiumPaymentSheet(
         items: [{ price: priceId }],
         metadata: { userId },
         /**
-         * 7-day free trial for recurring plans (matches web Checkout). The trial subscription is
-         * created `trialing`, so the first invoice is $0 and Stripe issues a SetupIntent (rather
-         * than a PaymentIntent) to collect the card for the post-trial charge.
+         * No free trial — the subscription is charged immediately, so Stripe issues a
+         * PaymentIntent on the first invoice (resolved as mode 'subscription' below).
          */
-        trial_period_days: PREMIUM_TRIAL_PERIOD_DAYS,
-        trial_settings: { end_behavior: { missing_payment_method: 'cancel' } },
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
         expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
@@ -420,12 +413,34 @@ export async function syncPremiumFromCheckoutSession(
     throw new Error('User not found');
   }
 
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['subscription'],
+  });
   if (session.metadata?.userId?.trim() !== userId) {
     throw new Error('Checkout session does not belong to user');
   }
 
-  if (session.status !== 'complete' || session.payment_status !== 'paid') {
+  if (session.status !== 'complete') {
+    throw new Error('Checkout session is not paid');
+  }
+
+  if (session.mode === 'subscription') {
+    const subscription =
+      session.subscription && typeof session.subscription !== 'string'
+        ? session.subscription
+        : session.subscription
+          ? await stripe.subscriptions.retrieve(session.subscription)
+          : null;
+
+    if (!subscription) {
+      throw new Error('Checkout session is missing subscription');
+    }
+
+    await syncPremiumFromSubscription(db, subscription);
+    return { isPremium: subscription.status === 'active' || subscription.status === 'trialing' };
+  }
+
+  if (session.payment_status !== 'paid') {
     throw new Error('Checkout session is not paid');
   }
 
@@ -610,7 +625,7 @@ export async function syncPremiumFromStripeForUser(
   stripe: Stripe,
   db: DB,
   userId: string,
-): Promise<{ isPremium: boolean; source: 'subscription' | 'customer' | 'none' }> {
+): Promise<{ isPremium: boolean; source: 'subscription' | 'customer' | 'email' | 'none' }> {
   const user = await getUserById(db, userId);
   if (!user) {
     throw new Error('User not found');
@@ -638,6 +653,33 @@ export async function syncPremiumFromStripeForUser(
       await syncPremiumFromSubscription(db, candidate);
       const active = candidate.status === 'active' || candidate.status === 'trialing';
       return { isPremium: active, source: 'customer' };
+    }
+  }
+
+  const customers = await stripe.customers.list({ email: user.email, limit: 10 });
+  for (const customer of customers.data) {
+    const list = await stripe.subscriptions.list({
+      customer: customer.id,
+      status: 'all',
+      limit: 5,
+    });
+    const candidate =
+      list.data.find((s) => s.status === 'active' || s.status === 'trialing') ??
+      list.data.find((s) => s.status === 'past_due' || s.status === 'unpaid') ??
+      list.data[0];
+
+    if (candidate) {
+      await db
+        .update(users)
+        .set({
+          stripeCustomerId: customer.id,
+          stripeSubscriptionId: candidate.id,
+          updatedAt: sql`(CURRENT_TIMESTAMP)`,
+        })
+        .where(eq(users.id, userId));
+      const active = candidate.status === 'active' || candidate.status === 'trialing';
+      await setPremiumForUserId(db, userId, active);
+      return { isPremium: active, source: 'email' };
     }
   }
 

@@ -1,6 +1,31 @@
 import type { DailyHoroscope, ZodiacSign } from '@astralis/lib/types';
 import { getZodiacInfo } from '@astralis/lib/zodiac';
 import type { HoroscopePeriod } from './homeDateUtils';
+import type { AppLocale, TranslationKey } from '../../i18n';
+
+/** Translator from `useI18n().t`; optional so callers without i18n keep the English copy. */
+type Translate = (key: TranslationKey, params?: Record<string, string | number | null | undefined>) => string;
+
+const MOON_PHASE_KEYS: Record<string, TranslationKey> = {
+  'New Moon': 'chart.moonPhase.New Moon',
+  'Waxing Crescent': 'chart.moonPhase.Waxing Crescent',
+  'First Quarter': 'chart.moonPhase.First Quarter',
+  'Waxing Gibbous': 'chart.moonPhase.Waxing Gibbous',
+  'Full Moon': 'chart.moonPhase.Full Moon',
+  'Waning Gibbous': 'chart.moonPhase.Waning Gibbous',
+  'Last Quarter': 'chart.moonPhase.Last Quarter',
+  'Waning Crescent': 'chart.moonPhase.Waning Crescent',
+};
+
+function localizedMoonPhase(phase: string, t?: Translate): string {
+  if (!t) return phase;
+  const key = MOON_PHASE_KEYS[phase];
+  return key ? t(key) : phase;
+}
+
+function localizedSign(sign: ZodiacSign, t?: Translate): string {
+  return t ? t(`zodiac.${sign}` as TranslationKey) : getZodiacInfo(sign).name;
+}
 
 const MAJOR_ARCANA = [
   'The Fool',
@@ -95,33 +120,61 @@ export function moonFromHoroscope(h: DailyHoroscope, moonSign: ZodiacSign | null
   };
 }
 
-export function currentSkySummary(h: DailyHoroscope): Array<{ label: string; value: string }> {
+export function currentSkySummary(h: DailyHoroscope, t?: Translate): Array<{ label: string; value: string }> {
   const sky = h.skyContext;
   if (!sky) return [];
   return [
-    { label: 'Sun', value: getZodiacInfo(sky.sunSign).name },
-    { label: 'Moon', value: getZodiacInfo(sky.moonSign).name },
-    { label: 'Phase', value: sky.moonPhase },
+    { label: t ? t('chart.sky.sun') : 'Sun', value: localizedSign(sky.sunSign, t) },
+    { label: t ? t('chart.sky.moon') : 'Moon', value: localizedSign(sky.moonSign, t) },
+    { label: t ? t('chart.sky.phase') : 'Phase', value: localizedMoonPhase(sky.moonPhase, t) },
   ];
 }
 
-export function strongestTransitCopy(h: DailyHoroscope): string {
+export function strongestTransitCopy(h: DailyHoroscope, t?: Translate, locale: AppLocale = 'en'): string {
   const transit = h.skyContext?.focusTransit;
   if (!transit) {
-    return 'No exact major transit is peaking today, so today\'s reading leans on the current Moon phase and your natal chart.';
+    return t
+      ? t('chart.sky.noTransit')
+      : 'No exact major transit is peaking today, so today\'s reading leans on the current Moon phase and your natal chart.';
   }
-  const house = transit.natalHouse ? ` in your ${ordinal(transit.natalHouse)} house` : '';
-  return `${transit.transitBody} ${transit.aspect} your natal ${transit.natalBody}${house} at a ${transit.orb.toFixed(1)} degree orb.`;
+  if (!t) {
+    const house = transit.natalHouse ? ` in your ${ordinal(transit.natalHouse)} house` : '';
+    return `${transit.transitBody} ${transit.aspect} your natal ${transit.natalBody}${house} at a ${transit.orb.toFixed(1)} degree orb.`;
+  }
+  const house = transit.natalHouse
+    ? t('chart.sky.transitHouse', {
+        house: locale === 'mn' ? String(transit.natalHouse) : ordinal(transit.natalHouse),
+      })
+    : '';
+  return t('chart.sky.transit', {
+    transitBody: t(`planets.${transit.transitBody}` as TranslationKey),
+    natalBody: t(`planets.${transit.natalBody}` as TranslationKey),
+    aspect: t(`aspects.types.${transit.aspect}` as TranslationKey),
+    house,
+    orb: transit.orb.toFixed(1),
+  });
 }
 
-export function whyThisReadingCopy(h: DailyHoroscope): string {
+export function whyThisReadingCopy(h: DailyHoroscope, t?: Translate, locale: AppLocale = 'en'): string {
   const sky = h.skyContext;
   if (!sky) {
-    return 'This reading uses your saved chart when available and falls back gracefully when today\'s sky data is still loading.';
+    return t
+      ? t('chart.sky.whyNoSky')
+      : 'This reading uses your saved chart when available and falls back gracefully when today\'s sky data is still loading.';
   }
-  const sun = getZodiacInfo(sky.sunSign).name;
-  const moon = getZodiacInfo(sky.moonSign).name;
-  return `Astralis starts with the actual sky: Sun in ${sun}, Moon in ${moon}, and a ${sky.moonPhase.toLowerCase()} phase. ${strongestTransitCopy(h)}`;
+  if (!t) {
+    const sun = getZodiacInfo(sky.sunSign).name;
+    const moon = getZodiacInfo(sky.moonSign).name;
+    return `Astralis starts with the actual sky: Sun in ${sun}, Moon in ${moon}, and a ${sky.moonPhase.toLowerCase()} phase. ${strongestTransitCopy(h)}`;
+  }
+  const localizedPhase = localizedMoonPhase(sky.moonPhase, t);
+  const phase = locale === 'en' ? localizedPhase.toLowerCase() : localizedPhase;
+  return t('chart.sky.why', {
+    sun: localizedSign(sky.sunSign, t),
+    moon: localizedSign(sky.moonSign, t),
+    phase,
+    transit: strongestTransitCopy(h, t, locale),
+  });
 }
 
 function ordinal(value: number): string {

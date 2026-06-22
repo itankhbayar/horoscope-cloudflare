@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import { billingService } from '../lib';
+import { billingMobileService, billingService } from '../lib';
 import { ApiClientError } from '../lib/apiClient';
 import { track } from '../lib/analytics';
 import { captureFrontendException } from '../lib/errorTracking';
@@ -49,6 +49,22 @@ export const usePremiumStore = defineStore('premium', () => {
     }
   }
 
+  async function restorePremiumStatus(): Promise<boolean> {
+    syncLoading.value = true;
+    error.value = null;
+    try {
+      const result = await billingMobileService.restoreMobilePremiumStatus();
+      await auth.refreshUser();
+      return result.isPremium;
+    } catch (err) {
+      error.value = (err as Error).message;
+      captureFrontendException(err, { billing: { flow: 'premium_restore' } });
+      throw err;
+    } finally {
+      syncLoading.value = false;
+    }
+  }
+
   return {
     checkoutLoading,
     syncLoading,
@@ -56,5 +72,6 @@ export const usePremiumStore = defineStore('premium', () => {
     isPremium,
     startCheckout,
     syncCheckoutSession,
+    restorePremiumStatus,
   };
 });

@@ -123,17 +123,6 @@ watch(locale, async () => {
   if (mode.value === 'draw' && drawnCard.value) await drawCard();
 });
 
-// Reading is split into pickable sections (like the daily horoscope), so the user
-// chooses what to read instead of scrolling one long stack.
-type TarotSectionKey = 'overview' | 'love' | 'career' | 'energy';
-const activeSection = ref<TarotSectionKey>('overview');
-const sectionTabs = computed(() => [
-  { key: 'overview' as const, label: t('tarot.overview'), icon: '✦', accent: '#c9a84c' },
-  { key: 'love' as const, label: t('tarot.love'), icon: '♡', accent: '#ff6b9c' },
-  { key: 'career' as const, label: t('tarot.career'), icon: '✧', accent: '#9ec6ff' },
-  { key: 'energy' as const, label: t('tarot.energyNarrative'), icon: '⚡', accent: '#f4d98b' },
-]);
-
 </script>
 
 <template>
@@ -216,27 +205,6 @@ const sectionTabs = computed(() => [
             <div class="energy-fill" :style="{ width: data.energyScore + '%' }" />
           </div>
         </div>
-
-        <article class="sections glass-card">
-          <h2 class="block-title">{{ t('tarot.sections') }}</h2>
-          <div class="tab-row" role="tablist">
-            <button
-              v-for="tab in sectionTabs"
-              :key="tab.key"
-              type="button"
-              role="tab"
-              class="tab"
-              :class="{ active: activeSection === tab.key }"
-              :aria-selected="activeSection === tab.key"
-              :style="activeSection === tab.key ? { '--tab-accent': tab.accent } : {}"
-              @click="activeSection = tab.key"
-            >
-              <span class="tab-icon" :style="{ color: tab.accent }" aria-hidden="true">{{ tab.icon }}</span>
-              <span class="tab-label">{{ tab.label }}</span>
-            </button>
-          </div>
-          <p class="section-body" role="tabpanel">{{ data.reading[activeSection] }}</p>
-        </article>
       </section>
     </template>
 

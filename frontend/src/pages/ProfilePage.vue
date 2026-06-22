@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useProfile } from '../composables/useProfile';
 import { useAuth } from '../composables/useAuth';
@@ -7,9 +8,11 @@ import LoadingSpinner from '../components/LoadingSpinner.vue';
 import AppContainer from '../components/layout/AppContainer.vue';
 import ScreenLayout from '../components/layout/ScreenLayout.vue';
 
+const { t } = useI18n();
 const router = useRouter();
 const { profile, loading, avatarUploading, error, load, saveProfile, uploadAvatar } = useProfile();
-const { deleteAccount, exportMyData } = useAuth();
+const { user, deleteAccount, exportMyData } = useAuth();
+const isPremium = computed(() => Boolean(profile.value?.user.isPremium ?? user.value?.isPremium));
 
 const editMode = ref(false);
 const showDeleteConfirm = ref(false);
@@ -70,13 +73,13 @@ function validate(): boolean {
   const timezone = formTimezone.value.trim();
 
   if (name.length < 2 || name.length > 60) {
-    next.displayName = 'Display name must be 2 to 60 characters.';
+    next.displayName = t('profile.errDisplayName');
   }
   if (bio.length > 280) {
-    next.bio = 'Bio must be 280 characters or less.';
+    next.bio = t('profile.errBio');
   }
   if (!timezone || !timezoneOptions.value.includes(timezone)) {
-    next.timezone = 'Please choose a valid timezone.';
+    next.timezone = t('profile.errTimezone');
   }
 
   formErrors.value = next;
@@ -101,11 +104,11 @@ async function onAvatarSelected(event: Event): Promise<void> {
 
   const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
   if (!allowed.has(file.type)) {
-    formErrors.value = { ...formErrors.value, avatar: 'Avatar must be jpeg, png, or webp.' };
+    formErrors.value = { ...formErrors.value, avatar: t('profile.errAvatarType') };
     return;
   }
   if (file.size > 5 * 1024 * 1024) {
-    formErrors.value = { ...formErrors.value, avatar: 'Avatar must be 5MB or smaller.' };
+    formErrors.value = { ...formErrors.value, avatar: t('profile.errAvatarSize') };
     return;
   }
 
@@ -145,7 +148,7 @@ async function confirmDeleteAccount(): Promise<void> {
     showDeleteConfirm.value = false;
     await router.replace('/login');
   } catch (err) {
-    deleteError.value = err instanceof Error ? err.message : 'Failed to delete account.';
+    deleteError.value = err instanceof Error ? err.message : t('profile.errDeleteFailed');
   } finally {
     deletingAccount.value = false;
   }
@@ -165,7 +168,7 @@ async function downloadMyData(): Promise<void> {
     link.click();
     URL.revokeObjectURL(url);
   } catch (err) {
-    exportError.value = err instanceof Error ? err.message : 'Failed to export data.';
+    exportError.value = err instanceof Error ? err.message : t('profile.errExportFailed');
   } finally {
     exportingData.value = false;
   }
@@ -176,18 +179,18 @@ async function downloadMyData(): Promise<void> {
   <AppContainer size="xl">
     <ScreenLayout class="profile-page">
       <section v-if="loading && !profile" class="glass-card state-shell">
-        <LoadingSpinner label="Loading profile" />
-        <p class="state-subtitle">Aligning your cosmic profile...</p>
+        <LoadingSpinner :label="t('profile.loadingProfile')" />
+        <p class="state-subtitle">{{ t('profile.aligning') }}</p>
       </section>
 
       <section v-else-if="error" class="glass-card state-shell error-shell" role="alert">
-        <h2 class="state-title">Something drifted off course</h2>
+        <h2 class="state-title">{{ t('profile.errorTitle') }}</h2>
         <p class="state error">{{ error }}</p>
       </section>
 
       <section v-else-if="!profile" class="glass-card state-shell">
-        <h2 class="state-title">No profile available</h2>
-        <p class="state-subtitle">Create or complete your profile to begin your cosmic journey.</p>
+        <h2 class="state-title">{{ t('profile.noProfileTitle') }}</h2>
+        <p class="state-subtitle">{{ t('profile.noProfileHint') }}</p>
       </section>
 
       <template v-else>
@@ -195,7 +198,7 @@ async function downloadMyData(): Promise<void> {
           <div class="hero-left">
             <div class="avatar-ring">
               <div v-if="resolvedAvatar" class="avatar-wrap">
-                <img :src="resolvedAvatar" alt="Profile avatar" class="avatar" loading="lazy" decoding="async" />
+                <img :src="resolvedAvatar" :alt="t('profile.avatarAlt')" class="avatar" loading="lazy" decoding="async" />
               </div>
               <div v-else class="avatar-fallback">{{ avatarInitial() }}</div>
             </div>
@@ -207,7 +210,7 @@ async function downloadMyData(): Promise<void> {
               :disabled="avatarUploading"
               @click="avatarInputEl?.click()"
             >
-              {{ avatarUploading ? 'Uploading…' : 'Change avatar' }}
+              {{ avatarUploading ? t('profile.uploading') : t('profile.changeAvatar') }}
             </button>
             <input
               ref="avatarInputEl"
@@ -222,93 +225,101 @@ async function downloadMyData(): Promise<void> {
           </div>
 
           <div class="hero-right">
-            <p class="hero-kicker">✦ Cosmic Identity</p>
+            <p class="hero-kicker">✦ {{ t('profile.cosmicIdentity') }}</p>
             <h1 class="hero-name">{{ profile.user.displayName || profile.user.fullName }}</h1>
             <p class="email">{{ profile.user.email }}</p>
-            <span class="profile-badge">☽ Star Seeker</span>
+            <span class="profile-badge">☽ {{ t('profile.starSeeker') }}</span>
           </div>
         </section>
 
         <section v-if="!editMode" class="profile-read">
           <div class="glass-card tile">
+            <p class="tile-icon" aria-hidden="true">{{ isPremium ? '★' : '☆' }}</p>
+            <p class="tile-label">{{ t('profile.membership') }}</p>
+            <p class="tile-value">
+              <span class="member-badge" :class="isPremium ? 'is-premium' : 'is-free'">
+                {{ isPremium ? t('profile.premium') : t('profile.free') }}
+              </span>
+            </p>
+          </div>
+          <div class="glass-card tile">
             <p class="tile-icon" aria-hidden="true">✧</p>
-            <p class="tile-label">Bio</p>
-            <p class="tile-value">{{ profile.user.bio || 'No cosmic bio yet.' }}</p>
+            <p class="tile-label">{{ t('profile.bioLabel') }}</p>
+            <p class="tile-value">{{ profile.user.bio || t('profile.noBio') }}</p>
           </div>
           <div class="glass-card tile">
             <p class="tile-icon" aria-hidden="true">◎</p>
-            <p class="tile-label">Timezone</p>
+            <p class="tile-label">{{ t('profile.timezoneLabel') }}</p>
             <p class="tile-value">{{ profile.user.timezone || 'UTC' }}</p>
           </div>
           <div class="glass-card tile">
             <p class="tile-icon" aria-hidden="true">✦</p>
-            <p class="tile-label">Email</p>
-            <p class="tile-value">{{ profile.user.email || 'Unavailable' }}</p>
+            <p class="tile-label">{{ t('profile.emailLabel') }}</p>
+            <p class="tile-value">{{ profile.user.email || t('profile.unavailable') }}</p>
           </div>
           <div class="glass-card tile cta-tile">
             <p class="tile-icon" aria-hidden="true">☽</p>
-            <p class="tile-label">Profile controls</p>
-            <p class="tile-value">Refine your identity and personalize how your chart appears.</p>
+            <p class="tile-label">{{ t('profile.controls') }}</p>
+            <p class="tile-value">{{ t('profile.controlsHint') }}</p>
             <div class="actions">
-              <button class="primary-btn" :disabled="loading" @click="startEdit">Edit Profile</button>
+              <button class="primary-btn" :disabled="loading" @click="startEdit">{{ t('profile.editProfile') }}</button>
             </div>
           </div>
           <div class="glass-card tile">
             <p class="tile-icon" aria-hidden="true">↓</p>
-            <p class="tile-label">Privacy export</p>
-            <p class="tile-value">Download your profile, birth data, chart data, subscription status, and preferences as JSON.</p>
+            <p class="tile-label">{{ t('profile.privacyExport') }}</p>
+            <p class="tile-value">{{ t('profile.privacyExportHint') }}</p>
             <p v-if="exportError" class="field-error" role="alert">{{ exportError }}</p>
             <div class="actions">
               <button class="secondary-btn" :disabled="loading || exportingData" @click="downloadMyData">
-                {{ exportingData ? 'Preparing...' : 'Export my data' }}
+                {{ exportingData ? t('profile.preparing') : t('profile.exportMyData') }}
               </button>
             </div>
           </div>
           <div class="glass-card tile danger-tile">
             <p class="tile-icon" aria-hidden="true">!</p>
-            <p class="tile-label">Account deletion</p>
+            <p class="tile-label">{{ t('profile.accountDeletion') }}</p>
             <p class="tile-value">
-              Permanently remove your account, profile, chart data, notification tokens, and cached
-              personalized content.
+              {{ t('profile.accountDeletionHint') }}
             </p>
             <div class="actions">
-              <button class="danger-btn" :disabled="loading" @click="openDeleteConfirm">Delete Account</button>
+              <button class="danger-btn" :disabled="loading" @click="openDeleteConfirm">{{ t('profile.deleteAccount') }}</button>
             </div>
           </div>
         </section>
 
         <section v-else class="glass-card profile-edit">
           <div class="edit-head">
-            <h2>Edit your cosmic profile</h2>
-            <p>Fine-tune the details that guide your celestial experience.</p>
+            <h2>{{ t('profile.editTitle') }}</h2>
+            <p>{{ t('profile.editHint') }}</p>
           </div>
 
           <form class="edit-grid" @submit.prevent="save">
             <label>
-              <span>Display name</span>
+              <span>{{ t('profile.displayName') }}</span>
               <input v-model="formDisplayName" maxlength="60" required />
               <small v-if="formErrors.displayName" class="field-error">{{ formErrors.displayName }}</small>
             </label>
 
             <label class="field-bio">
-              <span>Bio</span>
+              <span>{{ t('profile.bioLabel') }}</span>
               <textarea v-model="formBio" maxlength="280" rows="4" />
               <small class="hint">{{ formBio.length }}/280</small>
               <small v-if="formErrors.bio" class="field-error">{{ formErrors.bio }}</small>
             </label>
 
             <label>
-              <span>Timezone</span>
+              <span>{{ t('profile.timezoneLabel') }}</span>
               <select v-model="formTimezone" required>
-                <option disabled value="">Select timezone</option>
+                <option disabled value="">{{ t('profile.selectTimezone') }}</option>
                 <option v-for="tz in timezoneOptions" :key="tz" :value="tz">{{ tz }}</option>
               </select>
               <small v-if="formErrors.timezone" class="field-error">{{ formErrors.timezone }}</small>
             </label>
 
             <div class="actions">
-              <button class="secondary-btn" type="button" :disabled="loading" @click="cancelEdit">Cancel</button>
-              <button class="primary-btn" type="submit" :disabled="loading">Save profile</button>
+              <button class="secondary-btn" type="button" :disabled="loading" @click="cancelEdit">{{ t('profile.cancel') }}</button>
+              <button class="primary-btn" type="submit" :disabled="loading">{{ t('profile.saveProfile') }}</button>
             </div>
           </form>
         </section>
@@ -321,23 +332,21 @@ async function downloadMyData(): Promise<void> {
           aria-modal="true"
           aria-labelledby="delete-account-title"
         >
-          <p class="modal-kicker">Permanent action</p>
-          <h2 id="delete-account-title">Delete your Astralis account?</h2>
+          <p class="modal-kicker">{{ t('profile.permanentAction') }}</p>
+          <h2 id="delete-account-title">{{ t('profile.deleteConfirmTitle') }}</h2>
           <p>
-            This removes your profile, auth credentials, birth details, chart data, push tokens,
-            notification preferences, and personalized cached content tied to your account.
+            {{ t('profile.deleteConfirmBody') }}
           </p>
           <p>
-            If you have an active subscription, also manage cancellation through Apple or Google
-            billing settings, or the Stripe billing portal where available.
+            {{ t('profile.deleteSubscriptionNote') }}
           </p>
           <p v-if="deleteError" class="field-error" role="alert">{{ deleteError }}</p>
           <div class="modal-actions">
             <button class="secondary-btn" type="button" :disabled="deletingAccount" @click="closeDeleteConfirm">
-              Keep account
+              {{ t('profile.keepAccount') }}
             </button>
             <button class="danger-btn" type="button" :disabled="deletingAccount" @click="confirmDeleteAccount">
-              {{ deletingAccount ? 'Deleting...' : 'Delete permanently' }}
+              {{ deletingAccount ? t('profile.deleting') : t('profile.deletePermanently') }}
             </button>
           </div>
         </section>
@@ -347,6 +356,24 @@ async function downloadMyData(): Promise<void> {
 </template>
 
 <style scoped>
+.member-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+}
+.member-badge.is-premium {
+  color: #1a1430;
+  background: linear-gradient(135deg, #f4d98b, #c9a84c);
+  border-color: rgba(201, 168, 76, 0.6);
+}
+.member-badge.is-free {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
 .profile-page {
   display: flex;
   flex-direction: column;

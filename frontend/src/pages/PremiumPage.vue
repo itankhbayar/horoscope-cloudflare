@@ -14,7 +14,7 @@ const { t } = useI18n();
 const router = useRouter();
 const { isAuthenticated } = useAuth();
 const premiumStore = usePremiumStore();
-const { checkoutLoading, error: checkoutError, isPremium } = storeToRefs(premiumStore);
+const { checkoutLoading, syncLoading, error: checkoutError, isPremium } = storeToRefs(premiumStore);
 
 const checkoutLabel = computed(() =>
   checkoutLoading.value ? t('premium.checkoutLoading') : t('premium.trialCta'),
@@ -40,6 +40,14 @@ async function goPremium() {
   track(PAYWALL_CTA_EVENT, { source: 'premium_page', hasTrial: true });
   const url = await premiumStore.startCheckout(t('premium.checkoutFailed'));
   if (url) window.location.href = url;
+}
+
+async function refreshPremiumStatus() {
+  if (!isAuthenticated.value) {
+    void router.push({ name: 'login', query: { redirect: '/premium' } });
+    return;
+  }
+  await premiumStore.restorePremiumStatus();
 }
 
 const features = computed(() => [
@@ -79,6 +87,7 @@ track('paywall_viewed', { isPremium: isPremium.value });
         :title="f.title"
         :description="f.description"
         :icon="f.icon"
+        @unlock="goPremium"
       />
     </section>
 
@@ -103,6 +112,14 @@ track('paywall_viewed', { isPremium: isPremium.value });
           @click="goPremium"
         >
           {{ checkoutLabel }}
+        </button>
+        <button
+          type="button"
+          class="restore-btn"
+          :disabled="syncLoading"
+          @click="refreshPremiumStatus"
+        >
+          {{ syncLoading ? t('premium.syncing') : t('premium.refreshStatus') }}
         </button>
         <p class="trial-footer">{{ t('premium.trialFooter') }}</p>
       </template>
@@ -164,6 +181,20 @@ track('paywall_viewed', { isPremium: isPremium.value });
   width: 100%;
   max-width: 320px;
   margin: 0 auto;
+}
+.restore-btn {
+  display: block;
+  margin: 0.9rem auto 0;
+  background: transparent;
+  border: 0;
+  color: var(--gold-light);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.restore-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 .checkout-error {
   color: var(--danger, #e57373);

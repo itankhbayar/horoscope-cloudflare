@@ -15,6 +15,7 @@ import {
   processStripeWebhookEventIdempotently,
   revokePremiumFromSubscription,
   syncPremiumFromCheckoutSession,
+  syncPremiumFromStripeForUser,
   syncPremiumFromSubscription,
 } from './billingService';
 
@@ -158,7 +159,7 @@ describe('createPremiumCheckoutSession', () => {
     );
   });
 
-  it('attaches a 7-day trial and subscription metadata for recurring prices', async () => {
+  it('attaches subscription metadata for recurring prices', async () => {
     const stripe = {
       prices: { retrieve: vi.fn().mockResolvedValue({ type: 'recurring' }) },
       checkout: { sessions: { create: vi.fn().mockResolvedValue({ id: 'cs_sub' }) } },
@@ -175,7 +176,7 @@ describe('createPremiumCheckoutSession', () => {
     expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: 'subscription',
-        subscription_data: { trial_period_days: 7, metadata: { userId: 'user-1' } },
+        subscription_data: { metadata: { userId: 'user-1' } },
       }),
     );
   });
@@ -205,14 +206,14 @@ describe('createMobilePremiumPaymentSheet', () => {
     vi.clearAllMocks();
   });
 
-  it('starts a trial via SetupIntent for recurring mobile subscriptions', async () => {
+  it('starts an immediate recurring mobile subscription via PaymentIntent', async () => {
     const { db } = createDbCapture();
     mocks.getUserById.mockResolvedValue({ id: 'user-1', email: 'u@e.com', stripeCustomerId: 'cus_1' });
     const subscriptionsCreate = vi.fn().mockResolvedValue({
-      id: 'sub_trial',
-      status: 'trialing',
-      pending_setup_intent: { client_secret: 'seti_secret_123' },
-      latest_invoice: null,
+      id: 'sub_active',
+      status: 'active',
+      pending_setup_intent: null,
+      latest_invoice: { payment_intent: { client_secret: 'pi_secret_123' } },
     });
     const stripe = {
       prices: { retrieve: vi.fn().mockResolvedValue({ type: 'recurring' }) },
@@ -227,16 +228,13 @@ describe('createMobilePremiumPaymentSheet', () => {
     });
 
     expect(result).toEqual({
-      mode: 'subscription_trial',
-      setupIntentClientSecret: 'seti_secret_123',
+      mode: 'subscription',
+      paymentIntentClientSecret: 'pi_secret_123',
       customerId: 'cus_1',
       customerEphemeralKeySecret: 'ek_secret',
-      subscriptionId: 'sub_trial',
+      subscriptionId: 'sub_active',
     });
-    expect(subscriptionsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ trial_period_days: 7 }),
-      expect.anything(),
-    );
+    expect(subscriptionsCreate.mock.calls[0][0]).not.toHaveProperty('trial_period_days');
   });
 
   it('does not attach a trial to one-time mobile payments', async () => {
@@ -327,9 +325,9 @@ describe('syncPremiumFromCheckoutSession', () => {
       id: 'cs_paid',
       status: 'complete',
       payment_status: 'paid',
+      mode: 'payment',
       metadata: { userId: 'user-1' },
       customer: 'cus_abc',
-      subscription: 'sub_xyz',
     } as unknown as Stripe.Checkout.Session;
     const stripe = {
       checkout: { sessions: { retrieve: vi.fn().mockResolvedValue(session) } },
@@ -340,12 +338,84 @@ describe('syncPremiumFromCheckoutSession', () => {
       isPremium: true,
     });
 
-    expect(stripe.checkout.sessions.retrieve).toHaveBeenCalledWith('cs_paid');
+    expect(stripe.checkout.sessions.retrieve).toHaveBeenCalledWith('cs_paid', {
+      expand: ['subscription'],
+    });
     expect(setCalls).toEqual([
       expect.objectContaining({
         isPremium: true,
         stripeCustomerId: 'cus_abc',
-        stripeSubscriptionId: 'sub_xyz',
+      }),
+    ]);
+  });
+
+  it('syncs subscription checkout from the expanded subscription status', async () => {
+    const { db, setCalls } = createDbCapture();
+    const session = {
+      id: 'cs_sub',
+      status: 'complete',
+      payment_status: 'unpaid',
+      mode: 'subscription',
+      metadata: { userId: 'user-1' },
+      subscription: {
+        id: 'sub_active',
+        status: 'active',
+        metadata: { userId: 'user-1' },
+        customer: 'cus_abc',
+      },
+    } as unknown as Stripe.Checkout.Session;
+    const stripe = {
+      checkout: { sessions: { retrieve: vi.fn().mockResolvedValue(session) } },
+    } as unknown as Stripe;
+    mocks.getUserById.mockResolvedValue({ id: 'user-1', email: 'u@example.com', isPremium: false });
+
+    await expect(syncPremiumFromCheckoutSession(stripe, db, 'cs_sub', 'user-1')).resolves.toEqual({
+      isPremium: true,
+    });
+
+    expect(setCalls).toEqual([
+      expect.objectContaining({
+        isPremium: true,
+        stripeSubscriptionId: 'sub_active',
+      }),
+    ]);
+  });
+
+  it('retrieves and syncs a non-expanded checkout subscription', async () => {
+    const { db, setCalls } = createDbCapture();
+    const stripe = {
+      checkout: {
+        sessions: {
+          retrieve: vi.fn().mockResolvedValue({
+            id: 'cs_sub',
+            status: 'complete',
+            payment_status: 'unpaid',
+            mode: 'subscription',
+            metadata: { userId: 'user-1' },
+            subscription: 'sub_active',
+          }),
+        },
+      },
+      subscriptions: {
+        retrieve: vi.fn().mockResolvedValue({
+          id: 'sub_active',
+          status: 'active',
+          metadata: { userId: 'user-1' },
+          customer: 'cus_abc',
+        }),
+      },
+    } as unknown as Stripe;
+    mocks.getUserById.mockResolvedValue({ id: 'user-1', email: 'u@example.com', isPremium: false });
+
+    await expect(syncPremiumFromCheckoutSession(stripe, db, 'cs_sub', 'user-1')).resolves.toEqual({
+      isPremium: true,
+    });
+
+    expect(stripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_active');
+    expect(setCalls).toEqual([
+      expect.objectContaining({
+        isPremium: true,
+        stripeSubscriptionId: 'sub_active',
       }),
     ]);
   });
@@ -494,6 +564,67 @@ describe('revokePremiumFromSubscription', () => {
         stripeSubscriptionId: null,
       }),
     ]);
+  });
+});
+
+describe('syncPremiumFromStripeForUser', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('recovers an active subscription by matching the Stripe customer email', async () => {
+    const { db, setCalls } = createDbCapture();
+    mocks.getUserById.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      isPremium: false,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+    });
+    const stripe = {
+      customers: { list: vi.fn().mockResolvedValue({ data: [{ id: 'cus_email' }] }) },
+      subscriptions: {
+        list: vi.fn().mockResolvedValue({
+          data: [{ id: 'sub_email', status: 'active', metadata: {}, customer: 'cus_email' }],
+        }),
+      },
+    } as unknown as Stripe;
+
+    await expect(syncPremiumFromStripeForUser(stripe, db, 'user-1')).resolves.toEqual({
+      isPremium: true,
+      source: 'email',
+    });
+
+    expect(stripe.customers.list).toHaveBeenCalledWith({ email: 'user@example.com', limit: 10 });
+    expect(setCalls).toEqual([
+      expect.objectContaining({
+        stripeCustomerId: 'cus_email',
+        stripeSubscriptionId: 'sub_email',
+      }),
+      expect.objectContaining({ isPremium: true }),
+    ]);
+  });
+
+  it('leaves the user free when email recovery finds no subscriptions', async () => {
+    const { db, setCalls } = createDbCapture();
+    mocks.getUserById.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      isPremium: false,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+    });
+    const stripe = {
+      customers: { list: vi.fn().mockResolvedValue({ data: [{ id: 'cus_email' }] }) },
+      subscriptions: { list: vi.fn().mockResolvedValue({ data: [] }) },
+    } as unknown as Stripe;
+
+    await expect(syncPremiumFromStripeForUser(stripe, db, 'user-1')).resolves.toEqual({
+      isPremium: false,
+      source: 'none',
+    });
+
+    expect(setCalls).toEqual([expect.objectContaining({ isPremium: false })]);
   });
 });
 

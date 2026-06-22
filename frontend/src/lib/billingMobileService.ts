@@ -45,9 +45,9 @@ export async function createMobileBillingPortalSession(returnUrl: string): Promi
 
 export async function restoreMobilePremiumStatus(): Promise<{
   isPremium: boolean;
-  source: 'subscription' | 'customer' | 'none';
+  source: 'subscription' | 'customer' | 'email' | 'none';
 }> {
-  const result = await apiRequest<{ isPremium: boolean; source: 'subscription' | 'customer' | 'none' }>(
+  const result = await apiRequest<{ isPremium: boolean; source: 'subscription' | 'customer' | 'email' | 'none' }>(
     '/api/billing/mobile/restore',
     {
       method: 'POST',

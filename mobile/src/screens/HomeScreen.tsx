@@ -5,7 +5,6 @@ import { EnergyDetailsCard } from '../components/home/EnergyDetailsCard';
 import { EnergyRing } from '../components/home/EnergyRing';
 import { HomeHeader } from '../components/home/HomeHeader';
 import { HoroscopePremiumCard } from '../components/home/HoroscopePremiumCard';
-import { PatternMemoryCard } from '../components/home/PatternMemoryCard';
 import type { HoroscopePeriod } from '../components/home/homeDateUtils';
 import {
   currentSkySummary,
@@ -114,9 +113,6 @@ export function HomeScreen(): ReactElement {
   );
   const availableFreezes = horoscope?.streakFreezes ?? user?.streakFreezes ?? 0;
   const freezeCap = horoscope?.streakFreezeCap ?? user?.streakFreezeCap ?? 1;
-  // Pattern Memory is only ever populated by the server for premium users; gate again
-  // on the client so free users never see the section even if a payload leaks through.
-  const patternMemory = isPremium ? horoscope?.patternMemory ?? null : null;
   const streakAtRisk =
     effectiveHoroscopePeriod === 'today' &&
     isStreakAtRisk({
@@ -226,16 +222,6 @@ export function HomeScreen(): ReactElement {
       freezesAvailable: availableFreezes,
     });
   }, [streakAtRisk, freezePromptDate, availableFreezes, horoscope?.streakCount, dailyStreak.count]);
-
-  useEffect(() => {
-    if (!patternMemory || !readingRevealed) return;
-    void track('pattern_memory_shown', {
-      source: 'home',
-      theme: patternMemory.theme,
-      kind: patternMemory.kind,
-      daysAgo: patternMemory.daysAgo,
-    });
-  }, [patternMemory, readingRevealed]);
 
 
   useEffect(() => {
@@ -582,19 +568,6 @@ export function HomeScreen(): ReactElement {
             </Pressable>
           ) : null}
         </Animated.View>
-      ) : null}
-
-      {isOwnSign && patternMemory && readingRevealed ? (
-        <PatternMemoryCard
-          memory={patternMemory}
-          onOpen={() =>
-            void track('pattern_memory_opened', {
-              source: 'home',
-              theme: patternMemory.theme,
-              kind: patternMemory.kind,
-            })
-          }
-        />
       ) : null}
 
 

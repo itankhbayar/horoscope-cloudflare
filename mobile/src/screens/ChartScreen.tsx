@@ -14,12 +14,15 @@ import {
   spacing,
 } from '../theme';
 import { aspectSymbol, planetSymbol } from '@astralis/lib/zodiac';
-import type { Aspect, AspectType, DailyHoroscope, NatalChart, PlanetPosition, ZodiacSign } from '@astralis/lib/types';
+import { fetchChartReading } from '@astralis/lib/chartService';
+import type { Aspect, AspectType, ChartReadingContent, DailyHoroscope, NatalChart, PlanetPosition, ZodiacSign } from '@astralis/lib/types';
 import { useAppearance } from '../hooks/useAppearance';
+import { useAuth } from '../hooks/useAuth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { currentSkySummary, strongestTransitCopy, whyThisReadingCopy } from '../components/home/homeContentUtils';
 import { useI18n } from '../i18n';
 import type { TranslationKey } from '../i18n';
+import { goToPremium } from '../navigation/navigationRef';
 
 type ChartTab = 'chart' | 'houses' | 'planets';
 
@@ -57,15 +60,36 @@ function aspectColor(type: AspectType): string {
 
 export function ChartScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { palette, mode } = useAppearance();
   const isLight = mode === 'light';
   const insets = useSafeAreaInsets();
   const { profile, load, loading, error } = useProfile();
   const { horoscope, loadMine } = useHoroscope();
+  const { user } = useAuth();
+  const isPremium = Boolean(user?.isPremium);
   const [activeTab, setActiveTab] = useState<ChartTab>('chart');
   // Aspects are dense; let users collapse the list if they'd rather not see all of it.
   const [showAspects, setShowAspects] = useState(true);
+
+  // Premium, Claude-generated reading of this specific chart. Generated once per chart and
+  // cached server-side, so the first reveal may take ~20–40s and later opens return instantly.
+  const [reading, setReading] = useState<ChartReadingContent | null>(null);
+  const [readingLoading, setReadingLoading] = useState(false);
+  const [readingError, setReadingError] = useState<string | null>(null);
+
+  const revealReading = useCallback(async (): Promise<void> => {
+    setReadingLoading(true);
+    setReadingError(null);
+    try {
+      const res = await fetchChartReading(locale);
+      setReading(res.reading);
+    } catch (e) {
+      setReadingError(e instanceof Error ? e.message : t('chart.reading.error'));
+    } finally {
+      setReadingLoading(false);
+    }
+  }, [locale, t]);
 
   useEffect(() => {
     void load();
@@ -202,6 +226,41 @@ export function ChartScreen(): React.JSX.Element {
                 : null}
             </View>
           ) : null}
+
+          {/* Premium: a personalized Claude reading of this specific chart (one per chart). */}
+          {chart ? (
+            isPremium ? (
+              <ChartReadingPanel
+                reading={reading}
+                loading={readingLoading}
+                error={readingError}
+                onReveal={() => void revealReading()}
+                glassCardStyle={glassCardStyle}
+                palette={palette}
+                bodyStyle={{ fontSize: listFont, lineHeight: listLineHeight }}
+              />
+            ) : (
+              <View style={[styles.lockCard, glassCardStyle]}>
+                <View style={styles.readingHead}>
+                  <Text style={styles.readingBadge}>{t('premium.badge')}</Text>
+                </View>
+                <Text style={styles.readingIcon}>✶</Text>
+                <Text style={[styles.lockTitle, { color: palette.text }]}>{t('chart.reading.lockedTitle')}</Text>
+                <Text style={[styles.lockBody, { color: palette.textMuted, fontSize: listFont, lineHeight: listLineHeight }]}>
+                  {t('chart.reading.lockedDesc')}
+                </Text>
+                <Pressable
+                  style={({ pressed }) => [styles.unlockBtn, pressed && styles.pressed]}
+                  onPress={() => goToPremium('locked_preview')}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('chart.reading.lockedCta')}
+                  hitSlop={hitSlopComfortable}
+                >
+                  <Text style={styles.unlockBtnText}>{t('chart.reading.lockedCta')}</Text>
+                </Pressable>
+              </View>
+            )
+          ) : null}
         </View>
       ) : null}
 
@@ -233,8 +292,8 @@ function TodaySkyChartPanel({
   glassCardStyle: { backgroundColor: string; borderColor: string; borderWidth: number };
   palette: { text: string; textMuted: string; accent: string };
 }): React.JSX.Element {
-  const { t } = useI18n();
-  const skyItems = currentSkySummary(horoscope);
+  const { t, locale } = useI18n();
+  const skyItems = currentSkySummary(horoscope, t);
   return (
     <View style={[styles.todaySkyPanel, glassCardStyle]}>
       <Text style={[styles.todaySkyKicker, { color: palette.accent }]}>{t('chart.todayAgainst')}</Text>
@@ -247,11 +306,102 @@ function TodaySkyChartPanel({
         ))}
       </View>
       <Text style={[styles.todaySkyPanelBody, { color: palette.text }]}>
-        {strongestTransitCopy(horoscope)}
+        {strongestTransitCopy(horoscope, t, locale)}
       </Text>
       <Text style={[styles.todaySkyPanelNote, { color: palette.textMuted }]}>
-        {whyThisReadingCopy(horoscope)}
+        {whyThisReadingCopy(horoscope, t, locale)}
       </Text>
+    </View>
+  );
+}
+
+const READING_FIELDS = ['strengths', 'challenges', 'relationships', 'career', 'growth'] as const;
+
+/** Celestial glyphs giving each reading theme a distinct marker — mirrors the web cards. */
+const READING_ICONS: Record<'summary' | (typeof READING_FIELDS)[number], string> = {
+  summary: '☉',
+  strengths: '✦',
+  challenges: '☍',
+  relationships: '☽',
+  career: '★',
+  growth: '✷',
+};
+
+/**
+ * Premium chart reading: a "Reveal my reading" button that calls Claude once and renders the
+ * cached summary + themed cards. Mirrors the web `ChartPage` reading section.
+ */
+function ChartReadingPanel({
+  reading,
+  loading,
+  error,
+  onReveal,
+  glassCardStyle,
+  palette,
+  bodyStyle,
+}: {
+  reading: ChartReadingContent | null;
+  loading: boolean;
+  error: string | null;
+  onReveal: () => void;
+  glassCardStyle: { backgroundColor: string; borderColor: string; borderWidth: number };
+  palette: { text: string; textMuted: string; accent: string; border: string };
+  bodyStyle: { fontSize: number; lineHeight: number };
+}): React.JSX.Element {
+  const { t } = useI18n();
+  return (
+    <View style={[styles.readingCard, glassCardStyle]}>
+      <View style={styles.readingHead}>
+        <Text style={styles.readingBadge}>{t('premium.badge')}</Text>
+        <Text style={[styles.sectionTitle, { color: palette.text, marginBottom: 0 }]} accessibilityRole="header">
+          {t('chart.reading.title')}
+        </Text>
+      </View>
+
+      {reading ? (
+        <View style={styles.readingBody}>
+          <View style={[styles.readingSummary, { borderColor: palette.border }]}>
+            <Text style={styles.readingFieldIcon}>{READING_ICONS.summary}</Text>
+            <View style={styles.readingSummaryText}>
+              <Text style={[styles.readingLabel, { color: palette.text }]}>{t('chart.reading.summary')}</Text>
+              <Text style={[styles.readingText, bodyStyle, { color: palette.text }]}>{reading.summary}</Text>
+            </View>
+          </View>
+          {READING_FIELDS.map((key) => (
+            <View key={key} style={[styles.readingField, { borderColor: palette.border }]}>
+              <View style={styles.readingFieldHead}>
+                <Text style={styles.readingFieldIcon}>{READING_ICONS[key]}</Text>
+                <Text style={[styles.readingLabel, { color: palette.text }]}>
+                  {t(`chart.reading.${key}` as TranslationKey)}
+                </Text>
+              </View>
+              <Text style={[styles.readingText, bodyStyle, { color: palette.textMuted }]}>{reading[key]}</Text>
+            </View>
+          ))}
+        </View>
+      ) : loading ? (
+        <LoadingBlock message={t('chart.reading.loading')} />
+      ) : (
+        <>
+          <Text style={[styles.readingIntro, bodyStyle, { color: palette.textMuted }]}>
+            {t('chart.reading.intro')}
+          </Text>
+          {error ? (
+            <Text style={[styles.error, { color: '#d14f4f' }]} accessibilityRole="alert">
+              {error}
+            </Text>
+          ) : null}
+          <Pressable
+            style={({ pressed }) => [styles.revealBtn, pressed && styles.pressed]}
+            onPress={onReveal}
+            accessibilityRole="button"
+            accessibilityLabel={t('chart.reading.cta')}
+            hitSlop={hitSlopComfortable}
+          >
+            <Text style={styles.revealBtnText}>{t('chart.reading.cta')}</Text>
+          </Pressable>
+        </>
+      )}
     </View>
   );
 }
@@ -823,5 +973,67 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   chipText: { color: '#E8ECFF', fontSize: 12, fontWeight: '600' },
+
+  // Premium chart reading
+  readingCard: { borderRadius: 20, padding: spacing.md, gap: spacing.sm },
+  readingHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.xs },
+  readingBadge: {
+    color: '#E8D48B',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 212, 139, 0.4)',
+    backgroundColor: 'rgba(232, 212, 139, 0.12)',
+    overflow: 'hidden',
+  },
+  readingBody: { gap: spacing.sm },
+  readingSummary: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: spacing.md,
+    backgroundColor: 'rgba(232, 212, 139, 0.08)',
+  },
+  readingSummaryText: { flex: 1, gap: 4 },
+  readingField: { borderRadius: 14, borderWidth: 1, padding: spacing.md, gap: 6 },
+  readingFieldHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  readingFieldIcon: { color: '#E8D48B', fontSize: 18, lineHeight: 22 },
+  readingLabel: { fontSize: 15, fontWeight: '800' },
+  readingText: { fontWeight: '500' },
+  readingIntro: { fontWeight: '500', marginBottom: spacing.xs },
+  revealBtn: {
+    marginTop: spacing.xs,
+    minHeight: MIN_TOUCH,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    backgroundColor: '#E8D48B',
+  },
+  revealBtnText: { color: '#1a1530', fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
+
+  // Locked (non-premium) reading card
+  lockCard: { borderRadius: 20, padding: spacing.lg, alignItems: 'center', gap: spacing.sm },
+  readingIcon: { color: '#E8D48B', fontSize: 34, lineHeight: 40 },
+  lockTitle: { fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  lockBody: { textAlign: 'center', fontWeight: '500', marginBottom: spacing.xs },
+  unlockBtn: {
+    minHeight: MIN_TOUCH,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#E8D48B',
+  },
+  unlockBtnText: { color: '#E8D48B', fontWeight: '800', fontSize: 15, letterSpacing: 0.5, textTransform: 'uppercase' },
+
   pressed: { opacity: 0.85 },
 });

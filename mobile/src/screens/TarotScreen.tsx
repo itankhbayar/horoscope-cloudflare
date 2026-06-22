@@ -48,16 +48,6 @@ function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-const SECTION_KEYS = ['overview', 'love', 'career', 'energy'] as const;
-type SectionKey = (typeof SECTION_KEYS)[number];
-
-const READING_ICONS: Record<SectionKey, string> = {
-  overview: '✦',
-  love: '♡',
-  career: '✧',
-  energy: '⚡',
-};
-
 export function TarotScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
   const { mode } = useAppearance();
@@ -75,8 +65,6 @@ export function TarotScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
-  // Reading is split into pickable sections (like the daily horoscope) instead of one long stack.
-  const [activeSection, setActiveSection] = useState<SectionKey>('overview');
   // Two modes: the once-a-day card, and a free "ask the cards" draw that reshuffles each press.
   const [tarotMode, setTarotMode] = useState<'daily' | 'draw'>('daily');
   const [drawnCard, setDrawnCard] = useState<TarotPublicCard | null>(null);
@@ -163,15 +151,6 @@ export function TarotScreen(): React.JSX.Element {
   );
   const orientationLabel = useCallback(
     (v: 'Upright' | 'Reversed'): string => (v === 'Upright' ? t('tarot.upright') : t('tarot.reversed')),
-    [t],
-  );
-  const sectionLabel = useMemo<Record<SectionKey, string>>(
-    () => ({
-      overview: t('tarot.overview'),
-      love: t('tarot.love'),
-      career: t('tarot.career'),
-      energy: t('tarot.energyNarrative'),
-    }),
     [t],
   );
 
@@ -330,39 +309,6 @@ export function TarotScreen(): React.JSX.Element {
               />
 
               <CardDetails card={data.card_of_the_day} theme={theme} bodyStyle={bodyStyle} />
-
-              <View style={[styles.readingCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                <Text style={[styles.readingTitle, { color: theme.paleYellow }]}>{t('tarot.sections')}</Text>
-                <View style={styles.tabRow} accessibilityRole="tablist">
-                  {SECTION_KEYS.map((key) => {
-                    const active = activeSection === key;
-                    return (
-                      <Pressable
-                        key={key}
-                        onPress={() => setActiveSection(key)}
-                        style={({ pressed }) => [
-                          styles.tab,
-                          { borderColor: theme.cardBorder },
-                          active && { borderColor: theme.lavender, backgroundColor: theme.glowLavender },
-                          pressed && styles.pressed,
-                        ]}
-                        accessibilityRole="tab"
-                        accessibilityState={{ selected: active }}
-                        accessibilityLabel={sectionLabel[key]}
-                        hitSlop={hitSlopComfortable}
-                      >
-                        <Text style={[styles.tabIcon, { color: theme.lavender }]}>{READING_ICONS[key]}</Text>
-                        <Text style={[styles.tabLabel, { color: active ? theme.text : theme.textMuted }]} numberOfLines={1}>
-                          {sectionLabel[key]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <Text style={[styles.sectionBody, bodyStyle, { color: theme.text }]} accessibilityRole="text">
-                  {data.reading[activeSection]}
-                </Text>
-              </View>
             </Animated.View>
           ) : null}
           </>

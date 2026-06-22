@@ -114,6 +114,7 @@ export function ProfileScreen(): React.JSX.Element {
   const shareMilestone = shareableMilestoneFor(profile?.user.streakCount ?? 0);
 
   const isLight = mode === 'light';
+  const isPremium = Boolean(profile?.user.isPremium ?? user?.isPremium);
 
   const onChangeAvatar = useCallback(async (): Promise<void> => {
     const current = await ImagePicker.getMediaLibraryPermissionsAsync();
@@ -214,6 +215,26 @@ export function ProfileScreen(): React.JSX.Element {
               {profile.user.fullName}
             </Text>
             {user ? <Text style={[styles.sub, isLight && { color: palette.textMuted }]}>{user.email}</Text> : null}
+            <View
+              style={[
+                styles.membershipBadge,
+                isPremium ? styles.membershipBadgePremium : styles.membershipBadgeFree,
+                isPremium && isLight && styles.membershipBadgePremiumLight,
+                !isPremium && isLight && styles.membershipBadgeFreeLight,
+              ]}
+              accessibilityRole="text"
+              accessibilityLabel={isPremium ? t('profile.premium') : t('profile.free')}
+            >
+              <Text
+                style={[
+                  styles.membershipBadgeText,
+                  isPremium ? styles.membershipBadgeTextPremium : styles.membershipBadgeTextFree,
+                  !isPremium && isLight && { color: palette.textMuted },
+                ]}
+              >
+                {isPremium ? `★ ${t('profile.premium')}` : `☆ ${t('profile.free')}`}
+              </Text>
+            </View>
             <View style={styles.metaRow}>
               <InfoPill icon="☉" label={zodiacLabel} />
               <InfoPill icon="☽" label={birthDateLabel} />
@@ -550,7 +571,37 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
   },
   name: { color: colors.text, fontWeight: '700', fontSize: 27, marginTop: spacing.md },
-  sub: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md, fontSize: 14 },
+  sub: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.sm, fontSize: 14 },
+  membershipBadge: {
+    marginBottom: spacing.md,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+  },
+  membershipBadgePremium: {
+    backgroundColor: '#d8b95a',
+    borderColor: 'rgba(201, 168, 76, 0.6)',
+  },
+  membershipBadgeFree: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(159, 151, 255, 0.35)',
+  },
+  membershipBadgePremiumLight: {
+    backgroundColor: '#f3d98f',
+    borderColor: '#c9a84c',
+  },
+  membershipBadgeFreeLight: {
+    backgroundColor: '#eef1ff',
+    borderColor: '#d1d9ff',
+  },
+  membershipBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  membershipBadgeTextPremium: { color: '#1a1430' },
+  membershipBadgeTextFree: { color: colors.textMuted },
   error: { color: colors.danger, marginBottom: spacing.xs },
   empty: { color: colors.textMuted, marginBottom: spacing.md, fontSize: 15, textAlign: 'center' },
   avatar: {

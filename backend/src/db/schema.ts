@@ -127,6 +127,27 @@ export const natalCharts = sqliteTable(
   }),
 );
 
+/** Premium, Claude-generated personalized reading of a user's natal chart. Generated once per
+ * chart (a birth chart never changes) and cached; a corrected birth chart yields a new chartHash. */
+export const chartReadings = sqliteTable(
+  'chart_readings',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    chartHash: text('chart_hash').notNull(),
+    lang: text('lang').notNull().default('en'),
+    contentJson: text('content_json', { mode: 'json' }).notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    userChartLangIdx: uniqueIndex('chart_readings_user_chart_lang_idx').on(t.userId, t.chartHash, t.lang),
+  }),
+);
+
 export const dailyHoroscopes = sqliteTable(
   'daily_horoscopes',
   {

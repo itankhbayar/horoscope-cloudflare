@@ -375,6 +375,21 @@ export interface PushTokenRegistrationPayload {
   deviceId?: string | null;
 }
 
+/** Premium personalized natal-chart reading (Claude-generated, one per chart). */
+export interface ChartReadingContent {
+  summary: string;
+  strengths: string;
+  challenges: string;
+  relationships: string;
+  career: string;
+  growth: string;
+}
+
+export interface ChartReadingResponse {
+  reading: ChartReadingContent;
+  generated: boolean;
+}
+
 /** Flattened tarot API (`lang` slice). Mirrors backend `TarotApiResponse`. */
 export interface TarotPublicCard {
   name: string;
