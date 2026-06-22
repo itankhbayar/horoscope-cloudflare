@@ -84,6 +84,8 @@ const risingInfo = computed(() =>
 
 // Aspects are dense; let users collapse the list if they'd rather not see all of it.
 const showAspects = ref(true);
+// The planet table is long (especially on mobile); allow collapsing it too.
+const showPositions = ref(true);
 </script>
 
 <template>
@@ -126,8 +128,18 @@ const showAspects = ref(true);
             <NatalChartWheel :chart="profile.natalChart" />
           </div>
           <div class="glass-card chart-section">
-            <h2 class="section-title">{{ t('chart.positions') }}</h2>
-            <PlanetTable :planets="profile.natalChart.planets" />
+            <div class="aspect-head">
+              <h2 class="section-title">{{ t('chart.positions') }}</h2>
+              <button
+                type="button"
+                class="aspect-toggle"
+                :aria-expanded="showPositions"
+                @click="showPositions = !showPositions"
+              >
+                {{ showPositions ? t('chart.aspectsHide') : t('chart.aspectsShow') }}
+              </button>
+            </div>
+            <PlanetTable v-if="showPositions" :planets="profile.natalChart.planets" />
           </div>
         </section>
 
