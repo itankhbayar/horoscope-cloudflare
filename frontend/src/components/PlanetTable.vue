@@ -29,9 +29,9 @@ defineProps<{
         <span class="sign-symbol">{{ getZodiacInfo(planet.sign).symbol }}</span>
         {{ t(`zodiac.${planet.sign}`) }}
       </span>
-      <span>{{ planet.degreeInSign.toFixed(2) }}°</span>
-      <span>{{ planet.house ? `${planet.house}` : '—' }}</span>
-      <span :class="{ retrograde: planet.retrograde }">
+      <span class="cell" :data-label="t('planets.table.degree')">{{ planet.degreeInSign.toFixed(2) }}°</span>
+      <span class="cell" :data-label="t('planets.table.house')">{{ planet.house ? `${planet.house}` : '—' }}</span>
+      <span class="cell" :data-label="t('planets.table.status')" :class="{ retrograde: planet.retrograde }">
         {{ planet.retrograde ? t('planets.table.retrograde') : t('planets.table.direct') }}
       </span>
     </div>
@@ -77,10 +77,46 @@ defineProps<{
   font-size: 1.1rem;
 }
 .retrograde { color: #ff8a5c; font-style: italic; }
+
+/* Phones: a 5-column table can't fit, so drop the horizontal scroll and stack
+   each planet into a labeled two-column card. */
 @media (max-width: 600px) {
-  .planet-table {
-    min-width: 520px;
+  .planet-table-wrap {
+    overflow-x: visible;
   }
-  .header-row, .row { grid-template-columns: 1.2fr 1.2fr 0.8fr 0.6fr 1fr; font-size: 0.8rem; }
+  .planet-table {
+    min-width: 0;
+    gap: 0.55rem;
+  }
+  .header-row {
+    display: none;
+  }
+  .row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem 0.8rem;
+    padding: 0.85rem 0.9rem;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .row:last-child { border-bottom: 1px solid var(--glass-border); }
+  .row .planet,
+  .row .sign {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+  .cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 0.86rem;
+  }
+  .cell::before {
+    content: attr(data-label);
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+  }
 }
 </style>

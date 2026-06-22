@@ -385,7 +385,31 @@ const showAspects = ref(true);
 .reading-err { margin-bottom: 1rem; }
 
 @media (max-width: 900px) {
-  .big-three, .chart-grid, .reading-grid { grid-template-columns: 1fr; }
+  .chart-grid, .reading-grid { grid-template-columns: 1fr; }
+}
+
+/* Phones: keep the Sun/Moon/Rising trio side by side (they're compact summary
+   cards) instead of stacking into three oversized blocks, and tighten the
+   surrounding cards so the layout breathes on a narrow screen. */
+@media (max-width: 600px) {
+  .chart-page { gap: 1rem; }
+  .chart-header { padding: 1rem 1.1rem; }
+  .chart-header h1 { font-size: 1.25rem; }
+  .big-three { gap: 0.55rem; }
+  .big-card { padding: 0.95rem 0.45rem; }
+  .big-label { font-size: 0.58rem; letter-spacing: 1.2px; }
+  .big-symbol { font-size: 2.1rem; }
+  .big-sign-name { font-size: 0.98rem; }
+  .chart-section,
+  .aspect-section { padding: 1.1rem; }
+  .reading-section { padding: 1.2rem; }
+  .reading-summary { flex-direction: column; gap: 0.65rem; padding: 1rem; }
+  .reading-field { padding: 1rem; }
+}
+
+@media (max-width: 360px) {
+  .big-symbol { font-size: 1.8rem; }
+  .big-sign-name { font-size: 0.9rem; }
 }
 </style>
 
