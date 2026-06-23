@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
 import { chineseHoroscopeService, CHINESE_ANIMAL_ORDER, getChineseAnimalInfo } from '../lib';
 import type { ChineseAnimal, PeriodType } from '../lib/types';
 import { useAuth } from '../composables/useAuth';
@@ -10,7 +9,6 @@ import AppContainer from '../components/layout/AppContainer.vue';
 
 const { t, locale } = useI18n();
 const { isAuthenticated } = useAuth();
-const router = useRouter();
 
 type Period = 'daily' | PeriodType;
 
@@ -141,10 +139,6 @@ watch(locale, () => {
         </div>
       </div>
       <p v-else-if="error" class="cz-error">{{ error }}</p>
-
-      <button class="cz-compat-link" @click="router.push('/chinese/compatibility')">
-        ☯ {{ t('chineseZodiac.openCompatibility') }}
-      </button>
     </section>
   </AppContainer>
 </template>
@@ -260,16 +254,5 @@ watch(locale, () => {
 .cz-error {
   text-align: center;
   color: var(--error);
-}
-.cz-compat-link {
-  align-self: center;
-  margin-top: 0.4rem;
-  padding: 0.6rem 1.4rem;
-  border-radius: 999px;
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  background: rgba(212, 175, 55, 0.08);
-  color: var(--gold-light);
-  cursor: pointer;
-  font-size: 0.9rem;
 }
 </style>

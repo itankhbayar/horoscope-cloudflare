@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
 import { chineseHoroscopeService, CHINESE_ANIMAL_ORDER, getChineseAnimalInfo, chineseElementColor } from '../lib';
 import type { ChineseAnimal, ChineseProfile } from '../lib/types';
 import { useAuth } from '../composables/useAuth';
@@ -9,7 +8,6 @@ import AppContainer from '../components/layout/AppContainer.vue';
 
 const { t } = useI18n();
 const { isAuthenticated } = useAuth();
-const router = useRouter();
 
 const selectedAnimal = ref<ChineseAnimal>('dragon');
 const profile = ref<ChineseProfile | null>(null);
@@ -129,10 +127,6 @@ onMounted(async () => {
           <span class="cc-attr">{{ t('chineseZodiac.luckyNumbers') }}: {{ info.luckyNumbers.join(', ') }}</span>
         </div>
       </div>
-
-      <button class="cc-compat-link" @click="router.push('/chinese/compatibility')">
-        ☯ {{ t('chineseZodiac.openCompatibility') }}
-      </button>
     </section>
   </AppContainer>
 </template>
@@ -270,16 +264,5 @@ onMounted(async () => {
 .cc-error {
   margin: 0.6rem 0 0;
   color: var(--error);
-}
-.cc-compat-link {
-  align-self: center;
-  margin-top: 0.4rem;
-  padding: 0.6rem 1.4rem;
-  border-radius: 999px;
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  background: rgba(212, 175, 55, 0.08);
-  color: var(--gold-light);
-  cursor: pointer;
-  font-size: 0.9rem;
 }
 </style>
