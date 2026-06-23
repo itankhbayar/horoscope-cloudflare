@@ -274,12 +274,12 @@ watch(
   position: sticky;
   top: 0;
   z-index: 50;
-  width: min(1280px, calc(100% - 1.5rem));
+  width: min(1360px, calc(100% - 1.5rem));
   margin: 0.75rem auto 0;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
   padding: 0.65rem;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 999px;
@@ -330,7 +330,7 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
   padding: 0.22rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.035);
@@ -342,7 +342,7 @@ watch(
   align-items: center;
   gap: 0.38rem;
   min-height: 2.25rem;
-  padding: 0 0.78rem;
+  padding: 0 0.9rem;
   border-radius: 999px;
   color: var(--text-secondary);
   text-decoration: none;
@@ -383,7 +383,8 @@ watch(
 }
 
 .nav-user {
-  max-width: 14rem;
+  flex-shrink: 0;
+  max-width: 16rem;
   display: inline-flex;
   align-items: center;
   gap: 0.38rem;
