@@ -89,7 +89,7 @@ watch(locale, () => {
             </select>
           </label>
         </div>
-        <button class="btn-lunar czc-compute" @click="runCompare">☯ {{ t('chineseZodiac.compute') }}</button>
+        <button class="btn-compact czc-compute" @click="runCompare">☯ {{ t('chineseZodiac.compute') }}</button>
       </div>
 
       <GuestResultGate v-if="showGuestGate" :message="t('chineseZodiac.guestCompatTitle')" />

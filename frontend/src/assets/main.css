@@ -312,10 +312,10 @@ select.form-input option:checked {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Compact gold pill CTA — matches the lunar pages' active period tabs / chips.
-   Auto-width and sentence-case, so it reads as a focused action rather than the
-   full-width uppercase bar of .btn-celestial. */
-.btn-lunar {
+/* Compact gold pill CTA — matches the active period tabs / chips on the
+   compatibility and zodiac pages. Auto-width and sentence-case, so it reads as a
+   focused action rather than the full-width uppercase bar of .btn-celestial. */
+.btn-compact {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -333,17 +333,24 @@ select.form-input option:checked {
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
-.btn-lunar:hover {
+.btn-compact:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 22px rgba(212, 175, 55, 0.25);
   filter: brightness(1.03);
 }
-.btn-lunar:active {
+.btn-compact:active {
   transform: translateY(0);
 }
-.btn-lunar:focus-visible {
+.btn-compact:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
+}
+.btn-compact:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  filter: none;
 }
 
 .btn-celestial::before {

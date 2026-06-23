@@ -329,7 +329,7 @@ async function shareCompatibility(): Promise<void> {
           </label>
         </div>
       </div>
-      <button class="btn-celestial compare-btn" @click="runCompare" :disabled="loading">
+      <button class="btn-compact compare-btn" @click="runCompare" :disabled="loading">
         <span v-if="loading">✨ {{ t('compatibility.aligning') }}</span>
         <span v-else>{{ t('compatibility.compute') }}</span>
       </button>
@@ -521,7 +521,7 @@ async function shareCompatibility(): Promise<void> {
   flex: 0 0 auto;
   margin-top: 18px;
 }
-.compare-btn { width: 100%; }
+.compare-btn { align-self: center; }
 .result-section {
   display: flex;
   flex-direction: column;
