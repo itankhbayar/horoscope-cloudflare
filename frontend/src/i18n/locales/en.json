@@ -399,6 +399,14 @@
         "title": "Compatibility and relationship patterns",
         "description": "Return to relationship atmosphere and compatibility prompts as part of a private long-term pattern."
       }
+    },
+    "eastern": {
+      "title": "Eastern Lunar Zodiac",
+      "body": "Beyond the Western wheel, follow the twelve animal signs of the Eastern lunar zodiac — each shaped by its birth year, fixed element, and yin or yang polarity.",
+      "point1": "Daily, weekly, monthly and yearly guidance for your animal sign",
+      "point2": "Your lunar birth chart: animal, element, polarity, and the signs you harmonize with",
+      "point3": "Animal-to-animal compatibility across love, friendship and communication",
+      "footer": "Switch anytime with the Western / Eastern toggle in the navigation."
     }
   },
   "elements": {

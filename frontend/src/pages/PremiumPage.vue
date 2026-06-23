@@ -50,6 +50,12 @@ async function refreshPremiumStatus() {
   await premiumStore.restorePremiumStatus();
 }
 
+const easternPoints = computed(() => [
+  t('premium.eastern.point1'),
+  t('premium.eastern.point2'),
+  t('premium.eastern.point3'),
+]);
+
 const features = computed(() => [
   {
     title: t('premium.features.ai.title'),
@@ -89,6 +95,20 @@ track('paywall_viewed', { isPremium: isPremium.value });
         :icon="f.icon"
         @unlock="goPremium"
       />
+    </section>
+
+    <section class="eastern glass-card">
+      <div class="eastern-head">
+        <span class="eastern-glyph" aria-hidden="true">☯</span>
+        <h2>{{ t('premium.eastern.title') }}</h2>
+      </div>
+      <p class="eastern-body">{{ t('premium.eastern.body') }}</p>
+      <ul class="eastern-points">
+        <li v-for="point in easternPoints" :key="point">
+          <span class="check" aria-hidden="true">✓</span>{{ point }}
+        </li>
+      </ul>
+      <p class="eastern-foot">{{ t('premium.eastern.footer') }}</p>
     </section>
 
     <section class="cta glass-card">
@@ -163,6 +183,66 @@ track('paywall_viewed', { isPremium: isPremium.value });
 /* Keep the three Unlock Premium cards on a single row, tightening the gap on
    narrow screens so they stay side by side instead of stacking. */
 @media (max-width: 800px) { .features-grid { gap: 0.6rem; } }
+.eastern {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-left: 3px solid var(--gold);
+}
+.eastern-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.eastern-glyph {
+  display: inline-grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  background: rgba(212, 175, 55, 0.09);
+  color: var(--gold-light);
+  font-size: 1.2rem;
+}
+.eastern-head h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin: 0;
+}
+.eastern-body {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0;
+  max-width: 60ch;
+}
+.eastern-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.eastern-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.eastern-points .check {
+  color: var(--gold);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.eastern-foot {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
 .cta {
   text-align: center;
   padding: 2.5rem 2rem;
