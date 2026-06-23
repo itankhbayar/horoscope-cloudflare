@@ -8,6 +8,7 @@ import { AppearanceProvider, useAppearance } from './src/hooks/useAppearance';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { initAnalytics, track } from './src/lib/analytics';
 import { I18nProvider } from './src/i18n';
+import { ZodiacModeProvider } from './src/hooks/useZodiacMode';
 
 type AbortSignalCtor = typeof AbortSignal & { timeout?: (ms: number) => AbortSignal };
 
@@ -38,11 +39,13 @@ export default function App(): React.JSX.Element {
   const stripePk = readStripePublishableKey();
   const shell = (
     <I18nProvider>
-      <AppearanceProvider>
-        <AuthProvider>
-          <AppShell />
-        </AuthProvider>
-      </AppearanceProvider>
+      <ZodiacModeProvider>
+        <AppearanceProvider>
+          <AuthProvider>
+            <AppShell />
+          </AuthProvider>
+        </AppearanceProvider>
+      </ZodiacModeProvider>
     </I18nProvider>
   );
 

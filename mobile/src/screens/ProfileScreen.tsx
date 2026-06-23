@@ -23,10 +23,12 @@ import { shareStreakMilestoneCard } from '../lib/streakShare';
 import { getScreenPurpose } from '../lib/emotionalScreenHierarchy';
 import { track } from '../lib/analytics';
 import { useI18n } from '../i18n';
+import { useZodiacMode } from '../hooks/useZodiacMode';
 
 export function ProfileScreen(): React.JSX.Element {
   const { mode, palette } = useAppearance();
   const { t, locale, setLocale } = useI18n();
+  const { mode: zodiacMode, toggle: toggleZodiacMode } = useZodiacMode();
   const { profile, load, save, uploadAvatar, loading, avatarUploading, error } = useProfile();
   const { logout, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -304,6 +306,12 @@ export function ProfileScreen(): React.JSX.Element {
                   label={t('profile.language')}
                   value={locale === 'mn' ? 'Монгол' : 'English'}
                   onPress={() => void setLocale(locale === 'mn' ? 'en' : 'mn')}
+                />
+                <SettingsItem
+                  icon="☯"
+                  label={t('profile.zodiacSystem')}
+                  value={zodiacMode === 'eastern' ? t('zodiacMode.eastern') : t('zodiacMode.western')}
+                  onPress={() => void toggleZodiacMode()}
                 />
                 <SettingsItem icon="◐" label={t('profile.appearance')} onPress={goToAppAppearance} last />
               </SettingsGroup>

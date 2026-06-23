@@ -37,9 +37,30 @@ import { goToAllSigns, goToPremium } from '../navigation/navigationRef';
 import { spacing } from '../theme';
 import type { DailyRitualCompletion } from '@astralis/lib/types';
 import { useI18n, type TranslationKey } from '../i18n';
+import { useZodiacMode } from '../hooks/useZodiacMode';
+import { EasternHome } from './home/EasternHome';
 
 
+/**
+ * Home adapts to the app-wide zodiac mode preference (toggled in Profile, like
+ * language) rather than to navigation: Eastern mode shows the animal-sign home,
+ * Western mode shows the natal/sun-sign ritual flow. Gated on `ready` so an
+ * Eastern user never flashes the Western flow on cold start.
+ */
 export function HomeScreen(): ReactElement {
+  const { mode, ready } = useZodiacMode();
+  const { t } = useI18n();
+  if (!ready) {
+    return (
+      <ScreenScroll>
+        <LoadingBlock message={t('home.gathering')} />
+      </ScreenScroll>
+    );
+  }
+  return mode === 'eastern' ? <EasternHome /> : <WesternHome />;
+}
+
+function WesternHome(): ReactElement {
   const theme = useSanctuaryTheme();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
