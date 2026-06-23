@@ -76,7 +76,7 @@ onMounted(async () => {
             <span>{{ t('chineseZodiac.birthDate') }}</span>
             <input v-model="birthDate" type="date" />
           </label>
-          <button class="btn-celestial" @click="revealFromBirthDate">{{ t('chineseZodiac.reveal') }}</button>
+          <button class="btn-lunar" @click="revealFromBirthDate">{{ t('chineseZodiac.reveal') }}</button>
         </div>
         <p v-if="error" class="cc-error">{{ error }}</p>
       </div>

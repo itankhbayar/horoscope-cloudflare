@@ -312,6 +312,40 @@ select.form-input option:checked {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Compact gold pill CTA — matches the lunar pages' active period tabs / chips.
+   Auto-width and sentence-case, so it reads as a focused action rather than the
+   full-width uppercase bar of .btn-celestial. */
+.btn-lunar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 40px;
+  padding: 0.5rem 1.5rem;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: #151326;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.88rem;
+  letter-spacing: 0.3px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-lunar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(212, 175, 55, 0.25);
+  filter: brightness(1.03);
+}
+.btn-lunar:active {
+  transform: translateY(0);
+}
+.btn-lunar:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 .btn-celestial::before {
   content: '';
   position: absolute;
