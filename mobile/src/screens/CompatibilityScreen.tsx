@@ -23,6 +23,8 @@ import { useAppearance } from '../hooks/useAppearance';
 import { useI18n } from '../i18n';
 import { track } from '../lib/analytics';
 import type { MainTabParamList } from '../navigation/types';
+import { useZodiacMode } from '../hooks/useZodiacMode';
+import { EasternCompatibility } from './compatibility/EasternCompatibility';
 
 type CompatibilityRoute = RouteProp<MainTabParamList, 'Compatibility'>;
 
@@ -35,7 +37,27 @@ function signSymbol(sign: ZodiacSign): string {
   return ZODIAC_SIGNS.find((z) => z.key === sign)?.symbol ?? '*';
 }
 
+/**
+ * Compatibility adapts to the app-wide zodiac mode preference (toggled in
+ * Profile, like language): Eastern mode compares animal signs, Western mode
+ * compares sun signs. Gated on `ready` so an Eastern user never flashes the
+ * Western comparison.
+ */
 export function CompatibilityScreen(): React.JSX.Element {
+  const { mode, ready } = useZodiacMode();
+  const { t } = useI18n();
+  const { palette } = useAppearance();
+  if (!ready) {
+    return (
+      <ScreenScroll style={{ backgroundColor: palette.background }}>
+        <LoadingBlock message={t('chinese.loading')} />
+      </ScreenScroll>
+    );
+  }
+  return mode === 'eastern' ? <EasternCompatibility /> : <WesternCompatibility />;
+}
+
+function WesternCompatibility(): React.JSX.Element {
   const route = useRoute<CompatibilityRoute>();
   const { width } = useWindowDimensions();
   const { palette, mode } = useAppearance();

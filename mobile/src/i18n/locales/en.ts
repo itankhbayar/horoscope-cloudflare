@@ -666,6 +666,8 @@ export const en = {
   'chinese.luckyNumber': 'Lucky number',
   'chinese.luckyColor': 'Lucky color',
   'chinese.loading': 'Consulting the lunar calendar…',
+  'chinese.compatTitle': 'Lunar Compatibility',
+  'chinese.compatSubtitle': 'See how two animal signs harmonize across love, friendship and communication.',
   'chinese.firstAnimal': 'First animal',
   'chinese.secondAnimal': 'Second animal',
   'chinese.compute': 'Check compatibility',

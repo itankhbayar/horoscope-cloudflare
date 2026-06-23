@@ -669,6 +669,8 @@ export const mn: Record<TranslationKey, string> = {
   'chinese.luckyNumber': 'Азын тоо',
   'chinese.luckyColor': 'Азын өнгө',
   'chinese.loading': 'Билгийн тооллыг лавлаж байна…',
+  'chinese.compatTitle': 'Жилийн ордын зохицол',
+  'chinese.compatSubtitle': 'Хоёр жилийн амьтан хайр, нөхөрлөл, харилцаандаа хэрхэн зохицохыг хараарай.',
   'chinese.firstAnimal': 'Эхний амьтан',
   'chinese.secondAnimal': 'Хоёр дахь амьтан',
   'chinese.compute': 'Зохицол шалгах',
