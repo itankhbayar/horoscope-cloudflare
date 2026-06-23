@@ -3,8 +3,10 @@ import { defineAsyncComponent, onMounted, ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from './composables/useAuth';
+import { useZodiacModeStore } from './stores';
 
 const LanguageSwitcher = defineAsyncComponent(() => import('./components/LanguageSwitcher.vue'));
+const ZodiacModeToggle = defineAsyncComponent(() => import('./components/ZodiacModeToggle.vue'));
 const SiteFooter = defineAsyncComponent(() => import('./components/SiteFooter.vue'));
 const PrivacyConsentBanner = defineAsyncComponent(
   () => import('./components/PrivacyConsentBanner.vue'),
@@ -13,6 +15,7 @@ const PrivacyConsentBanner = defineAsyncComponent(
 const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
+const zodiacMode = useZodiacModeStore();
 const {
   user,
   isAuthenticated,
@@ -58,14 +61,26 @@ onMounted(async () => {
 // Icons are deliberately monochrome celestial glyphs (not emoji) so every nav
 // item adopts the gold theme color and reads as one consistent set. Avoid emoji
 // like ❤/🃏 here — they force their own colors and break the visual rhythm.
-const navLinks = computed(() => [
-  { to: '/', label: t('nav.home'), icon: '✨' },
-  { to: '/compatibility', label: t('nav.compatibility'), icon: '♡' },
-  { to: '/tarot', label: t('nav.tarot'), icon: '✶' },
-  { to: '/chart', label: 'Chart', icon: '◎' },
-  { to: '/premium', label: t('nav.premium'), icon: '✦' },
-  { to: '/profile', label: t('nav.profile'), icon: '☽' },
-].map((link) => (link.to === '/' ? { ...link, to: '/today' } : link)));
+const navLinks = computed(() => {
+  const featureLinks =
+    zodiacMode.mode === 'chinese'
+      ? [
+          { to: '/chinese/today', label: t('nav.home'), icon: '✨' },
+          { to: '/chinese/compatibility', label: t('nav.compatibility'), icon: '♡' },
+          { to: '/chinese/chart', label: t('nav.birthChart'), icon: '◎' },
+        ]
+      : [
+          { to: '/today', label: t('nav.home'), icon: '✨' },
+          { to: '/compatibility', label: t('nav.compatibility'), icon: '♡' },
+          { to: '/tarot', label: t('nav.tarot'), icon: '✶' },
+          { to: '/chart', label: t('nav.birthChart'), icon: '◎' },
+        ];
+  return [
+    ...featureLinks,
+    { to: '/premium', label: t('nav.premium'), icon: '✦' },
+    { to: '/profile', label: t('nav.profile'), icon: '☽' },
+  ];
+});
 
 // Guests see the same feature links so they can discover what the app offers.
 // The "Profile" link is account-specific, so it's hidden until they sign in;
@@ -128,6 +143,7 @@ watch(
 
       <div class="nav-right">
         <div class="nav-desktop-actions">
+          <ZodiacModeToggle />
           <LanguageSwitcher />
           <template v-if="isAuthenticated">
             <span class="nav-user">
@@ -164,6 +180,7 @@ watch(
         </div>
 
         <div class="mobile-menu-actions">
+          <ZodiacModeToggle />
           <LanguageSwitcher />
           <template v-if="isAuthenticated">
             <span class="mobile-user">
