@@ -9,7 +9,7 @@ import { configureApi, setApiLocale } from './lib/apiClient';
 import { initAnalytics, track } from './lib/analytics';
 import { initErrorTracking } from './lib/errorTracking';
 import { hasAnalyticsConsent } from './lib/privacyConsent';
-import { useAppSettingsStore } from './stores';
+import { useAppSettingsStore, useZodiacModeStore } from './stores';
 
 const fromEnv = (
   import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL
@@ -36,6 +36,7 @@ const pinia = createPinia();
 
 app.use(pinia).use(router).use(i18n);
 void useAppSettingsStore().hydrate(initialLocale);
+void useZodiacModeStore().hydrate();
 initErrorTracking(app, router);
 app.mount('#app');
 
