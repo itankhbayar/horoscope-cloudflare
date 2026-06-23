@@ -259,6 +259,8 @@ export function PremiumScreen(): React.JSX.Element {
 
               <LockedPreview palette={palette} t={t} />
 
+              <EasternSection palette={palette} t={t} />
+
               <SectionTitle title={t('premium.compareTitle')} palette={palette} />
               <ComparisonTable rows={comparison} palette={palette} />
 
@@ -489,6 +491,26 @@ function LockedPreview({ palette, t }: { palette: AppearancePalette; t: ReturnTy
       <View style={[styles.lockOverlay, { borderColor: palette.border }]}>
         <Text style={[styles.lockOverlayText, { color: palette.text }]}>{t('premium.lockedCta')}</Text>
       </View>
+    </View>
+  );
+}
+
+function EasternSection({ palette, t }: { palette: AppearancePalette; t: ReturnType<typeof useI18n>['t'] }) {
+  const points = [t('premium.easternPoint1'), t('premium.easternPoint2'), t('premium.easternPoint3')];
+  return (
+    <View style={[styles.eastern, { backgroundColor: palette.card, borderColor: palette.border }]}>
+      <View style={styles.easternHead}>
+        <Text style={[styles.easternGlyph, { color: colors.gold, borderColor: palette.border }]}>☯</Text>
+        <Text style={[styles.easternTitle, { color: palette.text }]}>{t('premium.easternTitle')}</Text>
+      </View>
+      <Text style={[styles.easternBody, { color: palette.textMuted }]}>{t('premium.easternBody')}</Text>
+      {points.map((point) => (
+        <View key={point} style={styles.easternPoint}>
+          <Text style={[styles.easternCheck, { color: colors.gold }]}>✓</Text>
+          <Text style={[styles.easternPointText, { color: palette.textMuted }]}>{point}</Text>
+        </View>
+      ))}
+      <Text style={[styles.easternFooter, { color: palette.textMuted }]}>{t('premium.easternFooter')}</Text>
     </View>
   );
 }
@@ -870,6 +892,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(5, 5, 16, 0.62)',
   },
   lockOverlayText: { fontSize: 14, lineHeight: 19, fontWeight: '800' },
+  eastern: { borderWidth: 1, borderLeftWidth: 3, borderLeftColor: colors.gold, borderRadius: 18, padding: spacing.lg, gap: spacing.sm },
+  easternHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  easternGlyph: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, textAlign: 'center', lineHeight: 34, fontSize: 18 },
+  easternTitle: { flex: 1, fontSize: 18, lineHeight: 23, fontWeight: '800' },
+  easternBody: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  easternPoint: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  easternCheck: { fontSize: 14, fontWeight: '900', lineHeight: 20 },
+  easternPointText: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  easternFooter: { marginTop: spacing.xs, fontSize: 12, lineHeight: 17 },
   table: { borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
   tableRow: { flexDirection: 'row', paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, gap: spacing.xs },
   tableHeader: { borderBottomWidth: 1 },
