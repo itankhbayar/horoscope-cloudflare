@@ -21,8 +21,6 @@ export const mn: Record<TranslationKey, string> = {
   'tabs.chartA11y': 'Төрсөн зураг',
   'tabs.tarot': 'Таро',
   'tabs.tarotA11y': 'Таро, өдрийн хөзөр',
-  'tabs.lunar': 'Жил',
-  'tabs.lunarA11y': 'Зүүн зүгийн жилийн орд',
   'tabs.profile': 'Профайл',
 
   'login.title': 'Тэнгэрийн зурвастаа буцах',

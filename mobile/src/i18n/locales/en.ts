@@ -19,8 +19,6 @@ export const en = {
   'tabs.chartA11y': 'Birth chart',
   'tabs.tarot': 'Tarot',
   'tabs.tarotA11y': 'Tarot, card of the day',
-  'tabs.lunar': 'Lunar',
-  'tabs.lunarA11y': 'Eastern lunar zodiac',
   'tabs.profile': 'Profile',
 
   'login.title': 'Return to your sky',
