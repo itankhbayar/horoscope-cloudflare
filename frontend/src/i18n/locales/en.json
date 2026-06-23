@@ -121,7 +121,7 @@
   "zodiacMode": {
     "toggleLabel": "Zodiac system",
     "western": "Western",
-    "chinese": "Chinese"
+    "chinese": "Eastern"
   },
   "guestGate": {
     "message": "Create an account to reveal your reading",
@@ -480,7 +480,7 @@
     "pisces": "Pisces"
   },
   "chineseZodiac": {
-    "title": "Chinese Lunar Zodiac",
+    "title": "Eastern Lunar Zodiac",
     "subtitle": "Your birth-year animal, its element and polarity, plus daily, weekly, monthly and yearly readings.",
     "yourSign": "Your animal sign",
     "element": "Year element",
