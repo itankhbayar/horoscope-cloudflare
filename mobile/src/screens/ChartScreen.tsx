@@ -23,6 +23,8 @@ import { currentSkySummary, strongestTransitCopy, whyThisReadingCopy } from '../
 import { useI18n } from '../i18n';
 import type { TranslationKey } from '../i18n';
 import { goToPremium } from '../navigation/navigationRef';
+import { useZodiacMode } from '../hooks/useZodiacMode';
+import { EasternChart } from './chart/EasternChart';
 
 type ChartTab = 'chart' | 'houses' | 'planets';
 
@@ -58,7 +60,26 @@ function aspectColor(type: AspectType): string {
   }
 }
 
+/**
+ * Chart adapts to the app-wide zodiac mode preference (toggled in Profile, like
+ * language): Eastern mode shows the lunar birth chart, Western mode shows the
+ * natal chart. Gated on `ready` so an Eastern user never flashes the natal chart.
+ */
 export function ChartScreen(): React.JSX.Element {
+  const { mode, ready } = useZodiacMode();
+  const { t } = useI18n();
+  const { palette } = useAppearance();
+  if (!ready) {
+    return (
+      <ScreenScroll style={{ backgroundColor: palette.background }}>
+        <LoadingBlock message={t('chart.loading')} />
+      </ScreenScroll>
+    );
+  }
+  return mode === 'eastern' ? <EasternChart /> : <WesternChart />;
+}
+
+function WesternChart(): React.JSX.Element {
   const { width } = useWindowDimensions();
   const { t, locale } = useI18n();
   const { palette, mode } = useAppearance();
