@@ -517,6 +517,13 @@
     "highlights": "Highlights",
     "guestCompatTitle": "Create an account to reveal your lunar zodiac compatibility",
     "openCompatibility": "Check compatibility",
+    "chartTitle": "Your Lunar Birth Chart",
+    "chartSubtitle": "Your birth-year animal, its elements and polarity, and the signs it harmonizes with.",
+    "trineGroup": "Trine group",
+    "secretFriend": "Secret friend",
+    "conflictAnimal": "Clashing animal",
+    "dailyTitle": "Lunar Zodiac Readings",
+    "dailySubtitle": "Daily, weekly, monthly and yearly guidance for your animal sign.",
     "animals": {
       "rat": "Rat",
       "ox": "Ox",
