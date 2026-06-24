@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import profileRoutes from './routes/profile';
 import horoscopeRoutes from './routes/horoscope';
 import compatibilityRoutes from './routes/compatibility';
+import chineseRoutes from './routes/chinese';
 import adminRoutes from './routes/admin';
 import tarotRoutes from './routes/tarot';
 import chartRoutes from './routes/chart';
@@ -18,6 +19,7 @@ import { getDb } from './db/client';
 import { isAllowedCorsOrigin } from './env';
 import { prewarmDailyHoroscopes, resolveCronDateISO } from './services/horoscopePrewarmService';
 import { prewarmPeriodHoroscopes, isoWeekKey } from './services/periodHoroscopeService';
+import { prewarmChineseDaily, prewarmChinesePeriod } from './services/chineseHoroscopeService';
 import { prewarmTarotForTimezoneDate } from './services/tarotPrewarmService';
 import { cleanupOperationalData } from './services/cleanupService';
 import { runRetentionPipeline } from './services/notificationQueueService';
@@ -80,6 +82,7 @@ v1.route('/auth', authRoutes);
 v1.route('/profile', profileRoutes);
 v1.route('/horoscope', horoscopeRoutes);
 v1.route('/compatibility', compatibilityRoutes);
+v1.route('/chinese', chineseRoutes);
 v1.route('/tarot', tarotRoutes);
 v1.route('/chart', chartRoutes);
 v1.route('/billing', billingRoutes);
@@ -95,6 +98,7 @@ app.route('/api/auth', authRoutes);
 app.route('/api/profile', profileRoutes);
 app.route('/api/horoscope', horoscopeRoutes);
 app.route('/api/compatibility', compatibilityRoutes);
+app.route('/api/chinese', chineseRoutes);
 app.route('/api/tarot', tarotRoutes);
 app.route('/api/chart', chartRoutes);
 app.route('/api/billing', billingRoutes);
@@ -210,6 +214,36 @@ const worker: ExportedHandler<AppBindings> = {
           log(env, 'error', 'cron_period_horoscope_prewarm_failed', { dateISO, error: String(err) });
           metric(env, 'cron_period_horoscope_prewarm_failure', { dateISO });
           captureException(err, { cron: { job: 'period_horoscope_prewarm', dateISO, timezone } });
+        }
+
+        try {
+          const jobStarted = Date.now();
+          const weekKey = isoWeekKey(dateISO);
+          const monthKey = dateISO.slice(0, 7);
+          const yearKey = dateISO.slice(0, 4);
+          const apiKey = anthropicKeyForPrewarm(env);
+          const cnDaily = await prewarmChineseDaily(db, dateISO, apiKey);
+          const cnWeekly = await prewarmChinesePeriod(db, 'weekly', weekKey, apiKey);
+          const cnMonthly = await prewarmChinesePeriod(db, 'monthly', monthKey, apiKey);
+          const cnYearly = await prewarmChinesePeriod(db, 'yearly', yearKey, apiKey);
+          log(env, 'info', 'cron_chinese_prewarm_completed', {
+            daily: cnDaily,
+            weekly: cnWeekly,
+            monthly: cnMonthly,
+            yearly: cnYearly,
+            durationMs: Date.now() - jobStarted,
+          });
+          metric(env, 'cron_chinese_prewarm_success', {
+            dailyGenerated: cnDaily.generated,
+            weeklyGenerated: cnWeekly.generated,
+            monthlyGenerated: cnMonthly.generated,
+            yearlyGenerated: cnYearly.generated,
+            failed: cnDaily.failed + cnWeekly.failed + cnMonthly.failed + cnYearly.failed,
+          });
+        } catch (err) {
+          log(env, 'error', 'cron_chinese_prewarm_failed', { dateISO, error: String(err) });
+          metric(env, 'cron_chinese_prewarm_failure', { dateISO });
+          captureException(err, { cron: { job: 'chinese_prewarm', dateISO, timezone } });
         }
 
         try {

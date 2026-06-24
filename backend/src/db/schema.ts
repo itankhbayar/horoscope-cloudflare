@@ -204,6 +204,66 @@ export const periodHoroscopes = sqliteTable(
   }),
 );
 
+/**
+ * Chinese (lunar) zodiac daily readings. Mirrors `daily_horoscopes` but keyed by
+ * `animal` ('rat'…'pig') instead of a Western sign. Prewarmed once per day by the cron.
+ */
+export const chineseDailyHoroscopes = sqliteTable(
+  'chinese_daily_horoscopes',
+  {
+    id: text('id').primaryKey(),
+    animal: text('animal').notNull(),
+    date: text('date').notNull(),
+    lang: text('lang').notNull().default('en'),
+    overall: text('overall').notNull(),
+    love: text('love').notNull(),
+    career: text('career').notNull(),
+    health: text('health').notNull(),
+    luckyNumber: integer('lucky_number').notNull(),
+    luckyColor: text('lucky_color').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    animalDateLangIdx: uniqueIndex('chinese_daily_horoscopes_animal_date_lang_idx').on(t.animal, t.date, t.lang),
+    dateIdx: index('chinese_daily_horoscopes_date_idx').on(t.date),
+  }),
+);
+
+/**
+ * Chinese (lunar) zodiac weekly/monthly/yearly readings. Mirrors `period_horoscopes`
+ * but keyed by `animal`. `period_type` is 'weekly' | 'monthly' | 'yearly'.
+ */
+export const chinesePeriodHoroscopes = sqliteTable(
+  'chinese_period_horoscopes',
+  {
+    id: text('id').primaryKey(),
+    animal: text('animal').notNull(),
+    periodType: text('period_type').notNull(),
+    periodKey: text('period_key').notNull(),
+    lang: text('lang').notNull().default('en'),
+    overall: text('overall').notNull(),
+    love: text('love').notNull(),
+    career: text('career').notNull(),
+    health: text('health').notNull(),
+    luckyNumber: integer('lucky_number').notNull(),
+    luckyColor: text('lucky_color').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(CURRENT_TIMESTAMP)`),
+  },
+  (t) => ({
+    animalTypeKeyLangIdx: uniqueIndex('chinese_period_horoscopes_animal_type_key_lang_idx').on(
+      t.animal,
+      t.periodType,
+      t.periodKey,
+      t.lang,
+    ),
+    typeKeyIdx: index('chinese_period_horoscopes_type_key_idx').on(t.periodType, t.periodKey),
+  }),
+);
+
 export const dailyRitualHistory = sqliteTable(
   'daily_ritual_history',
   {
@@ -417,6 +477,10 @@ export type DailyHoroscope = typeof dailyHoroscopes.$inferSelect;
 export type NewDailyHoroscope = typeof dailyHoroscopes.$inferInsert;
 export type PeriodHoroscope = typeof periodHoroscopes.$inferSelect;
 export type NewPeriodHoroscope = typeof periodHoroscopes.$inferInsert;
+export type ChineseDailyHoroscope = typeof chineseDailyHoroscopes.$inferSelect;
+export type NewChineseDailyHoroscope = typeof chineseDailyHoroscopes.$inferInsert;
+export type ChinesePeriodHoroscope = typeof chinesePeriodHoroscopes.$inferSelect;
+export type NewChinesePeriodHoroscope = typeof chinesePeriodHoroscopes.$inferInsert;
 export type DailyRitualHistory = typeof dailyRitualHistory.$inferSelect;
 export type NewDailyRitualHistory = typeof dailyRitualHistory.$inferInsert;
 export type UserThemeHistory = typeof userThemeHistory.$inferSelect;

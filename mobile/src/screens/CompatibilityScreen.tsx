@@ -50,7 +50,8 @@ export function CompatibilityScreen(): React.JSX.Element {
   if (!ready) {
     return (
       <ScreenScroll style={{ backgroundColor: palette.background }}>
-        <LoadingBlock message={t('chinese.loading')} />
+        {/* Mode-neutral copy: which mode wins isn't known until useZodiacMode hydrates. */}
+        <LoadingBlock message={t('home.gathering')} />
       </ScreenScroll>
     );
   }

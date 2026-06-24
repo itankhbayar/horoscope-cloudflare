@@ -36,8 +36,14 @@ const pinia = createPinia();
 
 app.use(pinia).use(router).use(i18n);
 void useAppSettingsStore().hydrate(initialLocale);
-void useZodiacModeStore().hydrate();
 initErrorTracking(app, router);
-app.mount('#app');
 
-track('app_open', { locale: initialLocale });
+// Hydrate the persisted zodiac mode *before* mounting so the initial `/` redirect and the
+// navbar resolve in the saved mode instead of flashing Western and snapping over once the
+// async storage read lands. Mount unconditionally even if the read fails.
+void useZodiacModeStore()
+  .hydrate()
+  .finally(() => {
+    app.mount('#app');
+    track('app_open', { locale: initialLocale });
+  });

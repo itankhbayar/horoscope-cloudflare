@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useZodiacModeStore } from '../stores';
+import { ZODIAC_TODAY } from '../lib/zodiacModeRoutes';
 
 const pages = {
   LandingPage: () => import('../pages/LandingPage.vue'),
@@ -38,7 +40,9 @@ const router = createRouter({
   routes: [
     // Home (the daily reading) is the entry point for everyone — guests and signed-in
     // users alike. The marketing landing lives at /welcome for campaigns/SEO.
-    { path: '/', redirect: '/today' },
+    // Land on the saved zodiac mode's Today (Western /today or Chinese /chinese/today).
+    // The store is hydrated before mount in main.ts, so the mode is correct on first load.
+    { path: '/', redirect: () => ZODIAC_TODAY[useZodiacModeStore().mode] },
     { path: '/welcome', name: 'landing', component: pages.LandingPage, meta: { seoCritical: true } },
     { path: '/today', name: 'home', component: pages.HomePage, meta: { guestAllowed: true } },
     // Guests may browse these features and fill in the inputs; the result itself is

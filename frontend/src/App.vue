@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from './composables/useAuth';
 import { useZodiacModeStore } from './stores';
+import { ZODIAC_TODAY } from './lib/zodiacModeRoutes';
 
 const LanguageSwitcher = defineAsyncComponent(() => import('./components/LanguageSwitcher.vue'));
 const ZodiacModeToggle = defineAsyncComponent(() => import('./components/ZodiacModeToggle.vue'));
@@ -123,7 +124,7 @@ watch(
     </nav>
 
     <nav v-else class="navbar">
-      <router-link to="/today" class="nav-brand">
+      <router-link :to="ZODIAC_TODAY[zodiacMode.mode]" class="nav-brand">
         <span class="brand-orb" aria-hidden="true">✦</span>
         <span class="brand-text">{{ t('app.name') }}</span>
       </router-link>

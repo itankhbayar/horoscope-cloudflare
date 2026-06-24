@@ -4,12 +4,15 @@ import {
   prewarmDailyHoroscopes,
   resolveCronDateISO,
 } from '../services/horoscopePrewarmService';
-import { prewarmPeriodHoroscopes, currentPeriodKey, PERIOD_KEY_PATTERNS } from '../services/periodHoroscopeService';
+import { prewarmPeriodHoroscopes, currentPeriodKey, PERIOD_KEY_PATTERNS, isoWeekKey } from '../services/periodHoroscopeService';
+import { prewarmChineseDaily, prewarmChinesePeriod } from '../services/chineseHoroscopeService';
 import type { PeriodType } from '../services/claudeHoroscopeService';
 import { prewarmTarotForTimezoneDate } from '../services/tarotPrewarmService';
 import { runRetentionPipeline } from '../services/notificationQueueService';
 import { dailyHoroscopeCacheKey } from './horoscope';
+import { chineseDailyCacheKey } from './chinese';
 import { ZODIAC_SIGNS, type ZodiacSign } from '../utils/zodiac';
+import { ANIMAL_ORDER } from '../utils/chineseZodiac';
 import { SUPPORTED_LANGS } from '../utils/lang';
 import { isValidIanaTimeZone, isValidCalendarDate } from '../tarot/tarotQuery';
 import type { AppBindings, AppVariables } from '../types';
@@ -50,11 +53,14 @@ router.post('/prewarm', async (c) => {
   if (c.req.query('purgeCacheOnly') === '1') {
     if (typeof caches !== 'undefined') {
       const cache = caches.default;
-      await Promise.all(
-        ZODIAC_SIGNS.flatMap((s) =>
+      await Promise.all([
+        ...ZODIAC_SIGNS.flatMap((s) =>
           SUPPORTED_LANGS.map((lang) => cache.delete(dailyHoroscopeCacheKey(s.key as ZodiacSign, dateISO, lang))),
         ),
-      );
+        ...ANIMAL_ORDER.flatMap((animal) =>
+          SUPPORTED_LANGS.map((lang) => cache.delete(chineseDailyCacheKey(animal, dateISO, lang))),
+        ),
+      ]);
     }
     logFromContext(c, 'info', 'admin_horoscope_cache_purged', { dateISO });
     return c.json({ success: true, purgedCacheOnly: true, date: dateISO });
@@ -63,20 +69,40 @@ router.post('/prewarm', async (c) => {
   logFromContext(c, 'info', 'admin_horoscope_prewarm_started', { timezone, dateISO, force });
 
   try {
-    const result = await prewarmDailyHoroscopes(db, dateISO, timezone, anthropicKeyForPrewarm(c.env), force);
+    const apiKey = anthropicKeyForPrewarm(c.env);
+    const result = await prewarmDailyHoroscopes(db, dateISO, timezone, apiKey, force);
+
+    // Chinese (lunar) zodiac shares the same daily cron/admin trigger.
+    const weekKey = isoWeekKey(dateISO);
+    const monthKey = dateISO.slice(0, 7);
+    const yearKey = dateISO.slice(0, 4);
+    // Overlap the four Chinese phases (each still sequential internally) so they don't add four
+    // more serial Claude-call phases on top of the Western daily prewarm. Even so, a force re-run
+    // can exceed the HTTP request budget — use ?purgeCacheOnly=1 to recover if it times out.
+    const [cnDaily, cnWeekly, cnMonthly, cnYearly] = await Promise.all([
+      prewarmChineseDaily(db, dateISO, apiKey, force),
+      prewarmChinesePeriod(db, 'weekly', weekKey, apiKey, force),
+      prewarmChinesePeriod(db, 'monthly', monthKey, apiKey, force),
+      prewarmChinesePeriod(db, 'yearly', yearKey, apiKey, force),
+    ]);
+    const chinese = { daily: cnDaily, weekly: cnWeekly, monthly: cnMonthly, yearly: cnYearly };
+
     // A force re-run replaces existing rows, so purge the edge cache too — otherwise
     // already-viewed signs keep serving the stale (pre-regeneration) reading for hours.
     if (force && typeof caches !== 'undefined') {
       const cache = caches.default;
-      await Promise.all(
-        ZODIAC_SIGNS.flatMap((s) =>
+      await Promise.all([
+        ...ZODIAC_SIGNS.flatMap((s) =>
           SUPPORTED_LANGS.map((lang) =>
             cache.delete(dailyHoroscopeCacheKey(s.key as ZodiacSign, dateISO, lang)),
           ),
         ),
-      );
+        ...ANIMAL_ORDER.flatMap((animal) =>
+          SUPPORTED_LANGS.map((lang) => cache.delete(chineseDailyCacheKey(animal, dateISO, lang))),
+        ),
+      ]);
     }
-    logFromContext(c, 'info', 'admin_horoscope_prewarm_completed', { ...result });
+    logFromContext(c, 'info', 'admin_horoscope_prewarm_completed', { ...result, chinese });
     return c.json({
       success: true,
       date: result.date,
@@ -87,6 +113,7 @@ router.post('/prewarm', async (c) => {
       total: result.total,
       aiGenerated: result.aiGenerated,
       fallback: result.fallback,
+      chinese,
     });
   } catch (err) {
     logFromContext(c, 'error', 'admin_horoscope_prewarm_failed', {

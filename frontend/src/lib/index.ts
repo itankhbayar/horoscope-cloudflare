@@ -1,11 +1,14 @@
 export * from './types';
 export * from './zodiac';
+export * from './chineseZodiac';
 export * from './apiClient';
 export * from './storage';
 export * as authService from './authService';
 export * as horoscopeService from './horoscopeService';
 export * as profileService from './profileService';
 export * as compatibilityService from './compatibilityService';
+export * as chineseHoroscopeService from './chineseHoroscopeService';
+export * as chineseCompatibilityService from './chineseCompatibilityService';
 export * as tarotService from './tarotService';
 export * as billingService from './billingService';
 export * as billingMobileService from './billingMobileService';

@@ -336,6 +336,82 @@ export interface CompatibilityResult {
   highlights: string[];
 }
 
+// === Chinese (lunar) zodiac ===
+
+export type ChineseAnimal =
+  | 'rat'
+  | 'ox'
+  | 'tiger'
+  | 'rabbit'
+  | 'dragon'
+  | 'snake'
+  | 'horse'
+  | 'goat'
+  | 'monkey'
+  | 'rooster'
+  | 'dog'
+  | 'pig';
+
+export type ChineseElement = 'wood' | 'fire' | 'earth' | 'metal' | 'water';
+export type YinYang = 'yin' | 'yang';
+
+export interface ChineseAnimalInfo {
+  key: ChineseAnimal;
+  order: number;
+  emoji: string;
+  fixedElement: ChineseElement;
+  yinYang: YinYang;
+  trineGroup: number;
+  conflictAnimal: ChineseAnimal;
+  secretFriend: ChineseAnimal;
+  luckyNumbers: number[];
+}
+
+export interface ChineseProfile {
+  animal: ChineseAnimal;
+  element: ChineseElement;
+  yinYang: YinYang;
+  fixedElement: ChineseElement;
+  zodiacYear: number;
+  luckyNumbers: number[];
+}
+
+export interface ChineseDailyReading {
+  animal: ChineseAnimal;
+  date: string;
+  lang: string;
+  overall: string;
+  love: string;
+  career: string;
+  health: string;
+  luckyNumber: number;
+  luckyColor: string;
+}
+
+export interface ChinesePeriodReading {
+  animal: ChineseAnimal;
+  periodType: PeriodType;
+  periodKey: string;
+  lang: string;
+  overall: string;
+  love: string;
+  career: string;
+  health: string;
+  luckyNumber: number;
+  luckyColor: string;
+}
+
+export interface ChineseCompatibilityResult {
+  animal1: ChineseAnimal;
+  animal2: ChineseAnimal;
+  overallScore: number;
+  loveScore: number;
+  friendshipScore: number;
+  communicationScore: number;
+  summary: string;
+  highlights: string[];
+}
+
 export interface ApiError {
   status: number;
   message: string;
