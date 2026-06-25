@@ -1,9 +1,8 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-// Mock useAppearance before importing the theme module
+// Mock useAppearance so importing the theme module doesn't pull in React Native.
 vi.mock('../../hooks/useAppearance', () => ({
   useAppearance: vi.fn(() => ({ mode: 'light' })),
-  AppearanceProvider: ({ children }: any) => children,
 }));
 
 import { EASTERN_DARK, EASTERN_LIGHT, easternForMode } from './easternTheme';
