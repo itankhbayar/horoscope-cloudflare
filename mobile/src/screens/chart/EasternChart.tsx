@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CHINESE_ANIMAL_ORDER, getChineseAnimalInfo } from '@astralis/lib/chineseZodiac';
 import type { ChineseAnimal } from '@astralis/lib/types';
 import { ScreenScroll } from '../../components/ScreenScroll';
@@ -19,9 +18,7 @@ import { useEasternTheme, type EasternPalette } from '../home/easternTheme';
 export function EasternChart(): ReactElement {
   const theme = useEasternTheme();
   const { t } = useI18n();
-  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-
   const { profile, loadProfile } = useChineseZodiac();
   const [animal, setAnimal] = useState<ChineseAnimal>('dragon');
 
@@ -61,7 +58,7 @@ export function EasternChart(): ReactElement {
   ];
 
   return (
-    <ScreenScroll scrollBackgroundColor={theme.bgBase} contentContainerStyle={{ paddingTop: insets.top + spacing.md }}>
+    <ScreenScroll scrollBackgroundColor={theme.bgBase}>
       <View style={styles.bgDecor} pointerEvents="none">
         <View style={[styles.glow, styles.glowA]} />
         <View style={[styles.glow, styles.glowB]} />
