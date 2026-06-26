@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CHINESE_ANIMAL_ORDER, getChineseAnimalInfo } from '@astralis/lib/chineseZodiac';
 import type { ChineseAnimal } from '@astralis/lib/types';
@@ -91,7 +91,7 @@ export function EasternChart(): ReactElement {
       {/* Animal picker */}
       <Animated.View style={{ opacity: opacities[1]! }}>
         <Text style={styles.sectionLabel}>{t('chinese.pickAnimal')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.animalRow}>
+        <View style={styles.animalGrid}>
           {CHINESE_ANIMAL_ORDER.map((a) => {
             const active = a === animal;
             return (
@@ -107,7 +107,7 @@ export function EasternChart(): ReactElement {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       </Animated.View>
 
       {/* Attributes */}
@@ -173,12 +173,13 @@ function makeStyles(theme: EasternPalette) {
       textTransform: 'uppercase',
       marginBottom: 8,
     },
-    animalRow: { gap: 8, paddingVertical: 2, paddingRight: spacing.md },
+    animalGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     animalChip: {
-      width: 72,
+      width: '23%',
       alignItems: 'center',
       gap: 4,
       paddingVertical: 8,
+      marginBottom: 8,
       borderWidth: 1,
       borderRadius: 14,
       borderColor: theme.cardBorder,
