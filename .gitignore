@@ -1,5 +1,8 @@
 .env
 
+# brainstorming visual-companion scratch
+.superpowers/
+
 # wrangler files
 .wrangler
 .dev.vars*

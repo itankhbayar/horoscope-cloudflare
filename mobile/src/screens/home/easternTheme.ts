@@ -31,6 +31,16 @@ export type EasternPalette = {
   text: string;
   textMuted: string;
   divider: string;
+  /**
+   * Semantic compatibility-score colors, tuned per theme so each level stays
+   * legible while preserving meaning: great >= 80, good >= 60, ok >= 40, low < 40.
+   */
+  score: {
+    great: string;
+    good: string;
+    ok: string;
+    low: string;
+  };
 };
 
 /** Ink & Jade — warm rice-paper, jade accent. */
@@ -50,6 +60,12 @@ export const EASTERN_LIGHT: EasternPalette = {
   text: '#2b2b28',
   textMuted: '#7a7264',
   divider: '#d8cfb8',
+  score: {
+    great: '#3f8f5e', // deep jade-green
+    good: '#b8893a', // amber
+    ok: '#d2733a', // burnt orange
+    low: '#c0453f', // brick red
+  },
 };
 
 /** Lunar Night — deep teal, gold accent, gold moon. */
@@ -69,10 +85,24 @@ export const EASTERN_DARK: EasternPalette = {
   text: '#e7f1ee',
   textMuted: '#9fc1ba',
   divider: '#4f7f7a',
+  score: {
+    great: '#7bd49a', // bright mint
+    good: '#f0d488', // gold
+    ok: '#f6a96b', // warm orange
+    low: '#ef7a7a', // soft red
+  },
 };
 
 export function easternForMode(mode: AppearanceMode): EasternPalette {
   return mode === 'light' ? EASTERN_LIGHT : EASTERN_DARK;
+}
+
+/** Map a 0–100 compatibility score to its semantic color for the active palette. */
+export function scoreColor(score: number, palette: EasternPalette): string {
+  if (score >= 80) return palette.score.great;
+  if (score >= 60) return palette.score.good;
+  if (score >= 40) return palette.score.ok;
+  return palette.score.low;
 }
 
 export function useEasternTheme(): EasternPalette {

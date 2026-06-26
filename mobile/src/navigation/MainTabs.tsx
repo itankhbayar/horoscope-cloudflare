@@ -11,6 +11,7 @@ import { TarotScreen } from '../screens/TarotScreen';
 import { useSanctuaryTheme } from '../components/home/sanctuaryTheme';
 import { MIN_TOUCH, spacing } from '../theme';
 import { useAppearance } from '../hooks/useAppearance';
+import { useZodiacMode } from '../hooks/useZodiacMode';
 import { useI18n } from '../i18n';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -51,6 +52,7 @@ const iconProfile = tabIcon('\uD83D\uDC64');
 
 export function MainTabs(): ReactElement {
   const { palette, mode } = useAppearance();
+  const { mode: zodiacMode } = useZodiacMode();
   const { t } = useI18n();
   const sanctuaryTheme = useSanctuaryTheme();
   const screenOptions = useMemo(
@@ -132,16 +134,18 @@ export function MainTabs(): ReactElement {
           tabBarAccessibilityLabel: t('tabs.chartA11y'),
         }}
       />
-      <Tab.Screen
-        name="Tarot"
-        component={TarotScreen}
-        options={{
-          title: t('tabs.tarot'),
-          tabBarLabel: t('tabs.tarot'),
-          tabBarIcon: iconTarot,
-          tabBarAccessibilityLabel: t('tabs.tarotA11y'),
-        }}
-      />
+      {zodiacMode !== 'eastern' && (
+        <Tab.Screen
+          name="Tarot"
+          component={TarotScreen}
+          options={{
+            title: t('tabs.tarot'),
+            tabBarLabel: t('tabs.tarot'),
+            tabBarIcon: iconTarot,
+            tabBarAccessibilityLabel: t('tabs.tarotA11y'),
+          }}
+        />
+      )}
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}

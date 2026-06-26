@@ -13,8 +13,8 @@ export const en = {
 
   'tabs.home': 'Home',
   'tabs.homeA11y': "Home, today's sky reading",
-  'tabs.readings': 'Readings',
-  'tabs.readingsA11y': 'Readings, compatibility',
+  'tabs.readings': 'Compatibility',
+  'tabs.readingsA11y': 'Compatibility',
   'tabs.chart': 'Birth Chart',
   'tabs.chartA11y': 'Birth chart',
   'tabs.tarot': 'Tarot',
