@@ -1,3 +1,44 @@
+# Eastern Birth Chart Redesign Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Re-skin the mobile Eastern (Chinese zodiac) birth chart screen to wear the shared Ink & Jade / Lunar Night identity already used by Eastern Home and Eastern Compatibility.
+
+**Architecture:** Single-file change to `mobile/src/screens/chart/EasternChart.tsx`. Swap the generic `useAppearance().palette` for `useEasternTheme()`, convert the static stylesheet into a `makeStyles(theme)` factory, and adopt the family's structural shell (themed backdrop with glow orbs + dark-mode moon, themed hero card, themed animal picker, themed attribute chips, staggered fade-in). No data, hook, i18n, or routing changes.
+
+**Tech Stack:** React Native (Expo), TypeScript, React Native `Animated`, existing `easternTheme.ts` palette system.
+
+## Global Constraints
+
+- Theme source for this screen MUST be `useEasternTheme()` from `mobile/src/screens/home/easternTheme.ts` — not `useAppearance()`.
+- Reuse the exact structural style values from `EasternHome.tsx` for `bgDecor`/`glow`/`glowA`/`glowB`/`moon` and the animal picker so the three Eastern screens stay pixel-aligned.
+- Use the single `theme.accent` everywhere; do NOT tint by `chineseElementColor` (the per-element accent is being removed).
+- Keep the horizontal-scroll animal picker (do not switch to a wrapped grid).
+- Do not change content, data flow, i18n keys, `@astralis/lib/chineseZodiac`, `ChartScreen.tsx` routing, or the Western chart.
+- The `chineseElementColor` export in `@astralis/lib/chineseZodiac` stays; only stop importing it in this file.
+
+---
+
+### Task 1: Re-skin `EasternChart.tsx` with the Eastern theme identity
+
+**Files:**
+- Modify (full rewrite): `mobile/src/screens/chart/EasternChart.tsx`
+- Reference only (do not edit): `mobile/src/screens/home/EasternHome.tsx`, `mobile/src/screens/home/easternTheme.ts`
+
+**Interfaces:**
+- Consumes:
+  - `useEasternTheme(): EasternPalette` and `type EasternPalette` from `../home/easternTheme`.
+  - `useChineseZodiac()` → `{ profile, loadProfile }` where `profile` is `null` or `{ animal: ChineseAnimal; element: string; zodiacYear: number; ... }` (same shape the current file already reads).
+  - `getChineseAnimalInfo(a): { emoji, fixedElement, yinYang, trineGroup, secretFriend, conflictAnimal, luckyNumbers }` and `CHINESE_ANIMAL_ORDER: ChineseAnimal[]` from `@astralis/lib/chineseZodiac`.
+  - `ScreenScroll` supports `scrollBackgroundColor` (already used by `EasternHome`).
+  - i18n keys already in use by the current screen: `chinese.chartTitle`, `chinese.chartSubtitle`, `chinese.pickAnimal`, `chinese.yourSign`, `chinese.born`, `chinese.element`, `chinese.fixedElement`, `chinese.elements.*`, `chinese.polarity`, `chinese.yang`, `chinese.yin`, `chinese.trineGroup`, `chinese.secretFriend`, `chinese.conflictAnimal`, `chinese.luckyNumbers`, `chinese.animals.*`.
+- Produces: `export function EasternChart(): ReactElement` — unchanged signature; consumed by `ChartScreen.tsx`.
+
+- [ ] **Step 1: Replace the entire file contents**
+
+Overwrite `mobile/src/screens/chart/EasternChart.tsx` with:
+
+```tsx
 import React, { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -211,3 +252,52 @@ function makeStyles(theme: EasternPalette) {
     attrValue: { color: theme.text, fontSize: 13, fontWeight: '600', marginTop: 1 },
   });
 }
+```
+
+Notes for the implementer:
+- Three animated blocks → three `Animated.Value`s (hero, picker, attributes). The spec text mentioned "four" by analogy to `EasternHome`, but this screen has three sections; use three to avoid an unused value.
+- The previous version imported `chineseElementColor` and `useAppearance`; both imports are intentionally gone. Confirm no other references to them remain in the file after the rewrite.
+
+- [ ] **Step 2: Typecheck the workspace**
+
+Run: `npm run typecheck`
+Expected: PASS with no errors (the root script typechecks shared + backend + frontend + mobile). If you prefer a faster loop, `cd mobile && npm run typecheck` typechecks mobile alone.
+
+- [ ] **Step 3: Run the mobile test suite**
+
+Run: `cd mobile && npm test`
+Expected: PASS — the full suite (≈182 tests) stays green. `EasternChart` is presentational and has no dedicated test; `easternTheme.test.ts` (the palette/`scoreColor` tests it depends on) must still pass.
+
+- [ ] **Step 4: Manual visual verification**
+
+Launch the app (`cd mobile && npm start`), set zodiac mode to Eastern (Profile toggle), open the Chart tab, and confirm:
+- Backdrop, hero card, animal picker chips, and attribute pills match Eastern Home / Compatibility in BOTH appearance modes (light = Ink & Jade, dark = Lunar Night, with the gold moon in dark).
+- The staggered fade-in plays on entry.
+- The user's own birth-year animal still shows the born/year meta line; other animals do not.
+- Switch locale to `mn` and confirm labels render.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add mobile/src/screens/chart/EasternChart.tsx docs/superpowers/specs/2026-06-26-eastern-birth-chart-redesign-design.md docs/superpowers/plans/2026-06-26-eastern-birth-chart-redesign.md
+git commit -m "feat(mobile): redesign Eastern birth chart with Ink & Jade / Lunar Night theme"
+```
+
+---
+
+## Self-Review
+
+**Spec coverage:**
+- Theme source swap → Step 1 (imports + `useEasternTheme`/`makeStyles`). ✓
+- Backdrop (glow orbs + moon) → `bgDecor` block + styles. ✓
+- Hero card (eyebrow, subtitle, emoji+name, born/year meta) → Hero section + styles. ✓
+- Horizontal animal picker re-skin → Animal picker section + picker styles. ✓
+- Attribute chips re-skin → Attributes section + `attrChip`/`attrLabel`/`attrValue`. ✓
+- Staggered fade-in → `opacities` + `Animated.stagger`. ✓
+- Drop per-element accent (`chineseElementColor`) → removed import, single `theme.accent` throughout. ✓
+- Out-of-scope items (no new graphics, no data/i18n/routing changes) → respected; only `EasternChart.tsx` modified. ✓
+- Testing (typecheck + mobile suite + manual) → Steps 2–4. ✓
+
+**Placeholder scan:** No TBD/TODO/"handle edge cases"/"similar to" — full file content is inline. ✓
+
+**Type consistency:** `EasternPalette` used by `makeStyles` matches the import; `ChineseAnimal` state type matches `CHINESE_ANIMAL_ORDER`/`getChineseAnimalInfo`; `EasternChart(): ReactElement` matches the `ChartScreen.tsx` consumer. ✓
